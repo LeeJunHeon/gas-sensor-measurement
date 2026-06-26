@@ -21,8 +21,8 @@
   button{font-family:inherit}
   input{font-family:inherit}
 
-  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#aab3c2}
-  #app{width:1320px;height:1010px;flex:0 0 auto;display:flex;flex-direction:column;background:var(--bg);border:1px solid #9aa6b6;box-shadow:0 18px 50px rgba(40,52,70,.35)}
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:auto;background:#aab3c2}
+  #app{width:2040px;height:1010px;flex:0 0 auto;display:flex;flex-direction:column;background:var(--bg)}
 
   /* ===== header ===== */
   header{height:56px;flex:0 0 auto;position:relative;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--line2);background:linear-gradient(180deg,#fbfcfe,#eaeef3)}
@@ -263,7 +263,9 @@
   .ptablewrap{border:1px solid var(--line2);border-radius:7px;background:#fff;overflow:auto;max-height:330px}
   table.rcp{width:100%;border-collapse:separate;border-spacing:0;font-size:11.5px}
   table.rcp th{position:sticky;top:0;z-index:2;background:#dfe5ee;color:#3a4861;font-weight:600;padding:6px 6px;border-right:1px solid #c8d0db;text-align:center;white-space:nowrap;background-clip:padding-box;box-shadow:inset 0 -1px 0 #c8d0db}
-  table.rcp th.grp{background:#dfe5ee;font-size:10.5px}
+  table.rcp th.grp{background:#dfe5ee;font-size:10.5px;white-space:normal;line-height:1.25}
+  /* unified screen: Auto Process always docked — collapse/expand controls hidden */
+  #dockToggle,#dockClose{display:none !important}
   table.rcp thead tr:nth-child(2) th{top:27px}
   table.rcp th .bottle{display:flex;align-items:center;justify-content:center;gap:3px;margin-top:3px;font-weight:500;color:var(--ink-faint);font-size:9px}
   table.rcp th .bottle input{width:34px;font-family:'IBM Plex Mono',monospace;font-size:10px;text-align:right;border:1px solid var(--line);border-radius:3px;padding:1px 3px;color:#b5610c;background:#fff}
@@ -940,15 +942,10 @@ const viewSchemEl=document.getElementById('viewSchem');
 function setDock(open){
   viewsEl.classList.toggle('docked',open);
   viewProc.classList.toggle('dock',open);
-  // grow the app and show the panel; the fit() scaler shrinks everything to the viewport
-  const appEl=document.getElementById('app');
-  appEl.classList.toggle('wide',open);
-  contentW = open ? 2040 : 1320;        // fit()의 기준 폭을 도크 상태에 맞춰 갱신
-  appEl.style.setProperty('width', contentW+'px', 'important');
+  // 전체화면 모드: #app은 뷰포트를 채움. 패널 표시 여부만 제어.
   viewProc.style.setProperty('display', open ? 'flex' : 'none', 'important');
   fit();
   dockToggle.innerHTML = open ? 'Auto Process View ◂' : 'Auto Process View ▸';
-  // width changed → 다시 맞추고 배관 SVG 재드로우(레이아웃 정착 후)
   setTimeout(()=>{fit();drawBuses();},30);
   setTimeout(()=>{fit();drawBuses();},320);
 }
@@ -1074,16 +1071,15 @@ window.collectRecipe=collectRecipe; window.collectSetup=collectSetup;
 
 /* ===================== fit ===================== */
 let lastScale=0;
-let contentW=1320;                      // #app 실제 폭(도크 닫힘=1320 / 도크 포함=2040)
+let contentW=2040;                      // #app 고정 폭(배관도 1320 + 도크 720)
 const contentH=1010;                    // #app 고정 높이
 function fit(){
-  const w=window.innerWidth,h=window.innerHeight; if(!w||!h){requestAnimationFrame(fit);return;}
-  // 내용 전체(도크 포함)가 창 안에 다 들어가도록 양 방향 중 더 작은 비율로 축소.
+  // 고정 캔버스 비율 그대로 유지하며 화면에 맞추어 zoom 확대/축소 (flex 재흐름 없음)
+  const w=window.innerWidth, h=window.innerHeight; if(!w||!h){requestAnimationFrame(fit);return;}
   const s=Math.min(w/contentW, h/contentH);
   lastScale=s;
   const app=document.getElementById('app');
-  app.style.transform=''; app.style.marginLeft='';
-  app.style.zoom=s;                     // zoom으로 축소 → 가로 스크롤/우측 잘림 없이 창에 맞춤(#stage가 가운데 정렬)
+  app.style.zoom=s;
 }
 window.addEventListener('resize',()=>{fit();drawBuses();});
 window.addEventListener('load',()=>{fit();drawBuses();});
@@ -1094,6 +1090,7 @@ setInterval(()=>{const p=lastScale;fit();if(lastScale!==p||document.getElementBy
 
 /* init */
 renderLanes(); renderRecipe(); uiSetRunning(false);
+setDock(true);                          // 통합 화면: Auto Process 사이드를 처음부터 표시
 fit(); setTimeout(()=>{fit();drawBuses();},60);
 requestAnimationFrame(()=>requestAnimationFrame(()=>{fit();drawBuses();}));
 </script>
