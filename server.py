@@ -254,6 +254,22 @@ async def push_log(msg: str, level: str = "info"):
     await manager.broadcast({"type": "log", "msg": msg, "level": level})
 
 
+# ===================== 종료 =====================
+WINDOW = None   # main()에서 생성한 pywebview 창 객체를 보관
+
+
+def request_shutdown():
+    """PROGRAM END → 창을 닫아 프로세스를 깔끔히 종료한다."""
+    if WINDOW is not None:
+        try:
+            WINDOW.destroy()   # webview.start()가 반환되며 데몬 스레드와 함께 종료
+            return
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] 창 종료 실패: {e}")
+    # 창이 없거나(브라우저 폴백) destroy 실패 → 프로세스 종료
+    os._exit(0)
+
+
 # ===================== 레시피 파일 =====================
 def valid_recipe_name(name: str) -> bool:
     """슬래시/역슬래시/상위경로 금지, recipes 폴더 밖 금지."""
@@ -419,6 +435,10 @@ async def handle_command(data: dict):
     elif cmd == "recipe_list":
         await manager.broadcast({"type": "recipe_list", "names": list_recipes()})
 
+    elif cmd == "exit":
+        await push_log("프로그램 종료", "warn")
+        request_shutdown()
+
 
 # ===================== FastAPI =====================
 @contextlib.asynccontextmanager
@@ -497,11 +517,12 @@ def main():
             server_thread.join()
         return
 
-    webview.create_window(
+    global WINDOW
+    WINDOW = webview.create_window(
         "Gas Sensor Measurement System",
         f"http://{HOST}:{PORT}",
-        width=1480, height=1020,   # 전체화면 해제 시 사용할 기본 크기
-        fullscreen=True,           # 실행 시 바로 전체화면
+        width=1480, height=1020,   # 최대화 해제 시 사용할 기본 크기
+        maximized=True,            # 실행 시 최대화(타이틀바·작업표시줄 유지)
     )
     webview.start()   # 창을 닫으면 여기서 반환 → 데몬 스레드와 함께 종료
 

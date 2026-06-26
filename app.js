@@ -190,6 +190,15 @@
     if (send({ cmd: 'purge' })) return;
     window.logMsg('PURGE — 순수 Air로 라인 청소 (시뮬레이션)', 'info');
   };
+  window.cmdExit = function () {
+    if (!window.confirm('프로그램을 종료하시겠습니까?')) return;
+    // 서버가 pywebview 창을 닫아 프로세스를 종료한다.
+    if (!send({ cmd: 'exit' })) {
+      window.logMsg('오프라인 — 서버에 연결되어야 종료할 수 있습니다', 'warn');
+      return;
+    }
+    window.logMsg('프로그램 종료 중...', 'warn');
+  };
   window.cmdApplySetup = function (channels, params) {
     if (send({ cmd: 'apply_setup', channels: channels, params: params })) return;
     localApply(m => {

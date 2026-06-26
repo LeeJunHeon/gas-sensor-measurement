@@ -63,8 +63,10 @@
   .appfoot .foothint{font-size:10.5px;color:var(--ink-faint);white-space:nowrap}
   .hbtn{width:120px;text-align:center;border:1px solid var(--line2);border-radius:6px;padding:8px 0;font-size:11.5px;font-weight:700;letter-spacing:.2px;background:#fff;cursor:pointer;white-space:nowrap}
   .hbtn.run{color:#1b8a44}.hbtn.run:hover{background:#edf7f0;border-color:#1f9d4d}
+  .hbtn.stop{color:#b5610c}.hbtn.stop:hover{background:#fcf3e8;border-color:#d97a1f}
   .hbtn.purge{color:#3450b8}.hbtn.purge:hover{background:#eef1fb;border-color:#3a59c9}
-  .hbtn.end{color:#b22f35}.hbtn.end:hover{background:#fbeded;border-color:#c5343a}
+  /* PROGRAM END = 실제 종료(우측 하단 단독, 빨강 강조) */
+  .hbtn.end{color:#fff;background:#c5343a;border-color:#ad2e33}.hbtn.end:hover{background:#b22f35;border-color:#9a2a2f}
   .hbtn.setup{color:#2a3645}.hbtn.setup:hover{background:#eef2f7;border-color:var(--primary)}
 
   .views{flex:1;min-height:0;display:flex;flex-direction:row}
@@ -262,13 +264,15 @@
 
   .ptablewrap{border:1px solid var(--line2);border-radius:7px;background:#fff;overflow:auto;max-height:330px}
   table.rcp{width:100%;border-collapse:separate;border-spacing:0;font-size:11.5px}
-  table.rcp th{position:sticky;top:0;z-index:2;background:#dfe5ee;color:#3a4861;font-weight:600;padding:6px 6px;border-right:1px solid #c8d0db;text-align:center;white-space:nowrap;background-clip:padding-box;box-shadow:inset 0 -1px 0 #c8d0db;vertical-align:bottom}
-  table.rcp th.grp{background:#dfe5ee;font-size:10.5px;white-space:normal;line-height:1.25;vertical-align:bottom}
+  table.rcp th{position:sticky;top:0;z-index:2;height:28px;background:#dfe5ee;color:#3a4861;font-weight:600;padding:4px 6px;border-right:1px solid #c8d0db;text-align:center;white-space:nowrap;background-clip:padding-box;box-shadow:inset 0 -1px 0 #c8d0db;vertical-align:middle}
+  table.rcp th.grp{background:#dfe5ee;font-size:10.5px;white-space:normal;line-height:1.25;vertical-align:middle}
   /* unified screen: Auto Process always docked — collapse/expand controls hidden */
   #dockToggle,#dockClose{display:none !important}
-  table.rcp thead tr:nth-child(2) th{top:27px}
-  /* G1~G4: 봄베 입력칸을 같은 줄에 인라인으로 두어 옆 헤더와 한 줄로 정렬 */
-  table.rcp th .bottle{display:inline-flex;align-items:center;justify-content:center;gap:2px;margin:0 0 0 3px;font-weight:500;color:var(--ink-faint);font-size:9px;vertical-align:middle}
+  table.rcp thead tr:nth-child(2) th{top:28px}
+  /* G1~G4: 라벨 + 봄베 입력칸을 가운데 정렬된 한 덩어리로 묶는다 */
+  table.rcp th .gcell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.1}
+  table.rcp th .gcell .glabel{font-weight:700}
+  table.rcp th .bottle{display:inline-flex;align-items:center;justify-content:center;gap:1px;margin:0;font-weight:500;color:var(--ink-faint);font-size:9px}
   table.rcp th .bottle input{width:34px;font-family:'IBM Plex Mono',monospace;font-size:10px;text-align:right;border:1px solid var(--line);border-radius:3px;padding:1px 3px;color:#b5610c;background:#fff}
   table.rcp th .bottle input:focus{outline:none;border-color:var(--sv)}
   table.rcp td{border-right:1px solid #e7ebf1;border-bottom:1px solid #e7ebf1;text-align:center;padding:0}
@@ -405,10 +409,10 @@
                 <th rowspan="2"></th>
               </tr>
               <tr>
-                <th>G1<div class="bottle">(<input id="b0" value="">)</div></th>
-                <th>G2<div class="bottle">(<input id="b1" value="">)</div></th>
-                <th>G3<div class="bottle">(<input id="b2" value="">)</div></th>
-                <th>G4<div class="bottle">(<input id="b3" value="">)</div></th>
+                <th><div class="gcell"><span class="glabel">G1</span><span class="bottle">(<input id="b0" value="">)</span></div></th>
+                <th><div class="gcell"><span class="glabel">G2</span><span class="bottle">(<input id="b1" value="">)</span></div></th>
+                <th><div class="gcell"><span class="glabel">G3</span><span class="bottle">(<input id="b2" value="">)</span></div></th>
+                <th><div class="gcell"><span class="glabel">G4</span><span class="bottle">(<input id="b3" value="">)</span></div></th>
               </tr>
             </thead>
             <tbody id="recipeBody"></tbody>
@@ -483,11 +487,12 @@
 
     <footer class="appfoot">
       <button class="hbtn run">AUTO RUN</button>
+      <button class="hbtn stop">AUTO STOP</button>
       <button class="hbtn purge">PURGE</button>
-      <button class="hbtn end">PROGRAM END</button>
       <button class="hbtn setup" id="openSetup">⚙ System Setup</button>
       <div class="footspace"></div>
       <button class="dock-toggle" id="dockToggle">Auto Process View ▸</button>
+      <button class="hbtn end" id="programEnd" title="프로그램 종료">⏻ PROGRAM END</button>
     </footer>
 
     <!-- System Setup modal -->
@@ -975,8 +980,11 @@ function uiSetRunning(on){
   const rt=document.getElementById('runtxt'); if(rt) rt.textContent=on?'AUTO RUN':'IDLE';
 }
 document.querySelectorAll('.hbtn.run, .pbtn.runbig').forEach(b=>b.addEventListener('click',()=>window.cmdRun()));
-document.querySelectorAll('.hbtn.end, .pbtn.stopbig').forEach(b=>b.addEventListener('click',()=>window.cmdStop()));
+// AUTO STOP(푸터 신설) + 도크 AUTO STOP → 시퀀스 정지
+document.querySelectorAll('.hbtn.stop, .pbtn.stopbig').forEach(b=>b.addEventListener('click',()=>window.cmdStop()));
 document.querySelector('.hbtn.purge')?.addEventListener('click',()=>window.cmdPurge());
+// PROGRAM END → 프로그램 실제 종료
+document.querySelector('.hbtn.end')?.addEventListener('click',()=>window.cmdExit());
 document.getElementById('recname').addEventListener('change',e=>{document.getElementById('hdrRecipe').textContent=(e.target.value||'').trim()||'\u2014';});
 
 /* ===================== system log ===================== */
