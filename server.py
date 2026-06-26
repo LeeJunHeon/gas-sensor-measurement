@@ -49,10 +49,10 @@ DEFAULT_CHANNELS = [
 ]
 
 DEFAULT_PARAMS = {
-    "vStart": 0.5, "vEnd": 0.0, "vStep": 0,
+    "vStart": 0, "vEnd": 0, "vStep": 0,
     "grafInterval": 1,
     "smuMode": "Source V, Measure I",
-    "smuSource": 0.5, "smuCompliance": 1.0,
+    "smuSource": 0, "smuCompliance": 1.0,
     "chFrom": 1, "chTo": 1,
 }
 
@@ -61,7 +61,7 @@ def default_recipe() -> dict:
     return {
         "name": "",
         "useHumidity": True,
-        "loopCount": 7,
+        "loopCount": 1,
         "procs": [],
         "params": dict(DEFAULT_PARAMS),
     }
@@ -96,7 +96,7 @@ class State:
         self.system = {
             "running": False,
             "routeOut": "sensor",
-            "loop": {"current": 0, "total": 7},
+            "loop": {"current": 0, "total": 1},
             "elapsed": 0,
             "rh": 40.0,
             "smu": "+0.00000E+00",
@@ -186,7 +186,7 @@ class State:
         smu = f"{1.16398e-05 + (random.random() - 0.5) * 0.04e-05:+.5E}"
         self.system["smu"] = smu
 
-        total = int(self.recipe.get("loopCount") or 0) or 7
+        total = int(self.recipe.get("loopCount") or 0) or 1
         self.system["loop"]["total"] = total
         if self.system["running"]:
             self.system["loop"]["current"] = min(total, 1 + elapsed // 10)
@@ -407,7 +407,7 @@ async def handle_command(data: dict):
             return
         loaded["name"] = name
         loaded.setdefault("useHumidity", True)
-        loaded.setdefault("loopCount", 7)
+        loaded.setdefault("loopCount", 1)
         loaded.setdefault("procs", [])
         loaded.setdefault("params", dict(state.params))
         state.recipe = loaded
@@ -419,7 +419,29 @@ async def handle_command(data: dict):
 
 
 # ===================== FastAPI =====================
-app = FastAPI()
+@contextlib.asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # startup: 시뮬레이션 telemetry 백그라운드 태스크 시작
+    async def telemetry_loop():
+        dt = 1.0 / TELEMETRY_HZ
+        while True:
+            await asyncio.sleep(dt)
+            try:
+                t = state.sim_tick(dt)
+                await manager.broadcast(t)
+            except Exception as e:  # noqa: BLE001
+                print(f"[warn] telemetry tick 실패: {e}")
+    task = asyncio.create_task(telemetry_loop())
+    try:
+        yield
+    finally:
+        # shutdown: 태스크 정리
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/")
@@ -453,20 +475,6 @@ async def ws_endpoint(ws: WebSocket):
         manager.disconnect(ws)
     except Exception:  # noqa: BLE001
         manager.disconnect(ws)
-
-
-@app.on_event("startup")
-async def start_telemetry():
-    async def loop():
-        dt = 1.0 / TELEMETRY_HZ
-        while True:
-            await asyncio.sleep(dt)
-            try:
-                t = state.sim_tick(dt)
-                await manager.broadcast(t)
-            except Exception as e:  # noqa: BLE001
-                print(f"[warn] telemetry tick 실패: {e}")
-    asyncio.create_task(loop())
 
 
 # ===================== 실행 (서버 스레드 + 창) =====================

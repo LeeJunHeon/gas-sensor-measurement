@@ -10,12 +10,12 @@
     { "id": "VA8", "grp": "gas", "route": "mix",  "en": false, "max": 100,  "sv": 0 }
   ],
   "params": {
-    "vStart": 0.5,
-    "vEnd": 0.0,
+    "vStart": 0,
+    "vEnd": 0,
     "vStep": 0,
     "grafInterval": 1,
     "smuMode": "Source V, Measure I",
-    "smuSource": 0.5,
+    "smuSource": 0,
     "smuCompliance": 1.0,
     "chFrom": 1,
     "chTo": 1

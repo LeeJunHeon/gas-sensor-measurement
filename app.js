@@ -28,15 +28,15 @@
       channels: chans,
       system: {
         running: false, routeOut: 'sensor',
-        loop: { current: 0, total: 7 },
+        loop: { current: 0, total: 1 },
         elapsed: 0, rh: 40.0, smu: '+0.00000E+00',
         connected: false, safeStop: false,
       },
       recipe: {
-        name: '', useHumidity: true, loopCount: 7, procs: [],
+        name: '', useHumidity: true, loopCount: 1, procs: [],
         params: {
-          vStart: 0.5, vEnd: 0.0, vStep: 0, grafInterval: 1,
-          smuMode: 'Source V, Measure I', smuSource: 0.5,
+          vStart: 0, vEnd: 0, vStep: 0, grafInterval: 1,
+          smuMode: 'Source V, Measure I', smuSource: 0,
           smuCompliance: 1.0, chFrom: 1, chTo: 1,
         },
       },
