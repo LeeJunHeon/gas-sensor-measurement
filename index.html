@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gas Sensor Measurement System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#dfe4ec; --bg2:#eef1f6; --panel:#ffffff; --panel2:#f3f5f9; --panelhead:#e9edf3;
+    --line:#cdd5e0; --line2:#b6c0ce; --ink:#1e2733; --ink-dim:#56627a; --ink-faint:#7d899c;
+    --pv:#0d7a6a; --sv:#b5610c; --primary:#2a5bd0; --air:#2f72c4; --mix:#1f9450;
+    --g1:#c8384c; --g2:#c46a1d; --g3:#7c4fbf; --g4:#1f9450; --ok:#1f9d4d; --stop:#c5343a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:#c3cad6;color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+  .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+  button{font-family:inherit}
+  input{font-family:inherit}
+
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:flex-start;overflow:auto;background:#aab3c2}
+  #app{width:1320px;height:1010px;flex:0 0 auto;display:flex;flex-direction:column;background:var(--bg);border:1px solid #9aa6b6;box-shadow:0 18px 50px rgba(40,52,70,.35)}
+
+  /* ===== header ===== */
+  header{height:56px;flex:0 0 auto;position:relative;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--line2);background:linear-gradient(180deg,#fbfcfe,#eaeef3)}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand .mark{width:34px;height:34px;border-radius:6px;display:grid;place-items:center;background:#1f3b73;color:#fff;font-weight:700;font-size:11px;letter-spacing:.5px}
+  .brand{flex:1;display:flex;align-items:center;justify-content:flex-start}
+  .brand h1{font-size:19px;font-weight:700;letter-spacing:.2px;white-space:nowrap;color:#16202c}
+  .brand .sub{font-size:10px;color:var(--ink-faint);letter-spacing:.4px;margin-top:1px}
+  .tabs{display:flex;gap:4px;margin-left:14px}
+  .tab{padding:8px 16px;font-size:12.5px;font-weight:600;color:var(--ink-dim);background:transparent;border:1px solid transparent;border-radius:6px;cursor:pointer;white-space:nowrap}
+  .tab:hover{background:#e3e8ef}
+  .tab.on{background:#fff;color:var(--primary);border-color:var(--line2);box-shadow:0 1px 3px rgba(40,52,70,.08)}
+  .dock-toggle{padding:8px 16px;font-size:12.5px;font-weight:600;color:var(--primary);background:#fff;border:1px solid var(--line2);border-radius:6px;box-shadow:0 1px 3px rgba(40,52,70,.08);cursor:pointer;white-space:nowrap}
+  .dock-toggle:hover{background:#eef2f7}
+  .topspacer{flex:1}
+  .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.25}
+  .stat .k{font-size:9px;color:var(--ink-faint);letter-spacing:.7px;text-transform:uppercase}
+  .stat .v{font-size:13px;font-weight:600;color:#21303f;white-space:nowrap}
+  .divv{width:1px;height:28px;background:var(--line)}
+  .runpill{display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:5px;background:#e6f4ea;border:1px solid #b6dcc2;font-size:12px;font-weight:600;color:#176b35;white-space:nowrap}
+  .runpill .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+  .runpill.idle{background:#fdeee9;border-color:#f0c9bb;color:#b14a2a}
+  .runpill.idle .dot{background:#d9743f}
+  /* header control buttons (moved from right rail) */
+  .hdrbtns{display:flex;gap:6px;margin-left:12px}
+  .appfoot{flex:0 0 auto;height:52px;display:flex;align-items:center;gap:8px;padding:0 18px;border-top:1px solid var(--line2);background:linear-gradient(180deg,#eef2f6,#e3e8ee)}
+  .appfoot .footspace{flex:1}
+  .appfoot .foothint{font-size:10.5px;color:var(--ink-faint);white-space:nowrap}
+  .hbtn{width:120px;text-align:center;border:1px solid var(--line2);border-radius:6px;padding:8px 0;font-size:11.5px;font-weight:700;letter-spacing:.2px;background:#fff;cursor:pointer;white-space:nowrap}
+  .hbtn.run{color:#1b8a44}.hbtn.run:hover{background:#edf7f0;border-color:#1f9d4d}
+  .hbtn.purge{color:#3450b8}.hbtn.purge:hover{background:#eef1fb;border-color:#3a59c9}
+  .hbtn.end{color:#b22f35}.hbtn.end:hover{background:#fbeded;border-color:#c5343a}
+  .hbtn.setup{color:#2a3645}.hbtn.setup:hover{background:#eef2f7;border-color:var(--primary)}
+
+  .views{flex:1;min-height:0;display:flex;flex-direction:row}
+  .view{display:none}
+  /* schematic keeps its natural width; Auto Process adds a fixed panel on the right */
+  #viewSchem{display:flex !important;flex:1 1 auto;min-width:0}
+  #viewProc{flex:0 0 720px;flex-direction:column;background:var(--bg);border-left:1px solid var(--line2)}
+  .procdockhead{flex:0 0 auto;display:flex;align-items:center;gap:10px;height:42px;padding:0 14px;border-bottom:1px solid var(--line2);background:var(--panelhead)}
+  .procdockhead .pt{font-size:13px;font-weight:700;color:#1f2c3a;white-space:nowrap}
+  .procdockhead .sp{flex:1}
+  .procdockhead .pop{border:1px solid var(--line2);background:#fff;border-radius:6px;padding:6px 11px;font-size:11.5px;font-weight:600;color:#2a3645;cursor:pointer;white-space:nowrap}
+  .procdockhead .pop:hover{background:#eef2f7;border-color:var(--primary)}
+  .procdockhead .xclose{width:28px;height:28px;border:none;background:#e3e8ef;border-radius:6px;font-size:15px;color:#56627a;cursor:pointer;flex:0 0 auto}
+  .procdockhead .xclose:hover{background:#d4dbe5}
+  .procscroll{flex:1;min-height:0;overflow:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+
+  /* ============ SCHEMATIC VIEW ============ */
+  #viewSchem.on{display:flex}
+  .flowwrap{position:relative;flex:1;padding:12px 16px;overflow:hidden;background:var(--bg2)}
+  .sectlabel{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;display:flex;align-items:center;gap:8px;font-weight:600}
+  .sectlabel .hint{font-weight:500;letter-spacing:.2px;text-transform:none;color:#8a96a8;font-size:10px}
+  .sectlabel::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  .schem{position:relative;height:calc(100% - 22px)}
+  #wires{position:absolute;inset:0;pointer-events:none;z-index:1}
+
+  /* system log panel (bottom-right of schematic) — light theme to match UI */
+  .logpanel{position:absolute;z-index:4;right:10px;bottom:8px;width:360px;height:300px;display:flex;flex-direction:column;border:none;border-radius:9px;background:#fff;box-shadow:0 8px 22px rgba(20,28,40,.16);overflow:hidden}
+  .logpanel .loghead{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--panelhead);border-bottom:1px solid var(--line2)}
+  .logpanel .lh-title{font-size:11.5px;font-weight:700;letter-spacing:.3px;color:#1f2c3a;display:flex;align-items:center;gap:7px}
+  .logpanel .lh-title::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok)}
+  .logpanel .lh-clear{font-size:10px;font-weight:600;color:#56627a;background:#e3e8ef;border:1px solid var(--line2);border-radius:5px;padding:4px 10px;cursor:pointer}
+  .logpanel .lh-clear:hover{background:#d4dbe5;color:#2a3645}
+  .logpanel .logbody{flex:1;min-height:0;overflow-y:auto;padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.7;background:#fbfcfe}
+  .logpanel .logbody .le{display:flex;gap:9px;white-space:nowrap;border-bottom:1px solid #eef1f5;padding:1px 0}
+  .logpanel .logbody .lt{color:#94a0b0;flex:0 0 auto}
+  .logpanel .logbody .lv{flex:1;white-space:normal;word-break:break-word}
+  .logpanel .logbody .le.info .lv{color:#3a4861}
+  .logpanel .logbody .le.ok .lv{color:#1b8a44}
+  .logpanel .logbody .le.warn .lv{color:#b5610c}
+  .logpanel .logbody .le.err .lv{color:#c5343a}
+
+  /* 4-way chamber in flow schematic */
+  .chamber{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:192px;border:2px solid #9fd0c6;border-radius:9px;background:#fff;padding:10px;z-index:3;box-shadow:0 4px 14px rgba(13,122,106,.14)}
+  .chamber h3{font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--pv);margin-bottom:6px;text-align:center;font-weight:700;border-bottom:1px solid #d0ede8;padding-bottom:5px}
+  .vcsym{display:flex;justify-content:center;margin-bottom:6px}
+  .vcsym .port{stroke:#9aa6b6;stroke-width:3;stroke-linecap:round}
+  .vcsym .port.act{stroke:var(--pv)}
+  .vcsym .dia{fill:#eef2f7;stroke:#7d899c;stroke-width:1.8}
+  .vcsym text{font:600 8px 'IBM Plex Sans';fill:var(--ink-faint)}
+  .vstack{display:flex;flex-direction:column;gap:5px}
+  /* routing diagram in chamber */
+  .rdiag{display:flex;flex-direction:column;gap:4px;padding:7px;background:#f5f8fc;border-radius:6px;border:1px solid var(--line);margin-bottom:6px}
+  .rdiag-row{display:flex;align-items:center;gap:4px}
+  .rdiag-bar{flex:1;height:4px;background:var(--line);border-radius:2px}
+  .rdiag-bar.active{background:var(--pv)}
+  .rdiag-bar.active-vent{background:var(--stop)}
+  .rdiag-node{width:24px;height:24px;border-radius:50%;border:2px solid var(--line2);background:#fff;display:grid;place-items:center;font-size:9px;font-weight:700;color:var(--ink-faint);flex:0 0 auto}
+  .rdiag-node.active{border-color:var(--pv);color:var(--pv);background:#eef6f4}
+  .rdiag-lbl{font-size:9.5px;font-weight:700;padding:4px 7px;border-radius:4px;border:1.5px solid var(--line2);background:#fff;color:var(--ink-dim);white-space:nowrap;flex:0 0 auto;cursor:pointer;transition:.12s}
+  .rdiag-lbl.sen{border-color:var(--pv);color:var(--pv);background:#eef6f4}
+  .rdiag-lbl.vent-act{border-color:var(--stop);color:var(--stop);background:#fdeee9}
+  .rdiag-vlbl{font-size:9px;font-weight:700;color:var(--ink-faint);text-align:center;padding:2px 6px;border-radius:4px;border:1.5px solid var(--line2);background:#fff;cursor:pointer;transition:.12s}
+  .rdiag-vlbl.vent-act{border-color:var(--stop);color:var(--stop);background:#fdeee9}
+  .rdiag-vbar{width:4px;height:14px;background:var(--line);border-radius:2px;margin:0 auto}
+  .rdiag-vbar.active-vent{background:var(--stop)}
+  .airsupply{position:absolute;z-index:3;display:flex;align-items:center;transform:translate(-100%,-50%)}
+  .airsupply .albl{font-size:14px;font-weight:700;color:#2a3645;letter-spacing:.2px;padding-right:6px;white-space:nowrap}
+  #gaslabels{position:absolute;inset:0;pointer-events:none;z-index:3}
+  .gaslbl{position:absolute;font-size:14px;font-weight:700;color:#2a3645;letter-spacing:.2px;transform:translate(-100%,-50%);white-space:nowrap;padding-right:6px}
+  .gaslbl.off{opacity:.42}
+
+  .lanes{display:flex;flex-direction:column;height:100%;gap:1px;padding-left:44px;padding-right:400px;position:relative;z-index:2}
+  .lane{flex:1;display:flex;align-items:center;position:relative}
+  .lane.off{opacity:.42}
+  .n-valve.dis{pointer-events:none;cursor:not-allowed;opacity:.5;filter:grayscale(1)}
+  .n-mfc.dis{opacity:.5;filter:grayscale(1)}
+  .n-mfc.dis input{pointer-events:none;background:#eef1f5;color:#9aa6b6}
+
+  .n-src{width:96px;flex:0 0 auto;display:flex;align-items:center;justify-content:flex-end;gap:6px;position:relative}
+  .n-src .en{position:absolute;left:0;display:flex;align-items:center;gap:4px;cursor:pointer}
+  .n-src .en input{width:14px;height:14px;accent-color:var(--primary);cursor:pointer}
+  .n-src .tap{width:8px;height:8px;border-radius:50%;background:#9aa6b6;position:absolute;right:0;border:2px solid var(--bg2)}
+  .lane[data-grp="air"] .n-src .tap{background:var(--air)}
+  .lane[data-grp="gas"] .n-src .tap{visibility:hidden}
+  .lane[data-grp="airmix"] .n-src .tap{background:var(--mix)}
+  .n-src .srclbl{font-size:14px;font-weight:700;color:#2a3645;white-space:nowrap;text-align:right;line-height:1.05;padding-right:14px}
+  .n-src .srclbl small{display:block;font-size:8px;font-weight:600;color:var(--ink-faint)}
+
+  .pipe{height:5px;background:#bcc6d3;border-radius:2px;flex:1 1 auto;min-width:10px;max-width:104px;position:relative;overflow:hidden}
+  .pipe.grow{flex:1 1 auto;min-width:10px;max-width:104px}
+  .pipe.on{background:var(--c)}
+  .pipe.on::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.7) 0 5px,transparent 5px 22px);background-size:22px 100%;animation:flow 1.1s linear infinite}
+  @keyframes flow{to{background-position:22px 0}}
+
+  .n-valve{flex:0 0 auto;width:54px;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .n-valve svg{display:block;width:46px;height:30px}
+  .n-valve .vb{fill:#d2d9e2;stroke:#94a0b0;stroke-width:1.5;transition:.15s}
+  .n-valve .vstem{stroke:#9aa6b6;stroke-width:2}
+  .n-valve .vact{fill:#9aa6b6}
+  .n-valve.open .vb{fill:#26a85f;stroke:#15803d}
+  .n-valve.open .vstem{stroke:#15803d}
+  .n-valve.open .vact{fill:#15803d}
+  .n-valve:hover .vb{stroke:var(--primary)}
+  .n-valve .vlbl{position:absolute;top:100%;left:0;right:0;text-align:center;margin-top:0;font-size:11px;font-weight:700;color:var(--primary);letter-spacing:.2px}
+  .n-valve.sol .vlbl{color:#9a7b30}
+
+  .n-mfc{flex:0 0 auto;width:248px;display:flex;align-items:stretch;background:#fff;border:1px solid #222;border-radius:8px;height:80px}
+  .n-mfc.on{border-color:#222}
+  .mfc-read{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:9px;padding:10px;min-width:0;align-items:center}
+  /* TL */ .mfc-read .vid{font-size:13px;font-weight:700;color:#2a3645;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:center}
+  /* BL */ .mfc-read .maxwrap{display:flex;align-items:center;justify-content:flex-start;gap:4px;font-size:10.5px;color:#5a7bb0;font-weight:700;align-self:center}
+  .mfc-read .maxwrap input{width:48px;font-size:12px;font-weight:600;color:#3463b0;text-align:right;border:1px solid var(--line);border-radius:3px;background:#f3f6fb;padding:2px 4px;font-family:'IBM Plex Mono',monospace}
+  .mfc-read .maxwrap input:focus{outline:none;border-color:var(--primary);background:#fff}
+  /* BL */ .pvrow{display:flex;align-items:center;gap:4px;min-width:0;align-self:center}
+  /* BR */ .svrow{display:flex;align-items:center;gap:4px;min-width:0;justify-content:flex-start;align-self:center}
+  .pvrow .rlbl,.svrow .rlbl{font-size:11px;font-weight:700;color:#7d899c;flex:0 0 20px}
+  .mfc-read .un{font-size:9px;font-weight:600;color:#9aa6b6;flex:0 0 24px;width:24px;text-align:left;letter-spacing:.2px}
+  .pvb{flex:0 0 52px;width:52px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:14.5px;font-weight:700;padding:2px 6px;border-radius:3px;color:var(--pv);background:#eef6f4;border:1px solid #bfe0d8}
+  .svi{flex:0 0 52px;width:52px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:14.5px;font-weight:700;padding:2px 6px;border-radius:3px;color:var(--sv);background:#fbf2e8;border:1px solid #ecd2b3}
+  .svi:focus{outline:none;border-color:var(--sv);background:#fff}
+  .endcap{width:8px;height:8px;border-radius:50%;background:#9aa6b6;flex:0 0 auto;border:2px solid var(--bg2)}
+  .lane.lit .endcap{background:var(--pv)}
+
+  /* right rail in schematic */
+  .schem-rail{width:170px;flex:0 0 auto;border-left:1px solid var(--line2);background:var(--bg);padding:14px 14px;display:flex;flex-direction:column;gap:10px}
+  .railbtn{border:1px solid var(--line2);border-radius:6px;padding:13px 10px;font-size:12.5px;font-weight:700;letter-spacing:.3px;color:#fff;cursor:pointer;text-align:center}
+  .railbtn.run{background:#1f9d4d;border-color:#1b8a44}.railbtn.run:hover{background:#1b8c45}
+  .railbtn.purge{background:#3a59c9;border-color:#3450b8}.railbtn.purge:hover{background:#3350bd}
+  .railbtn.end{background:#c5343a;border-color:#ad2e33}.railbtn.end:hover{background:#b22f35}
+  .railbtn.setup{background:#fff;border-color:var(--line2);color:#2a3645}.railbtn.setup:hover{background:#eef2f7;border-color:var(--primary)}
+  /* ===== System Setup modal ===== */
+  .modal-overlay{position:absolute;inset:0;background:rgba(20,28,40,.42);display:none;align-items:center;justify-content:center;z-index:50}
+  .modal-overlay.on{display:flex}
+  .modal{width:760px;max-height:84%;background:#fff;border:1px solid var(--line2);border-radius:10px;box-shadow:0 24px 60px rgba(20,28,40,.4);display:flex;flex-direction:column;overflow:hidden}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--panelhead)}
+  .modal-head h2{font-size:15px;font-weight:700;color:#1f2c3a}
+  .modal-head .x{width:28px;height:28px;border:none;background:#e3e8ef;border-radius:6px;font-size:15px;color:#56627a;cursor:pointer}
+  .modal-head .x:hover{background:#d4dbe5}
+  .modal-body{padding:16px 18px;overflow:auto}
+  .setup-sec{font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-faint);margin:4px 0 8px}
+  table.setup{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px}
+  table.setup th{background:#eef1f6;color:#46536a;font-weight:600;font-size:10px;padding:7px 8px;border:1px solid var(--line);text-align:center}
+  table.setup td{border:1px solid var(--line);padding:5px 8px;text-align:center}
+  table.setup tr.dis td{opacity:.5}
+  table.setup .chid{font-family:'IBM Plex Mono',monospace;font-weight:700;color:#2a3645}
+  table.setup input[type=checkbox]{width:16px;height:16px;accent-color:var(--primary);cursor:pointer}
+  table.setup select{font-size:11px;border:1px solid var(--line2);border-radius:4px;padding:3px 5px;background:#fff;cursor:pointer}
+  table.setup input[type=text]{width:70px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;text-align:right;border:1px solid var(--line2);border-radius:4px;padding:3px 6px}
+  table.setup input:focus,table.setup select:focus{outline:none;border-color:var(--primary)}
+  .setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin-bottom:6px}
+  .setup-field{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .setup-field label{font-size:11.5px;color:var(--ink-dim);font-weight:600}
+  .setup-field input{width:92px;font-family:'IBM Plex Mono',monospace;font-size:12px;text-align:right;border:1px solid var(--line2);border-radius:4px;padding:5px 8px}
+  .modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--line);background:var(--panel2)}
+  .modal-foot button{border:1px solid var(--line2);border-radius:6px;padding:8px 18px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .modal-foot .cancel{background:#fff;color:#2a3645}
+  .modal-foot .apply{background:var(--primary);border-color:#2550bb;color:#fff}
+  .railcard{border:1px solid var(--line2);border-radius:7px;background:#fff;padding:10px;margin-top:2px}
+  .railcard h4{font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px;font-weight:700}
+  .way{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:34px;box-sizing:border-box;font-size:11.5px;padding:0;border-radius:6px;border:1px solid var(--line);background:#f5f7fa;color:var(--ink-dim);cursor:pointer;font-weight:600}
+  .way .wic{stroke:currentColor;stroke-width:1.7;fill:none}
+  .way[data-out="vent"]{color:#b5610c;border-color:#e6c79a}
+  .way[data-out="sensor"]{color:#0d7a6a;border-color:#9fd0c6}
+  .way.active[data-out="vent"]{background:#e0851f;border-color:#e0851f;color:#fff;font-weight:700}
+  .way.active[data-out="sensor"]{background:#0d7a6a;border-color:#0d7a6a;color:#fff;font-weight:700}
+  /* VC control card placed at the 4-way in the schematic */
+  .vc-control{position:absolute;z-index:4;right:10px;top:50%;width:150px;border:2px solid #222;border-radius:9px;background:#fff;padding:9px;box-shadow:0 6px 18px rgba(20,28,40,.2);transform:translateY(-50%)}
+  .vc-control h4{font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:#1a1a1a;margin-bottom:7px;text-align:center;font-weight:700;border-bottom:1px solid #d8dde4;padding-bottom:5px}
+  .vc-control .vc-btns{display:flex;flex-direction:column;gap:6px;align-items:center}
+  .rhbox{margin-top:8px;display:flex;align-items:baseline;justify-content:center;gap:5px;padding:9px;border-radius:6px;background:#f3f6f4;border:1px solid var(--line)}
+  .rhbox .num{font-size:24px;font-weight:700;color:#1a1a1a;line-height:1;font-family:'IBM Plex Mono',monospace}
+  .rhbox .u{font-size:10px;color:var(--ink-faint)}
+
+  /* 4-way valve glyph inside rail */
+  .vcsym{display:flex;justify-content:center;margin-bottom:6px}
+  .vcsym .dia{fill:#eef2f7;stroke:#7d899c;stroke-width:1.8}
+  .vcsym .port{stroke:#9aa6b6;stroke-width:3;stroke-linecap:round}
+  .vcsym .port.act{stroke:var(--pv)}
+  .vcsym text{font:600 8px 'IBM Plex Sans';fill:var(--ink-faint)}
+
+  /* ============ AUTO PROCESS VIEW (docked panel) ============ */
+  #viewProc .procscroll{padding:12px 16px}
+  .ptoolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .pbtn{border:1px solid var(--line2);border-radius:5px;padding:8px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;white-space:nowrap}
+  .pbtn.new{background:#3a59c9;border-color:#3450b8}
+  .pbtn.open{background:#1f9d4d;border-color:#1b8a44}
+  .pbtn.save{background:#d97a1f;border-color:#c46c14}
+  .pbtn.ghost{background:#fff;color:#2a3645}
+  .pbtn:hover{filter:brightness(.96)}
+  .recname{flex:1;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#1d6b5f;background:#dff1ed;border:1px solid #b6ddd4;border-radius:5px;padding:8px 12px}
+  .recname:focus{outline:none;border-color:var(--pv);background:#fff}
+  .chk{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--ink-dim);cursor:pointer;white-space:nowrap}
+  .chk input{width:15px;height:15px;accent-color:var(--primary);cursor:pointer}
+
+  .ptablewrap{border:1px solid var(--line2);border-radius:7px;background:#fff;overflow:auto;max-height:330px}
+  table.rcp{width:100%;border-collapse:separate;border-spacing:0;font-size:11.5px}
+  table.rcp th{position:sticky;top:0;z-index:2;background:#dfe5ee;color:#3a4861;font-weight:600;padding:6px 6px;border-right:1px solid #c8d0db;text-align:center;white-space:nowrap;background-clip:padding-box;box-shadow:inset 0 -1px 0 #c8d0db}
+  table.rcp th.grp{background:#dfe5ee;font-size:10.5px}
+  table.rcp thead tr:nth-child(2) th{top:27px}
+  table.rcp th .bottle{display:flex;align-items:center;justify-content:center;gap:3px;margin-top:3px;font-weight:500;color:var(--ink-faint);font-size:9px}
+  table.rcp th .bottle input{width:34px;font-family:'IBM Plex Mono',monospace;font-size:10px;text-align:right;border:1px solid var(--line);border-radius:3px;padding:1px 3px;color:#b5610c;background:#fff}
+  table.rcp th .bottle input:focus{outline:none;border-color:var(--sv)}
+  table.rcp td{border-right:1px solid #e7ebf1;border-bottom:1px solid #e7ebf1;text-align:center;padding:0}
+  table.rcp tbody tr:nth-child(even){background:#f7f9fb}
+  table.rcp tbody tr.active{background:#e6f3ef}
+  table.rcp tbody tr.active td:first-child{box-shadow:inset 3px 0 0 var(--pv)}
+  table.rcp td .ci{width:100%;border:none;background:transparent;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#2a3645;padding:6px 4px}
+  table.rcp td .ci:focus{outline:2px solid var(--primary);outline-offset:-2px;background:#fff;border-radius:2px}
+  table.rcp td.pcol{font-weight:700;color:var(--pv);font-family:'IBM Plex Mono',monospace;padding:6px 4px;background:#eef6f4;cursor:grab}
+  table.rcp td.zero .ci{color:#b3bccb}
+  .waycell{display:flex;justify-content:center}
+  .waytog{font-size:10px;font-weight:700;border:1px solid var(--line2);border-radius:4px;padding:3px 8px;cursor:pointer;margin:3px;background:#eef6f4;color:var(--pv)}
+  .waytog.vent{background:#fdeee9;color:#b14a2a}
+  .reptog{width:15px;height:15px;accent-color:var(--primary);cursor:pointer;margin:5px}
+  .delrow{cursor:pointer;color:#b9495a;font-weight:700;font-size:13px;padding:4px 7px;border:none;background:transparent}
+  .delrow:hover{color:#8a2233}
+  .addrow{display:flex;align-items:center;gap:7px;margin-top:2px}
+  .addbtn{border:1px dashed var(--line2);border-radius:5px;padding:7px 14px;font-size:11.5px;font-weight:600;color:var(--primary);background:#fff;cursor:pointer}
+  .addbtn:hover{background:#eef2fb;border-color:var(--primary)}
+
+  /* control panels grid */
+  .pgrid{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:10px;align-items:start}
+  .pcard{border:1px solid var(--line2);border-radius:7px;background:#fff;overflow:hidden}
+  .pcard .h{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panelhead);font-size:11.5px;font-weight:700;color:#2a3645}
+  .pcard .h .dotk{width:9px;height:9px;border-radius:50%;background:var(--primary)}
+  .pcard .b{padding:11px 12px;display:flex;flex-direction:column;gap:9px}
+  .frow{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .frow label{font-size:11px;color:var(--ink-dim);font-weight:600;white-space:nowrap}
+  .fin{width:78px;font-family:'IBM Plex Mono',monospace;font-size:12px;text-align:right;border:1px solid var(--line2);border-radius:4px;padding:5px 8px;color:#26313f;background:#fff}
+  .fin:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 2px rgba(42,91,208,.15)}
+  .fin.sv{color:var(--sv);background:#fdf6ee;border-color:#ecd2b3}
+  .fsel{font-size:11.5px;border:1px solid var(--line2);border-radius:4px;padding:5px 8px;background:#fff;color:#26313f;font-family:inherit;width:100%;box-sizing:border-box;max-width:100%}
+  .frow.col{flex-direction:column;align-items:stretch;gap:5px}
+  .frow.col label{align-self:flex-start}
+  .chrange{display:flex;gap:5px;align-items:center;min-width:0;flex-shrink:1}
+  .chrange .fin{width:40px}
+  .measbox{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;color:#b5610c;background:#1c1208;border-radius:5px;padding:9px 12px;text-align:right;border:1px solid #3a2a16}
+  .runrow{display:flex;gap:8px;margin-top:2px}
+  .runrow .pbtn{flex:1;text-align:center;padding:12px 8px;font-size:13px}
+  .pbtn.runbig{background:#1f9d4d;border-color:#1b8a44}
+  .pbtn.stopbig{background:#c5343a;border-color:#ad2e33}
+  .pbtn.exit{background:#7c84cf;border-color:#6b73c0}
+  .pbtn.graf{background:#9b7cd8;border-color:#8a6bca}
+  .modesel{display:flex;gap:14px}
+  .moderad{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--ink-dim);cursor:pointer}
+  .moderad input{accent-color:var(--primary)}
+
+  footer{height:26px;flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:0 18px;border-top:1px solid var(--line2);background:#e7ebf1;font-size:10px;color:var(--ink-dim)}
+  footer .seg{display:flex;align-items:center;gap:6px;white-space:nowrap}
+  footer .ledg{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+  footer .sp{flex:1}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="app">
+    <header>
+      <div class="brand">
+        <h1>Gas Sensor Measurement System</h1>
+      </div>
+      <div class="topspacer" style="display:none"></div>
+      <div class="stat"><span class="k">Active CH</span><span class="v mono" id="activeCh">5 / 8</span></div>
+      <div class="divv"></div>
+      <div class="stat"><span class="k">Total Flow</span><span class="v mono" id="totalFlow">1036 sccm</span></div>
+      <div class="divv"></div>
+      <div class="stat"><span class="k">Recipe</span><span class="v mono" id="hdrRecipe">recipe_NO2_humidity</span></div>
+      <div class="divv"></div>
+      <div class="stat"><span class="k">Elapsed</span><span class="v mono" id="clk">00:00:00</span></div>
+      <div class="divv"></div>
+      <div class="stat"><span class="k">Loop</span><span class="v mono" id="hdrLoop">0 / 7</span></div>
+      <div class="divv"></div>
+      <div class="runpill idle" id="runpill"><span class="dot"></span><span id="runtxt">IDLE</span></div>
+    </header>
+
+    <div class="views">
+      <!-- ================= SCHEMATIC ================= -->
+      <div class="view on" id="viewSchem">
+        <div class="flowwrap">
+          <div class="schem">
+            <svg id="wires" preserveAspectRatio="none"></svg>
+            <div class="airsupply" id="airsupply"><span class="albl">Air</span></div>
+            <div id="gaslabels"></div>
+            <div class="lanes" id="lanes"></div>
+            <div class="vc-control" id="vcControl">
+              <h4>4-Way Valve · VC</h4>
+              <div class="vc-btns">
+                <button class="way" data-out="vent">
+                  <svg width="14" height="14" viewBox="0 0 16 16"><path class="wic" d="M8 2v7 M5 6l3-3 3 3 M3.5 13h9"/></svg>Vent
+                </button>
+                <button class="way active" data-out="sensor">
+                  <svg width="14" height="14" viewBox="0 0 16 16"><rect class="wic" x="2.5" y="4" width="11" height="8" rx="1.5"/><path class="wic" d="M5 7h6 M5 9.5h4"/></svg>Sensor
+                </button>
+              </div>
+              <div class="rhbox"><span class="num" id="rh">40.0</span><span class="u">RH %</span></div>
+            </div>
+            <div class="logpanel" id="logPanel">
+              <div class="loghead" style="border-width: 0px 0px 1px"><span class="lh-title">System Log</span><button class="lh-clear" id="logClear">Clear</button></div>
+              <div class="logbody" id="logBody"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= AUTO PROCESS ================= -->
+      <div class="view" id="viewProc">
+        <div class="procdockhead">
+          <span class="pt">Auto Process View</span>
+          <span class="sp"></span>
+          <button class="pop" id="popOut">⧉ 새 창으로 분리</button>
+          <button class="xclose" id="dockClose">✕</button>
+        </div>
+        <div class="procscroll">
+        <div class="ptoolbar">
+          <button class="pbtn new">New</button>
+          <button class="pbtn open">Open</button>
+          <button class="pbtn save">Save as</button>
+          <input class="recname mono" id="recname" value="260107 recipe_NO2_humidity">
+          <label class="chk"><input type="checkbox" id="useHumidity" checked>Humidity 사용</label>
+        </div>
+
+        <div class="ptablewrap">
+          <table class="rcp">
+            <thead>
+              <tr>
+                <th rowspan="2">Process</th>
+                <th rowspan="2">Gas Flow<br>(sccm)</th>
+                <th rowspan="2" class="humcol">Humidity<br>(%)</th>
+                <th colspan="4" class="grp">측정 MFC 농도 (ppm) <span style="font-weight:500;color:#5a6678">— 괄호=봄베 농도</span></th>
+                <th rowspan="2">준비<br>(s)</th>
+                <th rowspan="2">측정<br>(s)</th>
+                <th rowspan="2">4-way</th>
+                <th rowspan="2">반복</th>
+                <th rowspan="2"></th>
+              </tr>
+              <tr>
+                <th>G1<div class="bottle">(<input id="b0" value="10">)</div></th>
+                <th>G2<div class="bottle">(<input id="b1" value="0">)</div></th>
+                <th>G3<div class="bottle">(<input id="b2" value="100">)</div></th>
+                <th>G4<div class="bottle">(<input id="b3" value="0">)</div></th>
+              </tr>
+            </thead>
+            <tbody id="recipeBody"></tbody>
+          </table>
+        </div>
+        <div class="addrow">
+          <button class="addbtn" id="addProc">+ Add Process</button>
+          <span style="font-size:10.5px;color:var(--ink-faint)">행을 추가하면 P 번호가 자동 부여됩니다. 셀을 클릭해 값을 편집하세요.</span>
+        </div>
+
+        <div class="pgrid">
+          <!-- Recipe loop + voltage -->
+          <div class="pcard">
+            <div class="h"><span class="dotk"></span>Recipe Loop &amp; Voltage Control</div>
+            <div class="b">
+              <div class="frow"><label>Loop Count (전체 반복)</label><input class="fin" id="loopCount" value="7"></div>
+              <div class="frow"><label>Active Time</label><input class="fin" id="activeTime" value="-1" readonly></div>
+              <div class="frow"><label>Active Number</label><input class="fin" id="activeNum" value="21" readonly></div>
+              <div class="frow"><label>Interval (sec)</label><input class="fin" id="loopInterval" value="0"></div>
+              <div style="height:1px;background:var(--line);margin:2px 0"></div>
+              <div class="modesel">
+                <label class="moderad"><input type="radio" name="vmode" checked>Recipe 모드</label>
+                <label class="moderad"><input type="radio" name="vmode">전압(Voltage) 모드</label>
+              </div>
+              <div class="frow"><label>Start 전압 (V)</label><input class="fin sv" id="vStart" value="0.5"></div>
+              <div class="frow"><label>End 전압 (V)</label><input class="fin sv" id="vEnd" value="0.0"></div>
+              <div class="frow"><label>Step 전압 (V)</label><input class="fin sv" id="vStep" value="0"></div>
+            </div>
+          </div>
+
+          <!-- measurement -->
+          <div class="pcard">
+            <div class="h"><span class="dotk" style="background:var(--pv)"></span>Measurement / Graf</div>
+            <div class="b">
+              <div class="frow"><label>측정 CH 범위</label><span class="chrange"><input class="fin" id="chFrom" value="1"><span style="color:var(--ink-faint)">~</span><input class="fin" id="chTo" value="1"></span></div>
+              <div class="frow"><label>Graf Interval (sec)</label><input class="fin" id="grafInt" value="1"></div>
+              <div class="frow"><label>Graf File</label><span style="display:flex;gap:6px"><button class="pbtn ghost" style="padding:5px 11px">New</button><button class="pbtn open" style="padding:5px 11px">Open</button></span></div>
+              <input class="recname mono" style="flex:none" id="grafFile" value="260107 Au_NPMF_NO2_H2S_NO2 humidity">
+              <div style="height:1px;background:var(--line);margin:2px 0"></div>
+              <div class="frow"><label style="font-weight:700;color:var(--mix)">RH (%) 현재값</label><span class="mono" id="rhProc" style="font-weight:700;color:var(--mix);font-size:15px">40.0</span></div>
+            </div>
+          </div>
+
+          <!-- SMU + run -->
+          <div class="pcard">
+            <div class="h"><span class="dotk" style="background:var(--sv)"></span>SMU Control</div>
+            <div class="b">
+              <div class="frow col"><label>Select Mode</label>
+                <select class="fsel" id="smuMode">
+                  <option>Source V, Measure I</option>
+                  <option>Source I, Measure V</option>
+                </select>
+              </div>
+              <div class="frow"><label>Source Value (V)</label><input class="fin sv" id="smuSrc" value="0.5"></div>
+              <div class="frow"><label>Compliance (mA)</label><input class="fin" id="smuComp" value="1.0"></div>
+              <div class="frow"><label style="font-weight:700">Measure Value</label></div>
+              <div class="measbox" id="measVal">+1.16398E-05</div>
+              <div class="runrow">
+                <button class="pbtn runbig">AUTO RUN</button>
+                <button class="pbtn stopbig">AUTO STOP</button>
+              </div>
+              <div class="runrow">
+                <button class="pbtn exit">EXIT</button>
+                <button class="pbtn graf">Graf View</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div><!-- /.procscroll -->
+      </div>
+    </div>
+
+    <footer class="appfoot">
+      <button class="hbtn run">AUTO RUN</button>
+      <button class="hbtn purge">PURGE</button>
+      <button class="hbtn end">PROGRAM END</button>
+      <button class="hbtn setup" id="openSetup">⚙ System Setup</button>
+      <div class="footspace"></div>
+      <button class="dock-toggle" id="dockToggle">Auto Process View ▸</button>
+    </footer>
+
+    <!-- System Setup modal -->
+    <div class="modal-overlay" id="setupOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>⚙ System Setup — 채널 &amp; 파라미터</h2>
+          <button class="x" id="closeSetup">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="setup-sec">채널 구성 (MFC)</div>
+          <table class="setup">
+            <thead><tr><th>CH</th><th>사용</th><th>그룹</th><th>MAX (sccm)</th><th>SV (sccm)</th></tr></thead>
+            <tbody id="setupRows"></tbody>
+          </table>
+          <div class="setup-sec">측정 / 시스템 파라미터</div>
+          <div class="setup-grid">
+            <div class="setup-field"><label>Start 전압 (V)</label><input id="setVStart" value="0.5"></div>
+            <div class="setup-field"><label>End 전압 (V)</label><input id="setVEnd" value="0.0"></div>
+            <div class="setup-field"><label>Graf Interval (sec)</label><input id="setGraf" value="1"></div>
+            <div class="setup-field"><label>Loop Count</label><input id="setLoop" value="7"></div>
+            <div class="setup-field"><label>SMU Compliance (mA)</label><input id="setComp" value="1.0"></div>
+            <div class="setup-field"><label>목표 습도 RH (%)</label><input id="setRH" value="40"></div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="cancel" id="cancelSetup">취소</button>
+          <button class="apply" id="applySetup">적용</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ===================== channel model ===================== */
+let channels = [
+  {grp:'air', route:'pure', max:2000, sv:0, pv:21, en:true},
+  {grp:'air', route:'pure', max:2000, sv:0, pv:10, en:true},
+  {grp:'air', route:'mix',  max:2000, sv:0, pv:5,  en:true},
+  {grp:'air', route:'mix',  max:2000, sv:0, pv:1,  en:true},
+  {grp:'gas', route:'mix',  max:2000, sv:5, pv:5,  en:true},
+  {grp:'gas', route:'mix',  max:200,  sv:0, pv:0,  en:false},
+  {grp:'gas', route:'mix',  max:200,  sv:0, pv:0,  en:false},
+  {grp:'gas', route:'mix',  max:100,  sv:0, pv:0,  en:false},
+];
+// derive id/label/color from position + group
+function relabel(){
+  // keep same-group channels contiguous so manifolds stay clean:
+  // pure-air → mix-air → gas (stable sort preserves order within a group)
+  const rank=c=> c.grp==='gas' ? 2 : (c.route==='pure' ? 0 : 1);
+  channels.sort((a,b)=>rank(a)-rank(b));
+  let gasN=0;
+  channels.forEach((c,i)=>{
+    c.id='VA'+(i+1);
+    c.color = c.grp==='gas' ? 'var(--g1)' : 'var(--air)';
+    if(c.grp==='gas'){ gasN++; c.label='Gas '+gasN; c.sub=''; }
+    else { c.label='Air'; c.sub = c.route==='pure'?'순수 (pure)':'혼합 (mix)'; }
+  });
+}
+relabel();
+channels.forEach(c=>{c.valveIn=c.en;c.valveOut=c.en;});
+const flowing=c=>c.en&&c.valveIn&&c.valveOut;
+
+const valveSvg = `<svg width="34" height="22" viewBox="0 0 34 22">
+  <line class="vstem" x1="17" y1="11" x2="17" y2="4"/><rect class="vact" x="12" y="0" width="10" height="5" rx="1"/>
+  <path class="vb" d="M4 5 L17 11 L4 17 Z"/><path class="vb" d="M30 5 L17 11 L30 17 Z"/></svg>`;
+const mfcSvg = `<svg width="40" height="34" viewBox="0 0 40 34">
+  <rect class="mb" x="2" y="3" width="36" height="22" rx="3" transform="rotate(-9 20 14)"/>
+  <rect class="mt" x="7" y="6" width="26" height="8" rx="1.5" transform="rotate(-9 20 10)"/>
+  <text class="mtxt" x="11" y="12" transform="rotate(-9 20 10)">Tylan</text>
+  <path class="ar" d="M9 22 H29 M25 18 L29 22 L25 26"/></svg>`;
+const tankSvg = c => `<svg width="20" height="28" viewBox="0 0 20 28">
+  <rect x="7" y="0" width="6" height="4" rx="1" fill="${c}"/><rect x="4" y="3" width="12" height="5" rx="2" fill="${c}"/>
+  <rect x="2" y="7" width="16" height="20" rx="6" fill="${c}" opacity=".18" stroke="${c}" stroke-width="1.6"/></svg>`;
+
+const lanesEl = document.getElementById('lanes');
+function dec(c){return c.max<=100?1:0;}
+function renderLanes(){
+  lanesEl.innerHTML='';
+  channels.forEach((c,idx)=>{
+    const d=dec(c);
+    const lane=document.createElement('div');
+    lane.className='lane'+(flowing(c)&&c.pv>0?' lit':'')+(c.en?'':' off');
+    lane.dataset.grp=c.grp; lane.dataset.idx=idx;
+    const showLabel = '';
+    lane.innerHTML=`
+      <div class="n-src">
+        <span class="srclbl">${showLabel}</span><span class="tap"></span>
+      </div>
+      <i class="pipe ${c.en?'on':''}" data-seg="pre" style="--c:${c.color}"></i>
+      <div class="n-valve ${c.valveIn?'open':'closed'}${c.en?'':' dis'}" data-v="${idx}-in" title="MFC 밸브 (VA)">${valveSvg}<span class="vlbl">${c.id}</span></div>
+      <i class="pipe ${c.en&&c.valveIn?'on':''}" data-seg="mid" style="--c:${c.color}"></i>
+      <div class="n-mfc ${c.en&&c.valveIn?'on':''}${c.en?'':' dis'}">
+        <div class="mfc-read">
+          <span class="vid">${c.id} · MFC</span>
+          <div class="pvrow"><span class="rlbl">PV</span><span class="pvb" data-pv="${idx}">${c.pv.toFixed(d)}</span><span class="un" style="visibility:hidden">sccm</span></div>
+          <span class="maxwrap">MAX<input value="${c.max}" size="4" data-max="${idx}" title="MFC 최대 용량" ${c.en?'':'disabled'}></span>
+          <div class="svrow"><span class="rlbl">SV</span><input class="svi" size="4" value="${c.sv.toFixed(d)}" data-sv="${idx}" ${c.en?'':'disabled'}><span class="un">sccm</span></div>
+        </div>
+      </div>
+      <i class="pipe ${c.en&&c.valveIn?'on':''}" data-seg="mid" style="--c:${c.color}"></i>
+      <div class="n-valve sol ${c.valveOut?'open':'closed'}${c.en?'':' dis'}" data-v="${idx}-out" title="솔레노이드 밸브 (SOL)">${valveSvg}<span class="vlbl">SOL</span></div>
+      <i class="pipe grow ${c.en&&c.valveIn&&c.valveOut?'on':''}" data-seg="post" style="--c:${c.color}"></i>
+      <span class="endcap"></span>`;
+    lanesEl.appendChild(lane);
+  });
+  bindLaneEvents();
+  drawBuses();
+  updateSystem();
+}
+
+function bindLaneEvents(){
+  document.querySelectorAll('[data-max]').forEach(inp=>inp.addEventListener('change',e=>{
+    channels[+e.target.dataset.max].max=+e.target.value||0; updateSystem();
+  }));
+  document.querySelectorAll('[data-sv]').forEach(inp=>inp.addEventListener('change',e=>{
+    const i=+e.target.dataset.sv; channels[i].sv=+e.target.value||0; updateSystem();
+  }));
+  document.querySelectorAll('[data-v]').forEach(v=>v.addEventListener('click',()=>{
+    const [idxStr,side]=v.dataset.v.split('-'); const idx=+idxStr; const c=channels[idx];
+    if(!c.en) return;   // disabled channel: valves locked
+    v.classList.toggle('open'); v.classList.toggle('closed');
+    if(side==='in') c.valveIn=v.classList.contains('open');
+    else c.valveOut=v.classList.contains('open');
+    const _open=v.classList.contains('open');
+    logMsg(`${c.id} ${side==='in'?'MFC':'SOL'} \ubc38\ube0c ${_open?'\uc5f4\ub9bc':'\ub2eb\ud798'}`, _open?'ok':'warn');
+    const laneEl=v.closest('.lane');
+    // pre: always on; mid: VA open; post: VA AND SOL open
+    laneEl.querySelectorAll('[data-seg=pre]').forEach(p=>{p.classList.toggle('on',c.en);});
+    laneEl.querySelectorAll('[data-seg=mid]').forEach(p=>{p.classList.toggle('on',c.en&&c.valveIn);});
+    laneEl.querySelector('.n-mfc')?.classList.toggle('on',c.en&&c.valveIn);
+    laneEl.querySelectorAll('[data-seg=post]').forEach(p=>{p.classList.toggle('on',c.en&&c.valveIn&&c.valveOut);});
+    laneEl.classList.toggle('lit',c.valveIn&&c.valveOut);
+    drawBuses();
+  }));
+}
+document.querySelectorAll('.way').forEach(w=>w.addEventListener('click',()=>{
+  document.querySelectorAll('.way').forEach(x=>x.classList.remove('active')); w.classList.add('active');
+  routeOut=w.dataset.out||'sensor';
+  drawBuses();
+  logMsg('4-Way \uc804\ud658 \u2192 '+(routeOut==='vent'?'Vent (\ubc30\uae30)':'Sensor (\uce21\uc815)'), 'info');
+}));
+
+/* ===== System Setup modal ===== */
+const setupOverlay=document.getElementById('setupOverlay');
+function buildSetupRows(){
+  const tb=document.getElementById('setupRows'); tb.innerHTML='';
+  channels.forEach((c,i)=>{
+    const gv = c.grp==='gas'?'gas':(c.route==='pure'?'pure-air':'mix-air');
+    const dec=c.max<=100?1:0;
+    const tr=document.createElement('tr');
+    tr.className=c.en?'':'dis';
+    tr.innerHTML=`
+      <td class="chid">${c.id}</td>
+      <td><input type="checkbox" ${c.en?'checked':''} data-sen="${i}"></td>
+      <td><select data-sgrp="${i}">
+        <option value="pure-air" ${gv==='pure-air'?'selected':''}>Air · 순수</option>
+        <option value="mix-air" ${gv==='mix-air'?'selected':''}>Air · 혼합</option>
+        <option value="gas" ${gv==='gas'?'selected':''}>Gas</option>
+      </select></td>
+      <td><input type="text" value="${c.max}" data-smax="${i}"></td>
+      <td><input type="text" value="${c.sv.toFixed(dec)}" data-ssv="${i}"></td>`;
+    tb.appendChild(tr);
+  });
+  // dim row toggle on checkbox
+  tb.querySelectorAll('[data-sen]').forEach(cb=>cb.addEventListener('change',e=>{
+    e.target.closest('tr').classList.toggle('dis',!e.target.checked);
+  }));
+}
+function openSetup(){ buildSetupRows(); setupOverlay.classList.add('on'); }
+function closeSetup(){ setupOverlay.classList.remove('on'); }
+function applySetup(){
+  channels.forEach((c,i)=>{
+    const en=document.querySelector(`[data-sen="${i}"]`).checked;
+    const gv=document.querySelector(`[data-sgrp="${i}"]`).value;
+    const mx=parseFloat(document.querySelector(`[data-smax="${i}"]`).value)||0;
+    const sv=parseFloat(document.querySelector(`[data-ssv="${i}"]`).value)||0;
+    const wasEn=c.en;
+    c.en=en; c.max=mx; c.sv=sv;
+    // preserve valve states; only (re)open valves when a channel is newly enabled,
+    // and close them when disabled
+    if(en && !wasEn){ c.valveIn=true; c.valveOut=true; }
+    else if(!en){ c.valveIn=false; c.valveOut=false; }
+    // (en && wasEn) → keep existing valveIn/valveOut as-is
+    if(gv==='gas'){c.grp='gas';c.route='mix';}
+    else if(gv==='pure-air'){c.grp='air';c.route='pure';}
+    else {c.grp='air';c.route='mix';}
+  });
+  relabel(); renderLanes();
+  // sync a few process params if present
+  const set=(id,el)=>{const a=document.getElementById(id),b=document.getElementById(el);if(a&&b)b.value=a.value;};
+  set('setVStart','vStart'); set('setVEnd','vEnd'); set('setGraf','grafInt'); set('setLoop','loopCount'); set('setComp','smuComp');
+  closeSetup();
+}
+document.getElementById('openSetup').addEventListener('click',openSetup);
+document.getElementById('closeSetup').addEventListener('click',closeSetup);
+document.getElementById('cancelSetup').addEventListener('click',closeSetup);
+document.getElementById('applySetup').addEventListener('click',applySetup);
+setupOverlay.addEventListener('click',e=>{if(e.target===setupOverlay)closeSetup();});
+
+function updateSystem(){
+  const act=channels.filter(c=>c.en).length;
+  const total=channels.filter(c=>c.en).reduce((s,c)=>s+c.pv,0);
+  document.getElementById('activeCh').textContent=act+' / 8';
+  document.getElementById('totalFlow').textContent=Math.round(total)+' sccm';
+}
+
+/* ===================== manifold buses ===================== */
+let routeOut='sensor';
+function drawBuses(){
+  const svg=document.getElementById('wires'); if(!svg) return;
+  const S=svg.parentElement.getBoundingClientRect();
+  const cx=el=>{const r=el.getBoundingClientRect();return r.left-S.left+r.width/2;};
+  const cy=el=>{const r=el.getBoundingClientRect();return r.top-S.top+r.height/2;};
+  const probe=document.querySelector('.lane .endcap');
+  if(!S.width||!probe||probe.getBoundingClientRect().height===0){setTimeout(drawBuses,100);return;}
+  svg.setAttribute('viewBox',`0 0 ${S.width} ${S.height}`);
+
+  const BLUE='#2f72c4', RED='#c8384c', MIX='#c8384c', GREY='#b6c4d6', PV='#0d7a6a', VENT='#e0851f';
+  // pipe look = solid colored base + white moving stripes (matches horizontal CSS pipes)
+  let p=`<style>
+    .stripe{stroke:rgba(255,255,255,.7);stroke-width:4;stroke-dasharray:5 17;stroke-linecap:butt;fill:none}
+    .sdn{animation:sdn 1.1s linear infinite}
+    .sup{animation:sup 1.1s linear infinite}
+    @keyframes sdn{to{stroke-dashoffset:-22}}
+    @keyframes sup{to{stroke-dashoffset:22}}
+  </style>`;
+  // flow line: base + white stripe overlay; dir: 'dn' (toward 2nd point) or 'up' (toward 1st)
+  const fL=(x1,y1,x2,y2,col,dir,on)=> on
+    ? `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="4" stroke-linecap="round"/><line class="stripe ${dir==='up'?'sup':'sdn'}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`
+    : `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="4" stroke-linecap="round"/>`;
+  const fP=(d,col,on)=> on
+    ? `<path d="${d}" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path class="stripe sdn" d="${d}" stroke-linejoin="round"/>`
+    : `<path d="${d}" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const Bbox=(x,y)=>`<rect x="${x-13}" y="${y-13}" width="26" height="26" rx="6" fill="#f0ece2" stroke="#b9ad8e" stroke-width="1.6"/><text x="${x}" y="${y+4}" text-anchor="middle" font-size="11" font-weight="700" fill="#8a7c55">B</text>`;
+
+  /* ── Air supply left manifold ── */
+  const airTaps=[...document.querySelectorAll('.lane[data-grp="air"] .tap')];
+  const airChs=channels.filter(c=>c.grp==='air');
+  if(airTaps.length){
+    const ax=cx(airTaps[0]); const ays=airTaps.map(cy);
+    const enAirYs=ays.filter((_,i)=>airChs[i]&&airChs[i].en);
+    const has=enAirYs.length>0;
+    const topY=has?Math.min(...enAirYs):Math.min(...ays);
+    const botY=has?Math.max(...enAirYs):Math.max(...ays);
+    const xIn=ax-42;
+    // left inlet pipe + inlet cap (label sits at its left end)
+    p+=fL(xIn,topY,ax,topY,BLUE,'dn',has);
+    p+=`<circle cx="${xIn}" cy="${topY}" r="4.5" fill="#fff" stroke="${BLUE}" stroke-width="2.4"/>`;
+    // vertical manifold: flow only across the enabled air span
+    if(has) p+=fL(ax,topY,ax,botY,BLUE,'dn',true);
+    {const sc=(typeof lastScale==='number'&&lastScale>0)?lastScale:1; const al=document.getElementById('airsupply'); al.style.left=((xIn-8)/sc)+'px'; al.style.top=(topY/sc)+'px';}
+    airTaps.forEach((t,i)=>{const on=airChs[i]&&airChs[i].en;p+=`<circle cx="${ax}" cy="${ays[i]}" r="3.5" fill="${on?BLUE:GREY}" opacity="${on?1:0.45}"/>`;});
+  }
+
+  /* ── Gas inlets: each lane = ONE continuous line from inlet cap to VA valve ── */
+  const gasTaps=[...document.querySelectorAll('.lane[data-grp="gas"] .tap')];
+  const gasChs=channels.filter(c=>c.grp==='gas');
+  const flowC=c=>c.en&&c.valveIn&&c.valveOut;
+  const glayer=document.getElementById('gaslabels'); if(glayer) glayer.innerHTML='';
+  const scG=(typeof lastScale==='number'&&lastScale>0)?lastScale:1;
+  gasTaps.forEach((t,i)=>{
+    const lane=t.closest('.lane');
+    const valve=lane.querySelector('.n-valve');
+    const gx=cx(t), gy=cy(t); const ch=gasChs[i]; const on=ch&&ch.en;
+    const xIn=gx-42;
+    const vx=valve?(valve.getBoundingClientRect().left-S.left):gx+120;
+    const col=on?RED:'#bcc6d3';
+    // hide the HTML pre-pipe so this is a single SVG line
+    const pre=lane.querySelector('.pipe[data-seg="pre"]'); if(pre) pre.style.visibility='hidden';
+    // pre-segment flows whenever enabled (supply reaches the valve), like air
+    let seg=fL(xIn,gy,vx,gy,col,'dn',on)+`<circle cx="${xIn}" cy="${gy}" r="4.5" fill="#fff" stroke="${col}" stroke-width="2.4"/>`;
+    if(!on) seg=`<g opacity="0.42">${seg}</g>`;   // match disabled air lanes (.lane.off opacity:.42)
+    p+=seg;
+    if(glayer&&ch){
+      const d=document.createElement('div'); d.className='gaslbl'+(ch.en?'':' off');
+      d.textContent=ch.label; d.style.left=((xIn-8)/scG)+'px'; d.style.top=(gy/scG)+'px';
+      glayer.appendChild(d);
+    }
+  });
+
+  /* ── Right collection (flow only where valves pass) ── */
+  const caps=[...document.querySelectorAll('.lane .endcap')];
+  if(!caps.length){svg.innerHTML=p;return;}
+  const bx=cx(caps[0]); const bys=caps.map(cy);
+  const flow=c=>c.en&&c.valveIn&&c.valveOut;
+  const pureRows=channels.map((c,i)=>c.route==='pure'?bys[i]:null).filter(v=>v!=null);
+  const mixRows=channels.map((c,i)=>c.route==='mix'?bys[i]:null).filter(v=>v!=null);
+  const pureF=channels.map((c,i)=>c.route==='pure'&&flow(c)?bys[i]:null).filter(v=>v!=null);
+  const mixF=channels.map((c,i)=>c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
+  const sc=(typeof lastScale==='number'&&lastScale>0)?lastScale:1;
+  const vcR=24, vcX=bx+138*sc, jx=bx+93*sc;
+  const pureMidRow=pureRows.length?(Math.min(...pureRows)+Math.max(...pureRows))/2:S.height*0.25;
+  const mixMidRow=mixRows.length?(Math.min(...mixRows)+Math.max(...mixRows))/2:S.height*0.6;
+  const vcY=S.height*0.34;   // 4-way moved up to leave room for the log panel bottom-right
+
+  // card (4-way) geometry — measured then scaled to SVG units (= visual px)
+  const vcEl=document.getElementById('vcControl');
+  const cardW=(vcEl?vcEl.offsetWidth:150)*sc;
+  const cardH=(vcEl?vcEl.offsetHeight:120)*sc;
+  const cLeft=vcX, cCx=vcX+cardW/2, cRight=vcX+cardW, cTop=vcY-cardH/2, cBot=vcY+cardH/2;
+  const anyFlow=pureF.length+mixF.length>0;
+  const ventOn=routeOut==='vent', senOn=routeOut==='sensor';
+
+  // AIR (pure) bus — FIXED grey structure across ALL rows + coloured flow only on the FLOWING span
+  if(pureRows.length>0){
+    const ptop=Math.min(...pureRows), pbot=Math.max(...pureRows);
+    // fixed structural line (always, no flow)
+    if(pureRows.length>1) p+=fL(bx,ptop,bx,pbot,GREY,'dn',false);
+    p+=fP(`M${bx} ${pureMidRow} H${cLeft-30*sc} V${vcY} H${cLeft}`,pureF.length>0?BLUE:GREY,false);
+    if(pureF.length>0){
+      const colTop=Math.min(Math.min(...pureF),pureMidRow), colBot=Math.max(Math.max(...pureF),pureMidRow);
+      if(colTop<pureMidRow) p+=fL(bx,colTop,bx,pureMidRow,BLUE,'dn',true);
+      if(colBot>pureMidRow) p+=fL(bx,pureMidRow,bx,colBot,BLUE,'up',true);
+      p+=fP(`M${bx} ${pureMidRow} H${cLeft-30*sc} V${vcY} H${cLeft}`,BLUE,true);
+    }
+  }
+  // GAS (mix) bus — air-dilution segment blue, gas segment red, combined feeder blends by what flows
+  if(mixRows.length>0){
+    const mtop=Math.min(...mixRows), mbot=Math.max(...mixRows);
+    const gas1Idx=channels.findIndex(c=>c.grp==='gas');
+    const gas1Y=(gas1Idx>=0)?bys[gas1Idx]:mtop;
+    // Y's of channels that are ACTUALLY flowing (valves open), per group
+    const airFlowY=channels.map((c,i)=>c.grp==='air'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
+    const gasFlowY=channels.map((c,i)=>c.grp==='gas'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
+    const airMixFlow=airFlowY.length>0, gasFlow=gasFlowY.length>0;
+    const BLEND='#8a4f9e';   // blue + red mixed (both flowing)
+    const feedColor=(airMixFlow&&gasFlow)?BLEND:(airMixFlow?BLUE:(gasFlow?RED:GREY));
+    // grey structural bus (always, full span)
+    if(mixRows.length>1) p+=fL(bx,mtop,bx,mbot,GREY,'dn',false);
+    // air-dilution flow: only from the topmost FLOWING air tap down to the junction
+    if(airMixFlow) p+=fL(bx,Math.min(...airFlowY),bx,gas1Y,BLUE,'dn',true);
+    // gas flow: only from the junction down to the deepest FLOWING gas tap
+    if(gasFlow) p+=fL(bx,gas1Y,bx,Math.max(...gasFlowY),RED,'up',true);
+    // combined feeder gas1 row → card bottom
+    const feeding=airMixFlow||gasFlow;
+    p+=fP(`M${bx} ${gas1Y} H${cCx} V${cBot}`,feeding?feedColor:GREY,feeding);
+  }
+
+  // endcap joints (coloured only where that channel actually flows)
+  caps.forEach((c,i)=>{
+    const ech=channels[i]; const col=ech.grp==='gas'?RED:BLUE;
+    p+=`<rect x="${bx-6}" y="${bys[i]-4}" width="12" height="8" rx="3" fill="#cfd8e3" stroke="${flow(ech)?col:GREY}" stroke-width="1.2"/>`;
+  });
+
+  /* ── 4-way valve = rectangular card. Outputs: Vent (top-center), Sensor (right-center) ── */
+  // Vent output stub (up from top-center) — label is on the card button
+  p+=fL(cCx,cTop,cCx,cTop-49*sc,(ventOn&&anyFlow?VENT:GREY),'dn',ventOn&&anyFlow);
+  p+=`<text x="${cCx}" y="${cTop-56*sc}" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="${(14*sc).toFixed(1)}" font-weight="700" fill="#2a3645">Vent</text>`;
+  // Sensor output stub (right from right-center) — label sits to the RIGHT of the stub end
+  p+=fL(cRight,vcY,cRight+41*sc,vcY,(senOn&&anyFlow?PV:GREY),'dn',senOn&&anyFlow);
+  p+=`<text x="${cRight+52*sc}" y="${vcY+(4*sc)}" text-anchor="start" font-family="'IBM Plex Sans',sans-serif" font-size="${(14*sc).toFixed(1)}" font-weight="700" fill="#2a3645">Sensor</text>`;
+  // (inlet dots removed)
+
+  svg.innerHTML=p;
+  // position card so LEFT edge sits at the air inlet (convert scaled px → layout px)
+  if(vcEl){vcEl.style.right='auto'; vcEl.style.left=(vcX/sc)+'px'; vcEl.style.top=(vcY/sc)+'px';}
+}
+
+/* ===================== recipe data ===================== */
+let procs=[
+  {flow:1000, rh:40, g:[5,0,0,0], prep:3600, meas:300, way:'sensor', rep:false},
+  {flow:1000, rh:40, g:[5,0,0,0], prep:600,  meas:300, way:'sensor', rep:false},
+  {flow:1000, rh:40, g:[5,0,5,0], prep:600,  meas:300, way:'sensor', rep:false},
+  {flow:1000, rh:40, g:[0,0,5,0], prep:600,  meas:300, way:'sensor', rep:false},
+  {flow:1000, rh:40, g:[0,0,0,5], prep:2400, meas:300, way:'vent',   rep:false},
+  {flow:1000, rh:40, g:[0,0,0,0], prep:600,  meas:300, way:'sensor', rep:false},
+  {flow:1000, rh:40, g:[5,0,0,0], prep:600,  meas:300, way:'sensor', rep:true},
+];
+const recipeBody=document.getElementById('recipeBody');
+
+function renderRecipe(){
+  const useHum=document.getElementById('useHumidity').checked;
+  document.querySelectorAll('.humcol').forEach(e=>e.style.display=useHum?'':'none');
+  recipeBody.innerHTML='';
+  procs.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    if(i===0) tr.className='active';
+    const gcells=r.g.map((v,gi)=>`<td class="${v===0?'zero':''}"><input class="ci" value="${v}" data-g="${i}-${gi}"></td>`).join('');
+    tr.innerHTML=`
+      <td class="pcol">P${i+1}</td>
+      <td><input class="ci" value="${r.flow}" data-f="flow-${i}"></td>
+      <td class="humcol" ${useHum?'':'style="display:none"'}><input class="ci" value="${r.rh}" data-f="rh-${i}"></td>
+      ${gcells}
+      <td><input class="ci" value="${r.prep}" data-f="prep-${i}"></td>
+      <td><input class="ci" value="${r.meas}" data-f="meas-${i}"></td>
+      <td><div class="waycell"><button class="waytog ${r.way==='vent'?'vent':''}" data-way="${i}">${r.way==='vent'?'Vent':'Sensor'}</button></div></td>
+      <td><input type="checkbox" class="reptog" ${r.rep?'checked':''} data-rep="${i}"></td>
+      <td><button class="delrow" data-del="${i}">×</button></td>`;
+    recipeBody.appendChild(tr);
+  });
+  bindRecipe();
+}
+function bindRecipe(){
+  recipeBody.querySelectorAll('[data-g]').forEach(inp=>inp.addEventListener('change',e=>{
+    const [i,gi]=e.target.dataset.g.split('-').map(Number); procs[i].g[gi]=+e.target.value||0;
+    e.target.parentElement.classList.toggle('zero',(+e.target.value||0)===0);
+  }));
+  recipeBody.querySelectorAll('[data-f]').forEach(inp=>inp.addEventListener('change',e=>{
+    const [k,i]=e.target.dataset.f.split('-'); procs[+i][k]=+e.target.value||0;
+  }));
+  recipeBody.querySelectorAll('[data-way]').forEach(b=>b.addEventListener('click',e=>{
+    const i=+e.target.dataset.way; procs[i].way=procs[i].way==='vent'?'sensor':'vent'; renderRecipe();
+  }));
+  recipeBody.querySelectorAll('[data-rep]').forEach(cb=>cb.addEventListener('change',e=>{procs[+e.target.dataset.rep].rep=e.target.checked;}));
+  recipeBody.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{procs.splice(+e.target.dataset.del,1);renderRecipe();}));
+}
+document.getElementById('addProc').addEventListener('click',()=>{
+  procs.push({flow:1000, rh:40, g:[0,0,0,0], prep:600, meas:300, way:'sensor', rep:false}); renderRecipe();
+});
+document.getElementById('useHumidity').addEventListener('change',renderRecipe);
+
+/* ===================== Auto Process dock ===================== */
+const viewProc=document.getElementById('viewProc');
+const dockToggle=document.getElementById('dockToggle');
+const viewsEl=document.querySelector('.views');
+const viewSchemEl=document.getElementById('viewSchem');
+function setDock(open){
+  viewsEl.classList.toggle('docked',open);
+  viewProc.classList.toggle('dock',open);
+  // grow the app and show the panel; the fit() scaler shrinks everything to the viewport
+  const appEl=document.getElementById('app');
+  appEl.classList.toggle('wide',open);
+  appEl.style.setProperty('width', open ? '2040px' : '1320px', 'important');
+  viewProc.style.setProperty('display', open ? 'flex' : 'none', 'important');
+  fit();
+  dockToggle.innerHTML = open ? 'Auto Process View ◂' : 'Auto Process View ▸';
+  // schematic width changes → recompute pipe routing after the width transition
+  setTimeout(drawBuses,30);
+  setTimeout(drawBuses,320);
+}
+dockToggle.addEventListener('click',()=>setDock(!viewsEl.classList.contains('docked')));
+document.getElementById('dockClose').addEventListener('click',()=>setDock(false));
+window.addEventListener('resize',()=>setTimeout(drawBuses,50));
+
+/* pop Auto Process into a separate window (dual-monitor) */
+document.getElementById('popOut').addEventListener('click',()=>{
+  const w=window.open('','autoProcess','width=860,height=900');
+  if(!w){alert('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해주세요.');return;}
+  const headHTML=document.head.innerHTML;
+  const panel=viewProc.querySelector('.procscroll').outerHTML;
+  w.document.write(`<!DOCTYPE html><html lang="ko"><head>${headHTML}<style>body{background:var(--bg);margin:0}.procscroll{height:100vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:10px}</style></head><body>${panel}</body></html>`);
+  w.document.close();
+  // collapse the dock locally since it's now in its own window
+  setDock(false);
+});
+
+/* ===================== run state + sim ===================== */
+let running=false, t=0;
+function setRun(on){
+  running=on;
+  const pill=document.getElementById('runpill');
+  pill.classList.toggle('idle',!on);
+  document.getElementById('runtxt').textContent=on?'AUTO RUN':'IDLE';
+  document.getElementById('hdrLoop').textContent=on?'3 / '+(document.getElementById('loopCount').value||7):'0 / '+(document.getElementById('loopCount').value||7);
+  logMsg(on?'AUTO RUN \uc2dc\uc791 \u2014 \ub808\uc2dc\ud53c \uc2e4\ud589':'PROGRAM END \u2014 \uc2dc\ud000\uc2a4 \uc815\uc9c0', on?'ok':'warn');
+}
+document.querySelectorAll('.hbtn.run, .pbtn.runbig').forEach(b=>b.addEventListener('click',()=>setRun(true)));
+document.querySelectorAll('.hbtn.end, .pbtn.stopbig').forEach(b=>b.addEventListener('click',()=>setRun(false)));
+document.querySelector('.hbtn.purge')?.addEventListener('click',()=>logMsg('PURGE \u2014 \uc21c\uc218 Air\ub85c \ub77c\uc778 \uccad\uc18c','info'));
+document.getElementById('recname').addEventListener('change',e=>{document.getElementById('hdrRecipe').textContent=e.target.value.split(' ').pop();});
+
+/* ===================== system log ===================== */
+function logMsg(msg, level){
+  const body=document.getElementById('logBody'); if(!body) return;
+  const d=new Date();
+  const ts=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+  const el=document.createElement('div');
+  el.className='le '+(level||'info');
+  el.innerHTML=`<span class="lt">${ts}</span><span class="lv"></span>`;
+  el.querySelector('.lv').textContent=msg;
+  body.appendChild(el);
+  while(body.children.length>200) body.removeChild(body.firstChild);
+  body.scrollTop=body.scrollHeight;
+}
+document.getElementById('logClear')?.addEventListener('click',()=>{document.getElementById('logBody').innerHTML='';logMsg('\ub85c\uadf8 \uc9c0\uc6c0','info');});
+logMsg('\uc2dc\uc2a4\ud15c \ucd08\uae30\ud654 \uc644\ub8cc \u00b7 PMC4000 / SMU \uc5f0\uacb0\ub428','ok');
+
+function jit(b,a,d){return (b+(Math.random()-.5)*a).toFixed(d);}
+setInterval(()=>{
+  channels.forEach((c,i)=>{
+    if(!c.en) return; const el=document.querySelector(`[data-pv="${i}"]`); if(!el) return;
+    const base=running?Math.max(c.pv,c.sv):c.pv;
+    el.textContent=jit(base, base>0?1.6:0.4, dec(c));
+  });
+  const rh=jit(40,0.8,1);
+  document.getElementById('rh').textContent=rh;
+  const rhp=document.getElementById('rhProc'); if(rhp) rhp.textContent=rh;
+  document.getElementById('measVal').textContent=`+${(1.16398+(Math.random()-.5)*0.04).toFixed(5)}E-05`;
+  updateSystem();
+},900);
+setInterval(()=>{
+  if(running)t++;
+  const h=String(Math.floor(t/3600)).padStart(2,'0'),m=String(Math.floor(t%3600/60)).padStart(2,'0'),s=String(t%60).padStart(2,'0');
+  document.getElementById('clk').textContent=`${h}:${m}:${s}`;
+},1000);
+
+/* ===================== fit ===================== */
+let lastScale=0;
+function fit(){
+  const w=window.innerWidth,h=window.innerHeight; if(!w||!h){requestAnimationFrame(fit);return;}
+  const REF=1320;                       // fixed HMI reference — HMI stays constant; panel widens the app and scrolls
+  const s=Math.min(w/REF,h/1010);
+  lastScale=s;
+  const app=document.getElementById('app');
+  app.style.transform=''; app.style.marginLeft='';
+  app.style.zoom=s;                     // zoom (not transform) so #stage horizontal scroll reaches the panel
+}
+window.addEventListener('resize',()=>{fit();drawBuses();});
+window.addEventListener('load',()=>{fit();drawBuses();});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{fit();drawBuses();});
+if(window.ResizeObserver){const ro=new ResizeObserver(()=>drawBuses());ro.observe(document.querySelector('.schem'));const vo=new ResizeObserver(()=>{fit();drawBuses();});vo.observe(document.documentElement);}
+if(window.visualViewport)window.visualViewport.addEventListener('resize',()=>{fit();drawBuses();});
+setInterval(()=>{const p=lastScale;fit();if(lastScale!==p||document.getElementById('wires').innerHTML.length===0)drawBuses();},300);
+
+/* init */
+renderLanes(); renderRecipe(); setRun(false);
+fit(); setTimeout(()=>{fit();drawBuses();},60);
+requestAnimationFrame(()=>requestAnimationFrame(()=>{fit();drawBuses();}));
+</script>
+</body>
+</html>
