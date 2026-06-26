@@ -98,8 +98,8 @@ class State:
             "routeOut": "sensor",
             "loop": {"current": 0, "total": 1},
             "elapsed": 0,
-            "rh": 40.0,
-            "smu": "+0.00000E+00",
+            "rh": None,          # 측정 하드웨어 없음 → 화면 "—"
+            "smu": None,         # 측정 하드웨어 없음 → 화면 "—"
             "connected": True,   # 서버↔하드웨어 (1단계는 시뮬, 항상 연결됨으로 표시)
             "safeStop": False,
         }
@@ -152,13 +152,17 @@ class State:
             print(f"[warn] config 저장 실패: {e}")
 
     # ---- 외부로 내보낼 상태 스냅샷 ----
-    def snapshot(self) -> dict:
-        return {
+    # 레시피는 "권위 있는 변경"(연결 직후/New/Open/Save) 때만 포함한다.
+    # 밸브·4-way·RUN 등 일상 push에는 recipe를 빼서, 편집 중인 레시피 초안을 덮어쓰지 않는다.
+    def snapshot(self, include_recipe: bool = False) -> dict:
+        snap = {
             "type": "state",
             "channels": [dict(c) for c in self.channels],
             "system": dict(self.system),
-            "recipe": json.loads(json.dumps(self.recipe)),
         }
+        if include_recipe:
+            snap["recipe"] = json.loads(json.dumps(self.recipe))
+        return snap
 
     # ---- 시뮬레이션 한 틱 ----
     def sim_tick(self, dt: float) -> dict:
@@ -181,10 +185,8 @@ class State:
             c["pv"] = val
             pv.append(round(val, 2))
 
-        rh = round(40.0 + (random.random() - 0.5) * 0.8, 1)
-        self.system["rh"] = rh
-        smu = f"{1.16398e-05 + (random.random() - 0.5) * 0.04e-05:+.5E}"
-        self.system["smu"] = smu
+        # rh·smu(측정값)는 측정 하드웨어가 아직 없으므로 시뮬레이션하지 않는다(화면은 "—" 표시).
+        # 가스 유량(PV)은 MFC 흐름이라 유효 → 위에서 계속 시뮬레이션한다.
 
         total = int(self.recipe.get("loopCount") or 0) or 1
         self.system["loop"]["total"] = total
@@ -195,8 +197,8 @@ class State:
         return {
             "type": "telemetry",
             "pv": pv,
-            "rh": rh,
-            "smu": smu,
+            "rh": None,
+            "smu": None,
             "elapsed": elapsed,
             "running": self.system["running"],
             "loop": dict(self.system["loop"]),
@@ -244,8 +246,8 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def push_state():
-    await manager.broadcast(state.snapshot())
+async def push_state(include_recipe: bool = False):
+    await manager.broadcast(state.snapshot(include_recipe=include_recipe))
 
 
 async def push_log(msg: str, level: str = "info"):
@@ -367,7 +369,7 @@ async def handle_command(data: dict):
         state.recipe = default_recipe()
         state.recipe["params"] = keep_params
         await push_log("새 레시피 — 빈 레시피로 초기화", "info")
-        await push_state()
+        await push_state(include_recipe=True)   # New는 레시피 교체
 
     elif cmd == "recipe_save":
         name = data.get("name")
@@ -394,7 +396,7 @@ async def handle_command(data: dict):
         state.recipe = recipe
         await manager.broadcast({"type": "ack", "of": "recipe_save", "ok": True, "name": name})
         await push_log(f"레시피 저장됨 — {name}", "ok")
-        await push_state()
+        await push_state(include_recipe=True)   # Save 후 저장된 레시피로 동기화
 
     elif cmd == "recipe_load":
         name = data.get("name")
@@ -412,7 +414,7 @@ async def handle_command(data: dict):
         loaded.setdefault("params", dict(state.params))
         state.recipe = loaded
         await push_log(f"레시피 불러옴 — {name}", "ok")
-        await push_state()
+        await push_state(include_recipe=True)   # Open은 레시피 교체
 
     elif cmd == "recipe_list":
         await manager.broadcast({"type": "recipe_list", "names": list_recipes()})
@@ -498,7 +500,8 @@ def main():
     webview.create_window(
         "Gas Sensor Measurement System",
         f"http://{HOST}:{PORT}",
-        width=1480, height=1020,
+        width=1480, height=1020,   # 전체화면 해제 시 사용할 기본 크기
+        fullscreen=True,           # 실행 시 바로 전체화면
     )
     webview.start()   # 창을 닫으면 여기서 반환 → 데몬 스레드와 함께 종료
 

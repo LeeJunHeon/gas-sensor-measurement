@@ -29,7 +29,7 @@
       system: {
         running: false, routeOut: 'sensor',
         loop: { current: 0, total: 1 },
-        elapsed: 0, rh: 40.0, smu: '+0.00000E+00',
+        elapsed: 0, rh: null, smu: null,
         connected: false, safeStop: false,
       },
       recipe: {
@@ -148,9 +148,13 @@
 
   // ===================== 명령(화면 → 서버) =====================
   // 연결 시: 서버로 전송(요청). 끊김 시: 미러를 낙관적으로 갱신 후 applyState로 재렌더.
-  function localApply(mutator) {
+  // withRecipe=false(기본): 레시피(초안)는 건드리지 않는다 — 서버의 일상 state push와 동일하게,
+  //   HMI 동작(밸브/4-way/RUN 등)으로 편집 중인 레시피가 사라지지 않도록 한다.
+  function localApply(mutator, withRecipe) {
     try { mutator(mirror); } catch (e) {}
-    window.applyState(deepCopy(mirror));
+    const snap = deepCopy(mirror);
+    if (!withRecipe) delete snap.recipe;
+    window.applyState(snap);
   }
 
   window.cmdSetValve = function (ch, side, open) {
@@ -204,7 +208,7 @@
   };
   window.cmdRecipeNew = function () {
     if (send({ cmd: 'recipe_new' })) return;
-    localApply(m => { m.recipe = Object.assign({}, m.recipe, { name: '', procs: [] }); });
+    localApply(m => { m.recipe = Object.assign({}, m.recipe, { name: '', procs: [] }); }, true);
   };
   window.cmdRecipeSave = function (name, recipe, overwrite) {
     lastSave = { name: name, recipe: recipe };
@@ -281,13 +285,12 @@
       const amp = target > 0 ? 1.6 : 0.4;
       return Math.max(0, target + (Math.random() - 0.5) * amp);
     });
-    const rh = 40 + (Math.random() - 0.5) * 0.8;
-    const smu = '+' + (1.16398 + (Math.random() - 0.5) * 0.04).toFixed(5) + 'E-05';
-    const total = +mirror.recipe.loopCount || 7;
+    // rh·smu(측정값)는 하드웨어가 없으므로 시뮬레이션하지 않는다(화면엔 "—" 유지). PV(MFC 유량)만 시뮬.
+    const total = +mirror.recipe.loopCount || 1;
     const current = running ? Math.min(total, 1 + Math.floor(simElapsed / 10)) : (mirror.system.loop.current || 0);
 
     window.applyTelemetry({
-      pv: pv, rh: rh, smu: smu,
+      pv: pv, rh: null, smu: null,
       elapsed: Math.floor(simElapsed), running: running,
       loop: { current: current, total: total },
     });

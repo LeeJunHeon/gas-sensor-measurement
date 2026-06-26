@@ -21,7 +21,7 @@
   button{font-family:inherit}
   input{font-family:inherit}
 
-  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:auto;background:#aab3c2}
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#aab3c2}
   #app{width:2040px;height:1010px;flex:0 0 auto;display:flex;flex-direction:column;background:var(--bg)}
 
   /* ===== header ===== */
@@ -262,12 +262,13 @@
 
   .ptablewrap{border:1px solid var(--line2);border-radius:7px;background:#fff;overflow:auto;max-height:330px}
   table.rcp{width:100%;border-collapse:separate;border-spacing:0;font-size:11.5px}
-  table.rcp th{position:sticky;top:0;z-index:2;background:#dfe5ee;color:#3a4861;font-weight:600;padding:6px 6px;border-right:1px solid #c8d0db;text-align:center;white-space:nowrap;background-clip:padding-box;box-shadow:inset 0 -1px 0 #c8d0db}
-  table.rcp th.grp{background:#dfe5ee;font-size:10.5px;white-space:normal;line-height:1.25}
+  table.rcp th{position:sticky;top:0;z-index:2;background:#dfe5ee;color:#3a4861;font-weight:600;padding:6px 6px;border-right:1px solid #c8d0db;text-align:center;white-space:nowrap;background-clip:padding-box;box-shadow:inset 0 -1px 0 #c8d0db;vertical-align:bottom}
+  table.rcp th.grp{background:#dfe5ee;font-size:10.5px;white-space:normal;line-height:1.25;vertical-align:bottom}
   /* unified screen: Auto Process always docked — collapse/expand controls hidden */
   #dockToggle,#dockClose{display:none !important}
   table.rcp thead tr:nth-child(2) th{top:27px}
-  table.rcp th .bottle{display:flex;align-items:center;justify-content:center;gap:3px;margin-top:3px;font-weight:500;color:var(--ink-faint);font-size:9px}
+  /* G1~G4: 봄베 입력칸을 같은 줄에 인라인으로 두어 옆 헤더와 한 줄로 정렬 */
+  table.rcp th .bottle{display:inline-flex;align-items:center;justify-content:center;gap:2px;margin:0 0 0 3px;font-weight:500;color:var(--ink-faint);font-size:9px;vertical-align:middle}
   table.rcp th .bottle input{width:34px;font-family:'IBM Plex Mono',monospace;font-size:10px;text-align:right;border:1px solid var(--line);border-radius:3px;padding:1px 3px;color:#b5610c;background:#fff}
   table.rcp th .bottle input:focus{outline:none;border-color:var(--sv)}
   table.rcp td{border-right:1px solid #e7ebf1;border-bottom:1px solid #e7ebf1;text-align:center;padding:0}
@@ -362,7 +363,7 @@
                   <svg width="14" height="14" viewBox="0 0 16 16"><rect class="wic" x="2.5" y="4" width="11" height="8" rx="1.5"/><path class="wic" d="M5 7h6 M5 9.5h4"/></svg>Sensor
                 </button>
               </div>
-              <div class="rhbox"><span class="num" id="rh">40.0</span><span class="u">RH %</span></div>
+              <div class="rhbox"><span class="num" id="rh">—</span><span class="u">RH %</span></div>
             </div>
             <div class="logpanel" id="logPanel">
               <div class="loghead" style="border-width: 0px 0px 1px"><span class="lh-title">System Log</span><button class="lh-clear" id="logClear">Clear</button></div>
@@ -447,7 +448,7 @@
               <div class="frow"><label>Graph File</label><span style="display:flex;gap:6px"><button class="pbtn ghost" style="padding:5px 11px">New</button><button class="pbtn open" style="padding:5px 11px">Open</button></span></div>
               <input class="recname mono" style="flex:none" id="grafFile" value="" placeholder="그래프 파일 이름">
               <div style="height:1px;background:var(--line);margin:2px 0"></div>
-              <div class="frow"><label style="font-weight:700;color:var(--mix)">RH (%) 현재값</label><span class="mono" id="rhProc" style="font-weight:700;color:var(--mix);font-size:15px">40.0</span></div>
+              <div class="frow"><label style="font-weight:700;color:var(--mix)">RH (%) 현재값</label><span class="mono" id="rhProc" style="font-weight:700;color:var(--mix);font-size:15px">—</span></div>
             </div>
           </div>
 
@@ -464,7 +465,7 @@
               <div class="frow"><label>Source Value (V)</label><input class="fin sv" id="smuSrc" value="0"></div>
               <div class="frow"><label>Compliance (mA)</label><input class="fin" id="smuComp" value="1.0"></div>
               <div class="frow"><label style="font-weight:700">Measure Value</label></div>
-              <div class="measbox" id="measVal">+0.00000E+00</div>
+              <div class="measbox" id="measVal">—</div>
               <div class="runrow">
                 <button class="pbtn runbig">AUTO RUN</button>
                 <button class="pbtn stopbig">AUTO STOP</button>
@@ -1072,13 +1073,23 @@ window.collectRecipe=collectRecipe; window.collectSetup=collectSetup;
 /* ===================== fit ===================== */
 let lastScale=0;
 let contentW=2040;                      // #app 고정 폭(배관도 1320 + 도크 720)
-const contentH=1010;                    // #app 고정 높이
+const contentH=1010;                    // #app 기준 높이(세로 비율 판단용)
 function fit(){
-  // 고정 캔버스 비율 그대로 유지하며 화면에 맞추어 zoom 확대/축소 (flex 재흐름 없음)
+  // 내용 비율(가로 2040)은 유지하되 위아래 여백 없이 화면을 꽉 채운다.
   const w=window.innerWidth, h=window.innerHeight; if(!w||!h){requestAnimationFrame(fit);return;}
-  const s=Math.min(w/contentW, h/contentH);
-  lastScale=s;
+  const sW=w/contentW, sH=h/contentH;
   const app=document.getElementById('app');
+  let s, appH;
+  if(sW<=sH){
+    // 일반 가로형: 가로 폭에 맞춰 축소하고, #app 높이를 늘려 세로를 정확히 채운다.
+    // (남는 세로는 내부 flex가 .views=schematic+dock에 분배 → drawBuses가 재측정해 맞춤)
+    s=sW; appH=h/s;
+  }else{
+    // 울트라와이드(캔버스보다 가로가 더 넓음): 세로에 맞춰 축소하고 좌우 가운데 정렬.
+    s=sH; appH=contentH;
+  }
+  lastScale=s;
+  app.style.height=appH+'px';
   app.style.zoom=s;
 }
 window.addEventListener('resize',()=>{fit();drawBuses();});
