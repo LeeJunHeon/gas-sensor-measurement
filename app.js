@@ -183,21 +183,27 @@
     simElapsed = 0;
   };
   window.cmdStop = function () {
+    if (window.flashHdrStatus) window.flashHdrStatus('정지됨', 'stop');
     if (send({ cmd: 'stop' })) return;
     localApply(m => { m.system.running = false; });
   };
   window.cmdPurge = function () {
+    if (window.flashHdrStatus) window.flashHdrStatus('퍼지 중', 'purge');
     if (send({ cmd: 'purge' })) return;
     window.logMsg('PURGE — 순수 Air로 라인 청소 (시뮬레이션)', 'info');
   };
   window.cmdExit = function () {
-    if (!window.confirm('프로그램을 종료하시겠습니까?')) return;
-    // 서버가 pywebview 창을 닫아 프로세스를 종료한다.
-    if (!send({ cmd: 'exit' })) {
-      window.logMsg('오프라인 — 서버에 연결되어야 종료할 수 있습니다', 'warn');
-      return;
-    }
-    window.logMsg('프로그램 종료 중...', 'warn');
+    // 브라우저 기본 confirm 대신 앱 내부 모달(window.confirmExit) 사용.
+    var doExit = function () {
+      // 서버가 pywebview 창을 닫아 프로세스를 종료한다.
+      if (!send({ cmd: 'exit' })) {
+        window.logMsg('오프라인 — 서버에 연결되어야 종료할 수 있습니다', 'warn');
+        return;
+      }
+      window.logMsg('프로그램 종료 중...', 'warn');
+    };
+    if (typeof window.confirmExit === 'function') window.confirmExit(doExit);
+    else if (window.confirm('프로그램을 종료하시겠습니까?')) doExit();   // 폴백
   };
   window.cmdApplySetup = function (channels, params) {
     if (send({ cmd: 'apply_setup', channels: channels, params: params })) return;

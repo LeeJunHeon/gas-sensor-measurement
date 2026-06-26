@@ -28,8 +28,15 @@
   header{height:56px;flex:0 0 auto;position:relative;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--line2);background:linear-gradient(180deg,#fbfcfe,#eaeef3)}
   .brand{display:flex;align-items:center;gap:11px}
   .brand .mark{width:34px;height:34px;border-radius:6px;display:grid;place-items:center;background:#1f3b73;color:#fff;font-weight:700;font-size:11px;letter-spacing:.5px}
-  .brand{flex:1;display:flex;align-items:center;justify-content:flex-start}
+  .brand{flex:0 0 auto;display:flex;align-items:center;justify-content:flex-start}
   .brand h1{font-size:19px;font-weight:700;letter-spacing:.2px;white-space:nowrap;color:#16202c}
+  /* 헤더 가운데 현재 상태 한 줄 표시 */
+  .hdrstatus{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px}
+  .hdrstatus .hdot{width:8px;height:8px;border-radius:50%;background:#9aa6b6;flex:0 0 auto}
+  .hdrstatus .htxt{font-size:13px;font-weight:600;color:#46536a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.2px}
+  .hdrstatus.run .hdot{background:var(--ok)} .hdrstatus.run .htxt{color:#176b35}
+  .hdrstatus.purge .hdot{background:#3a59c9} .hdrstatus.purge .htxt{color:#3450b8}
+  .hdrstatus.stop .hdot{background:var(--stop)} .hdrstatus.stop .htxt{color:#b22f35}
   .brand .sub{font-size:10px;color:var(--ink-faint);letter-spacing:.4px;margin-top:1px}
   .tabs{display:flex;gap:4px;margin-left:14px}
   .tab{padding:8px 16px;font-size:12.5px;font-weight:600;color:var(--ink-dim);background:transparent;border:1px solid transparent;border-radius:6px;cursor:pointer;white-space:nowrap}
@@ -77,8 +84,6 @@
   .procdockhead{flex:0 0 auto;display:flex;align-items:center;gap:10px;height:42px;padding:0 14px;border-bottom:1px solid var(--line2);background:var(--panelhead)}
   .procdockhead .pt{font-size:13px;font-weight:700;color:#1f2c3a;white-space:nowrap}
   .procdockhead .sp{flex:1}
-  .procdockhead .pop{border:1px solid var(--line2);background:#fff;border-radius:6px;padding:6px 11px;font-size:11.5px;font-weight:600;color:#2a3645;cursor:pointer;white-space:nowrap}
-  .procdockhead .pop:hover{background:#eef2f7;border-color:var(--primary)}
   .procdockhead .xclose{width:28px;height:28px;border:none;background:#e3e8ef;border-radius:6px;font-size:15px;color:#56627a;cursor:pointer;flex:0 0 auto}
   .procdockhead .xclose:hover{background:#d4dbe5}
   .procscroll{flex:1;min-height:0;overflow:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
@@ -225,6 +230,8 @@
   .modal-foot button{border:1px solid var(--line2);border-radius:6px;padding:8px 18px;font-size:12.5px;font-weight:600;cursor:pointer}
   .modal-foot .cancel{background:#fff;color:#2a3645}
   .modal-foot .apply{background:var(--primary);border-color:#2550bb;color:#fff}
+  .modal-foot .danger{background:#c5343a;border-color:#ad2e33;color:#fff}
+  .modal-foot .danger:hover{background:#b22f35;border-color:#9a2a2f}
   .railcard{border:1px solid var(--line2);border-radius:7px;background:#fff;padding:10px;margin-top:2px}
   .railcard h4{font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px;font-weight:700}
   .way{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:34px;box-sizing:border-box;font-size:11.5px;padding:0;border-radius:6px;border:1px solid var(--line);background:#f5f7fa;color:var(--ink-dim);cursor:pointer;font-weight:600}
@@ -333,7 +340,7 @@
       <div class="brand">
         <h1>Gas Sensor Measurement System</h1>
       </div>
-      <div class="topspacer" style="display:none"></div>
+      <div class="hdrstatus" id="hdrStatus"><span class="hdot"></span><span class="htxt">대기 중</span></div>
       <div class="stat"><span class="k">Active CH</span><span class="v mono" id="activeCh">5 / 8</span></div>
       <div class="divv"></div>
       <div class="stat"><span class="k">Total Flow</span><span class="v mono" id="totalFlow">1036 sccm</span></div>
@@ -382,7 +389,6 @@
         <div class="procdockhead">
           <span class="pt">Auto Process View</span>
           <span class="sp"></span>
-          <button class="pop" id="popOut">⧉ 새 창으로 분리</button>
           <button class="xclose" id="dockClose">✕</button>
         </div>
         <div class="procscroll">
@@ -534,6 +540,23 @@
         </div>
         <div class="modal-body">
           <div class="rpicklist" id="recipePickerList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exit confirm modal -->
+    <div class="modal-overlay" id="exitConfirm">
+      <div class="modal" style="width:380px">
+        <div class="modal-head">
+          <h2>프로그램 종료</h2>
+          <button class="x" id="exitConfirmClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size:13.5px;color:#2a3645;line-height:1.5">프로그램을 종료하시겠습니까?</p>
+        </div>
+        <div class="modal-foot">
+          <button class="cancel" id="exitConfirmCancel">취소</button>
+          <button class="danger" id="exitConfirmOk">종료</button>
         </div>
       </div>
     </div>
@@ -707,6 +730,23 @@ document.getElementById('closeSetup').addEventListener('click',closeSetup);
 document.getElementById('cancelSetup').addEventListener('click',closeSetup);
 document.getElementById('applySetup').addEventListener('click',applySetup);
 setupOverlay.addEventListener('click',e=>{if(e.target===setupOverlay)closeSetup();});
+
+/* ===== 프로그램 종료 확인 모달 (System Setup과 동일한 스타일) ===== */
+const exitOverlay=document.getElementById('exitConfirm');
+let _pendingExit=null;
+function closeExit(){ exitOverlay.classList.remove('on'); _pendingExit=null; }
+// app.js의 cmdExit가 window.confirm 대신 호출: 모달 "종료" 클릭 시 onConfirm 실행
+window.confirmExit=function(onConfirm){
+  if(!exitOverlay){ if(onConfirm) onConfirm(); return; }   // 모달 없으면 바로 진행(폴백)
+  _pendingExit=(typeof onConfirm==='function')?onConfirm:null;
+  exitOverlay.classList.add('on');
+};
+document.getElementById('exitConfirmClose').addEventListener('click',closeExit);
+document.getElementById('exitConfirmCancel').addEventListener('click',closeExit);
+exitOverlay.addEventListener('click',e=>{if(e.target===exitOverlay)closeExit();});
+document.getElementById('exitConfirmOk').addEventListener('click',()=>{
+  const fn=_pendingExit; closeExit(); if(fn) fn();
+});
 
 function updateSystem(){
   const act=channels.filter(c=>c.en).length;
@@ -959,25 +999,35 @@ dockToggle.addEventListener('click',()=>setDock(!viewsEl.classList.contains('doc
 document.getElementById('dockClose').addEventListener('click',()=>setDock(false));
 window.addEventListener('resize',()=>setTimeout(drawBuses,50));
 
-/* pop Auto Process into a separate window (dual-monitor) */
-document.getElementById('popOut').addEventListener('click',()=>{
-  const w=window.open('','autoProcess','width=860,height=900');
-  if(!w){alert('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해주세요.');return;}
-  const headHTML=document.head.innerHTML;
-  const panel=viewProc.querySelector('.procscroll').outerHTML;
-  w.document.write(`<!DOCTYPE html><html lang="ko"><head>${headHTML}<style>body{background:var(--bg);margin:0}.procscroll{height:100vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:10px}</style></head><body>${panel}</body></html>`);
-  w.document.close();
-  // collapse the dock locally since it's now in its own window
-  setDock(false);
-});
-
 /* ===================== run state ===================== */
 let running=false;
+/* 헤더 현재 상태 표시 — 지금은 running 기준. 추후 서버가 더 구체적인 상태 문자열을
+   내려주면 setHdrStatus()로 그대로 표시하도록 확장 가능. */
+let _hdrTransient=false, _hdrTimer=null;
+function setHdrStatus(text, kind){   // kind: 'idle' | 'run' | 'purge' | 'stop'
+  const e=document.getElementById('hdrStatus'); if(!e) return;
+  const t=e.querySelector('.htxt'); if(t) t.textContent=text;
+  e.classList.remove('run','purge','stop');
+  if(kind && kind!=='idle') e.classList.add(kind);
+}
+function refreshHdrStatus(){
+  if(_hdrTransient) return;   // 임시 표시(퍼지/정지) 유지 중이면 건드리지 않음
+  setHdrStatus(running?'자동 실행 중':'대기 중', running?'run':'idle');
+}
+// 퍼지/정지처럼 잠깐 보여줄 상태(기본 상태로 자동 복귀)
+window.flashHdrStatus=function(text, kind, ms){
+  _hdrTransient=true; setHdrStatus(text, kind);
+  clearTimeout(_hdrTimer);
+  _hdrTimer=setTimeout(()=>{ _hdrTransient=false; refreshHdrStatus(); }, ms||2500);
+};
+window.setHdrStatus=setHdrStatus;
 function uiSetRunning(on){
   running=on;
   const pill=document.getElementById('runpill');
   if(pill) pill.classList.toggle('idle',!on);
   const rt=document.getElementById('runtxt'); if(rt) rt.textContent=on?'AUTO RUN':'IDLE';
+  if(on){ _hdrTransient=false; clearTimeout(_hdrTimer); }  // 실행 시작은 즉시 반영
+  refreshHdrStatus();
 }
 document.querySelectorAll('.hbtn.run, .pbtn.runbig').forEach(b=>b.addEventListener('click',()=>window.cmdRun()));
 // AUTO STOP(푸터 신설) + 도크 AUTO STOP → 시퀀스 정지
