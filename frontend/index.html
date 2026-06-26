@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gas Sensor Measurement System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="stage">
+  <div id="app">
+    <header>
+      <div class="brand">
+        <h1>Gas Sensor Measurement System</h1>
+      </div>
+      <div class="hdrstatus" id="hdrStatus"><span class="hdot"></span><span class="htxt">대기 중</span></div>
+      <div class="stat"><span class="k">Active CH</span><span class="v mono" id="activeCh">5 / 8</span></div>
+      <div class="divv"></div>
+      <div class="stat"><span class="k">Total Flow</span><span class="v mono" id="totalFlow">1036 sccm</span></div>
+      <div class="divv"></div>
+      <div class="stat"><span class="k">Recipe</span><span class="v mono" id="hdrRecipe">—</span></div>
+      <div class="divv"></div>
+      <div class="stat"><span class="k">Elapsed</span><span class="v mono" id="clk">00:00:00</span></div>
+      <div class="divv"></div>
+      <div class="stat"><span class="k">Loop</span><span class="v mono" id="hdrLoop">0 / 7</span></div>
+      <div class="divv"></div>
+      <div class="runpill idle" id="runpill"><span class="dot"></span><span id="runtxt">IDLE</span></div>
+      <div class="runpill disc" id="connStatus" title="서버 연결 상태"><span class="dot"></span><span class="ctxt">연결 끊김</span></div>
+    </header>
+
+    <div class="views">
+      <!-- ================= SCHEMATIC ================= -->
+      <div class="view on" id="viewSchem">
+        <div class="flowwrap">
+          <div class="schem">
+            <svg id="wires" preserveAspectRatio="none"></svg>
+            <div class="airsupply" id="airsupply"><span class="albl">Air</span></div>
+            <div id="gaslabels"></div>
+            <div class="lanes" id="lanes"></div>
+            <div class="vc-control" id="vcControl">
+              <h4>4-Way Valve · VC</h4>
+              <div class="vc-btns">
+                <button class="way" data-out="vent">
+                  <svg width="14" height="14" viewBox="0 0 16 16"><path class="wic" d="M8 2v7 M5 6l3-3 3 3 M3.5 13h9"/></svg>Vent
+                </button>
+                <button class="way active" data-out="sensor">
+                  <svg width="14" height="14" viewBox="0 0 16 16"><rect class="wic" x="2.5" y="4" width="11" height="8" rx="1.5"/><path class="wic" d="M5 7h6 M5 9.5h4"/></svg>Sensor
+                </button>
+              </div>
+              <div class="rhbox"><span class="num" id="rh">—</span><span class="u">RH %</span></div>
+            </div>
+            <div class="logpanel" id="logPanel">
+              <div class="loghead" style="border-width: 0px 0px 1px"><span class="lh-title">System Log</span><button class="lh-clear" id="logClear">Clear</button></div>
+              <div class="logbody" id="logBody"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= AUTO PROCESS ================= -->
+      <div class="view" id="viewProc">
+        <div class="procdockhead">
+          <span class="pt">Auto Process View</span>
+          <span class="sp"></span>
+          <button class="xclose" id="dockClose">✕</button>
+        </div>
+        <div class="procscroll">
+        <div class="ptoolbar">
+          <button class="pbtn new" id="recNew">New</button>
+          <button class="pbtn open" id="recOpen">Open</button>
+          <button class="pbtn save" id="recSave">Save as</button>
+          <input class="recname mono" id="recname" value="" placeholder="레시피 이름">
+          <label class="chk"><input type="checkbox" id="useHumidity" checked>Humidity 사용</label>
+        </div>
+
+        <div class="ptablewrap">
+          <table class="rcp">
+            <thead>
+              <tr>
+                <th rowspan="2">Process</th>
+                <th rowspan="2">Gas Flow<br>(sccm)</th>
+                <th rowspan="2" class="humcol">Humidity<br>(%)</th>
+                <th colspan="4" class="grp">측정 MFC 농도 (ppm) <span style="font-weight:500;color:#5a6678">— 괄호=봄베 농도</span></th>
+                <th rowspan="2">준비<br>(s)</th>
+                <th rowspan="2">측정<br>(s)</th>
+                <th rowspan="2">4-way</th>
+                <th rowspan="2">반복</th>
+                <th rowspan="2"></th>
+              </tr>
+              <tr>
+                <th><div class="gcell"><span class="glabel">G1</span><span class="bottle">(<input id="b0" value="">)</span></div></th>
+                <th><div class="gcell"><span class="glabel">G2</span><span class="bottle">(<input id="b1" value="">)</span></div></th>
+                <th><div class="gcell"><span class="glabel">G3</span><span class="bottle">(<input id="b2" value="">)</span></div></th>
+                <th><div class="gcell"><span class="glabel">G4</span><span class="bottle">(<input id="b3" value="">)</span></div></th>
+              </tr>
+            </thead>
+            <tbody id="recipeBody"></tbody>
+          </table>
+        </div>
+        <div class="addrow">
+          <button class="addbtn" id="addProc">+ Add Process</button>
+          <span style="font-size:10.5px;color:var(--ink-faint)">행을 추가하면 P 번호가 자동 부여됩니다. 셀을 클릭해 값을 편집하세요.</span>
+        </div>
+
+        <div class="pgrid">
+          <!-- Recipe loop + voltage -->
+          <div class="pcard">
+            <div class="h"><span class="dotk"></span>Recipe Loop &amp; Voltage Control</div>
+            <div class="b">
+              <div class="frow"><label>Loop Count (전체 반복)</label><input class="fin" id="loopCount" value="1"></div>
+              <div class="frow"><label>Active Time</label><input class="fin" id="activeTime" value="0" readonly></div>
+              <div class="frow"><label>Active Number</label><input class="fin" id="activeNum" value="0" readonly></div>
+              <div class="frow"><label>Interval (sec)</label><input class="fin" id="loopInterval" value="1"></div>
+              <div style="height:1px;background:var(--line);margin:2px 0"></div>
+              <div class="modesel">
+                <label class="moderad"><input type="radio" name="vmode" checked>Recipe 모드</label>
+                <label class="moderad"><input type="radio" name="vmode">전압(Voltage) 모드</label>
+              </div>
+              <div class="frow"><label>Start 전압 (V)</label><input class="fin sv" id="vStart" value="0"></div>
+              <div class="frow"><label>End 전압 (V)</label><input class="fin sv" id="vEnd" value="0"></div>
+              <div class="frow"><label>Step 전압 (V)</label><input class="fin sv" id="vStep" value="0"></div>
+            </div>
+          </div>
+
+          <!-- measurement -->
+          <div class="pcard">
+            <div class="h"><span class="dotk" style="background:var(--pv)"></span>Measurement / Graph</div>
+            <div class="b">
+              <div class="frow"><label>측정 CH 범위</label><span class="chrange"><input class="fin" id="chFrom" value="1"><span style="color:var(--ink-faint)">~</span><input class="fin" id="chTo" value="1"></span></div>
+              <div class="frow"><label>Graph Interval (sec)</label><input class="fin" id="grafInt" value="1"></div>
+              <div class="frow"><label>Graph File</label><span style="display:flex;gap:6px"><button class="pbtn ghost" style="padding:5px 11px">New</button><button class="pbtn open" style="padding:5px 11px">Open</button></span></div>
+              <input class="recname mono" style="flex:none" id="grafFile" value="" placeholder="그래프 파일 이름">
+              <div style="height:1px;background:var(--line);margin:2px 0"></div>
+              <div class="frow"><label style="font-weight:700;color:var(--mix)">RH (%) 현재값</label><span class="mono" id="rhProc" style="font-weight:700;color:var(--mix);font-size:15px">—</span></div>
+            </div>
+          </div>
+
+          <!-- SMU + run -->
+          <div class="pcard">
+            <div class="h"><span class="dotk" style="background:var(--sv)"></span>SMU Control</div>
+            <div class="b">
+              <div class="frow col"><label>Select Mode</label>
+                <select class="fsel" id="smuMode">
+                  <option>Source V, Measure I</option>
+                  <option>Source I, Measure V</option>
+                </select>
+              </div>
+              <div class="frow"><label>Source Value (V)</label><input class="fin sv" id="smuSrc" value="0"></div>
+              <div class="frow"><label>Compliance (mA)</label><input class="fin" id="smuComp" value="1.0"></div>
+              <div class="frow"><label style="font-weight:700">Measure Value</label></div>
+              <div class="measbox" id="measVal">—</div>
+              <div class="runrow">
+                <button class="pbtn runbig">AUTO RUN</button>
+                <button class="pbtn stopbig">AUTO STOP</button>
+              </div>
+              <div class="runrow">
+                <button class="pbtn exit">EXIT</button>
+                <button class="pbtn graf">Graph View</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div><!-- /.procscroll -->
+      </div>
+    </div>
+
+    <footer class="appfoot">
+      <button class="hbtn run">AUTO RUN</button>
+      <button class="hbtn stop">AUTO STOP</button>
+      <button class="hbtn purge">PURGE</button>
+      <button class="hbtn setup" id="openSetup">⚙ System Setup</button>
+      <div class="footspace"></div>
+      <button class="dock-toggle" id="dockToggle">Auto Process View ▸</button>
+      <button class="hbtn end" id="programEnd" title="프로그램 종료">⏻ PROGRAM END</button>
+    </footer>
+
+    <!-- System Setup modal -->
+    <div class="modal-overlay" id="setupOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>⚙ System Setup — 채널 &amp; 파라미터</h2>
+          <button class="x" id="closeSetup">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="setup-sec">채널 구성 (MFC)</div>
+          <table class="setup">
+            <thead><tr><th>CH</th><th>사용</th><th>그룹</th><th>MAX (sccm)</th><th>SV (sccm)</th></tr></thead>
+            <tbody id="setupRows"></tbody>
+          </table>
+          <div class="setup-sec">측정 / 시스템 파라미터</div>
+          <div class="setup-grid">
+            <div class="setup-field"><label>Start 전압 (V)</label><input id="setVStart" value="0"></div>
+            <div class="setup-field"><label>End 전압 (V)</label><input id="setVEnd" value="0"></div>
+            <div class="setup-field"><label>Graph Interval (sec)</label><input id="setGraf" value="1"></div>
+            <div class="setup-field"><label>Loop Count</label><input id="setLoop" value="1"></div>
+            <div class="setup-field"><label>SMU Compliance (mA)</label><input id="setComp" value="1.0"></div>
+            <div class="setup-field"><label>목표 습도 RH (%)</label><input id="setRH" value="40"></div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="cancel" id="cancelSetup">취소</button>
+          <button class="apply" id="applySetup">적용</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recipe picker modal (Open) -->
+    <div class="modal-overlay" id="recipePicker">
+      <div class="modal" style="width:420px">
+        <div class="modal-head">
+          <h2>레시피 열기</h2>
+          <button class="x" id="recipePickerClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="rpicklist" id="recipePickerList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exit confirm modal -->
+    <div class="modal-overlay" id="exitConfirm">
+      <div class="modal" style="width:380px">
+        <div class="modal-head">
+          <h2>프로그램 종료</h2>
+          <button class="x" id="exitConfirmClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size:13.5px;color:#2a3645;line-height:1.5">프로그램을 종료하시겠습니까?</p>
+        </div>
+        <div class="modal-foot">
+          <button class="cancel" id="exitConfirmCancel">취소</button>
+          <button class="danger" id="exitConfirmOk">종료</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="js/schematic.js"></script>
+<script src="js/recipe.js"></script>
+<script src="js/core.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

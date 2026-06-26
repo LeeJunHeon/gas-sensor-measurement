@@ -6,9 +6,15 @@
 - 통신 방식: WebSocket(양방향 실시간), 메시지는 JSON.
 
 ## 1. 역할 분담
-- index.html : 화면 그리기 전담. channels·procs 상태 배열 + 렌더 함수만. 서버를 모름.
-- app.js : 서버 연결, 명령 전송, 측정값 수신 → 화면 반영. 서버 끊기면 시뮬레이션 대체.
-- server.py : 화면 명령 수신 → (1단계는 시뮬레이션) 상태 갱신 → 측정값 주기적 전송.
+- 화면 = `frontend/` (index.html + css/style.css + js/) : 화면 그리기 전담. 서버를 모름.
+  - js/schematic.js : 배관도(channels/밸브) 렌더 + drawBuses
+  - js/recipe.js : 레시피 표(procs) + System Setup 모달
+  - js/core.js : 헤더/상태/로그, 서버상태 반영(applyState/applyTelemetry), fit/도크/종료모달, 전역 노출, 초기화
+  - js/app.js : 서버 연결, 명령 전송, 측정값 수신 → 화면 반영. 서버 끊기면 시뮬레이션 대체.
+- 서버 = `backend/` : 화면 명령 수신 → (1단계는 시뮬레이션) 상태 갱신 → 측정값 주기적 전송.
+  - server.py(진입점) · state.py(상태+config) · commands.py(명령) · storage.py(파일) · simulation.py(시뮬) · connection.py(연결)
+
+> 논리적 약속(아래 DOM 표식·전역 함수·메시지)은 파일이 어떻게 나뉘든 그대로 유효하다.
 
 ## 2. 핵심 원칙
 - 서버가 상태의 주인. 사용자 동작은 "요청"이며, 서버가 돌려준 상태가 와야 화면에 반영된다.
@@ -143,7 +149,7 @@
 레시피: [data-f="키-i"] [data-g="i-gi"] [data-way="i"] [data-rep="i"] [data-del="i"] #addProc
 ```
 
-### 5.2 전역 함수/상태 (index.html이 제공)
+### 5.2 전역 함수/상태 (화면 js가 window.*로 제공 — schematic/recipe/core.js)
 ```
 window.channels / window.procs        상태 배열
 renderLanes()      배관도 재렌더        renderRecipe()   레시피 표 재렌더
