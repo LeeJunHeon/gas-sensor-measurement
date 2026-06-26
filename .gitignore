@@ -1,8 +1,14 @@
-﻿__pycache__/
+# Python
+__pycache__/
 *.pyc
 .venv/
 venv/
 .env
+
+# Atomic-write temp files
+*.tmp
+
+# Editors / OS
 .vscode/
 .idea/
 .DS_Store

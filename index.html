@@ -46,6 +46,16 @@
   .runpill .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
   .runpill.idle{background:#fdeee9;border-color:#f0c9bb;color:#b14a2a}
   .runpill.idle .dot{background:#d9743f}
+  /* connection status pill */
+  .runpill.conn{background:#e6f4ea;border-color:#b6dcc2;color:#176b35}
+  .runpill.conn .dot{background:var(--ok)}
+  .runpill.disc{background:#eceff3;border-color:#cdd5e0;color:#56627a}
+  .runpill.disc .dot{background:#9aa6b6}
+  /* recipe picker list */
+  .rpicklist{display:flex;flex-direction:column;gap:6px;min-width:320px}
+  .rpickitem{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border:1px solid var(--line2);border-radius:6px;background:#fff;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#2a3645}
+  .rpickitem:hover{background:#eef2fb;border-color:var(--primary)}
+  .rpickempty{padding:18px;text-align:center;color:var(--ink-faint);font-size:12px}
   /* header control buttons (moved from right rail) */
   .hdrbtns{display:flex;gap:6px;margin-left:12px}
   .appfoot{flex:0 0 auto;height:52px;display:flex;align-items:center;gap:8px;padding:0 18px;border-top:1px solid var(--line2);background:linear-gradient(180deg,#eef2f6,#e3e8ee)}
@@ -321,13 +331,14 @@
       <div class="divv"></div>
       <div class="stat"><span class="k">Total Flow</span><span class="v mono" id="totalFlow">1036 sccm</span></div>
       <div class="divv"></div>
-      <div class="stat"><span class="k">Recipe</span><span class="v mono" id="hdrRecipe">recipe_NO2_humidity</span></div>
+      <div class="stat"><span class="k">Recipe</span><span class="v mono" id="hdrRecipe">—</span></div>
       <div class="divv"></div>
       <div class="stat"><span class="k">Elapsed</span><span class="v mono" id="clk">00:00:00</span></div>
       <div class="divv"></div>
       <div class="stat"><span class="k">Loop</span><span class="v mono" id="hdrLoop">0 / 7</span></div>
       <div class="divv"></div>
       <div class="runpill idle" id="runpill"><span class="dot"></span><span id="runtxt">IDLE</span></div>
+      <div class="runpill disc" id="connStatus" title="서버 연결 상태"><span class="dot"></span><span class="ctxt">연결 끊김</span></div>
     </header>
 
     <div class="views">
@@ -369,10 +380,10 @@
         </div>
         <div class="procscroll">
         <div class="ptoolbar">
-          <button class="pbtn new">New</button>
-          <button class="pbtn open">Open</button>
-          <button class="pbtn save">Save as</button>
-          <input class="recname mono" id="recname" value="260107 recipe_NO2_humidity">
+          <button class="pbtn new" id="recNew">New</button>
+          <button class="pbtn open" id="recOpen">Open</button>
+          <button class="pbtn save" id="recSave">Save as</button>
+          <input class="recname mono" id="recname" value="" placeholder="레시피 이름">
           <label class="chk"><input type="checkbox" id="useHumidity" checked>Humidity 사용</label>
         </div>
 
@@ -427,11 +438,11 @@
 
           <!-- measurement -->
           <div class="pcard">
-            <div class="h"><span class="dotk" style="background:var(--pv)"></span>Measurement / Graf</div>
+            <div class="h"><span class="dotk" style="background:var(--pv)"></span>Measurement / Graph</div>
             <div class="b">
               <div class="frow"><label>측정 CH 범위</label><span class="chrange"><input class="fin" id="chFrom" value="1"><span style="color:var(--ink-faint)">~</span><input class="fin" id="chTo" value="1"></span></div>
-              <div class="frow"><label>Graf Interval (sec)</label><input class="fin" id="grafInt" value="1"></div>
-              <div class="frow"><label>Graf File</label><span style="display:flex;gap:6px"><button class="pbtn ghost" style="padding:5px 11px">New</button><button class="pbtn open" style="padding:5px 11px">Open</button></span></div>
+              <div class="frow"><label>Graph Interval (sec)</label><input class="fin" id="grafInt" value="1"></div>
+              <div class="frow"><label>Graph File</label><span style="display:flex;gap:6px"><button class="pbtn ghost" style="padding:5px 11px">New</button><button class="pbtn open" style="padding:5px 11px">Open</button></span></div>
               <input class="recname mono" style="flex:none" id="grafFile" value="260107 Au_NPMF_NO2_H2S_NO2 humidity">
               <div style="height:1px;background:var(--line);margin:2px 0"></div>
               <div class="frow"><label style="font-weight:700;color:var(--mix)">RH (%) 현재값</label><span class="mono" id="rhProc" style="font-weight:700;color:var(--mix);font-size:15px">40.0</span></div>
@@ -458,7 +469,7 @@
               </div>
               <div class="runrow">
                 <button class="pbtn exit">EXIT</button>
-                <button class="pbtn graf">Graf View</button>
+                <button class="pbtn graf">Graph View</button>
               </div>
             </div>
           </div>
@@ -493,7 +504,7 @@
           <div class="setup-grid">
             <div class="setup-field"><label>Start 전압 (V)</label><input id="setVStart" value="0.5"></div>
             <div class="setup-field"><label>End 전압 (V)</label><input id="setVEnd" value="0.0"></div>
-            <div class="setup-field"><label>Graf Interval (sec)</label><input id="setGraf" value="1"></div>
+            <div class="setup-field"><label>Graph Interval (sec)</label><input id="setGraf" value="1"></div>
             <div class="setup-field"><label>Loop Count</label><input id="setLoop" value="7"></div>
             <div class="setup-field"><label>SMU Compliance (mA)</label><input id="setComp" value="1.0"></div>
             <div class="setup-field"><label>목표 습도 RH (%)</label><input id="setRH" value="40"></div>
@@ -506,34 +517,52 @@
       </div>
     </div>
 
+    <!-- Recipe picker modal (Open) -->
+    <div class="modal-overlay" id="recipePicker">
+      <div class="modal" style="width:420px">
+        <div class="modal-head">
+          <h2>레시피 열기</h2>
+          <button class="x" id="recipePickerClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="rpicklist" id="recipePickerList"></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
 <script>
 /* ===================== channel model ===================== */
+// 초기값은 모두 0 / 비어 있음. 실제 값은 서버 state(또는 config 로드)가 채운다.
 let channels = [
-  {grp:'air', route:'pure', max:2000, sv:0, pv:21, en:true},
-  {grp:'air', route:'pure', max:2000, sv:0, pv:10, en:true},
-  {grp:'air', route:'mix',  max:2000, sv:0, pv:5,  en:true},
-  {grp:'air', route:'mix',  max:2000, sv:0, pv:1,  en:true},
-  {grp:'gas', route:'mix',  max:2000, sv:5, pv:5,  en:true},
-  {grp:'gas', route:'mix',  max:200,  sv:0, pv:0,  en:false},
-  {grp:'gas', route:'mix',  max:200,  sv:0, pv:0,  en:false},
-  {grp:'gas', route:'mix',  max:100,  sv:0, pv:0,  en:false},
+  {grp:'air', route:'pure', max:2000, sv:0, pv:0, en:true},
+  {grp:'air', route:'pure', max:2000, sv:0, pv:0, en:true},
+  {grp:'air', route:'mix',  max:2000, sv:0, pv:0, en:true},
+  {grp:'air', route:'mix',  max:2000, sv:0, pv:0, en:true},
+  {grp:'gas', route:'mix',  max:2000, sv:0, pv:0, en:true},
+  {grp:'gas', route:'mix',  max:200,  sv:0, pv:0, en:false},
+  {grp:'gas', route:'mix',  max:200,  sv:0, pv:0, en:false},
+  {grp:'gas', route:'mix',  max:100,  sv:0, pv:0, en:false},
 ];
-// derive id/label/color from position + group
-function relabel(){
-  // keep same-group channels contiguous so manifolds stay clean:
-  // pure-air → mix-air → gas (stable sort preserves order within a group)
-  const rank=c=> c.grp==='gas' ? 2 : (c.route==='pure' ? 0 : 1);
-  channels.sort((a,b)=>rank(a)-rank(b));
+// derive display fields (label/color/sub) from group — does NOT reorder.
+// 서버가 채널 인덱스/순서/id의 주인이므로 화면은 받은 순서를 그대로 쓴다.
+function deriveDisplay(){
   let gasN=0;
   channels.forEach((c,i)=>{
-    c.id='VA'+(i+1);
+    if(!c.id) c.id='VA'+(i+1);
     c.color = c.grp==='gas' ? 'var(--g1)' : 'var(--air)';
     if(c.grp==='gas'){ gasN++; c.label='Gas '+gasN; c.sub=''; }
     else { c.label='Air'; c.sub = c.route==='pure'?'순수 (pure)':'혼합 (mix)'; }
   });
+}
+// 초기 로컬 기본값만 그룹 순으로 정렬(서버 연결 전 한 번). 서버 state 반영 시엔 정렬하지 않는다.
+function relabel(){
+  const rank=c=> c.grp==='gas' ? 2 : (c.route==='pure' ? 0 : 1);
+  channels.sort((a,b)=>rank(a)-rank(b));
+  channels.forEach((c,i)=>{ c.id='VA'+(i+1); });
+  deriveDisplay();
 }
 relabel();
 channels.forEach(c=>{c.valveIn=c.en;c.valveOut=c.en;});
@@ -588,35 +617,23 @@ function renderLanes(){
 }
 
 function bindLaneEvents(){
+  // \uc0ac\uc6a9\uc790 \ub3d9\uc791 = \uc694\uccad. \uc9c1\uc811 \uc0c1\ud0dc\ub97c \ubc14\uafb8\uc9c0 \uc54a\uace0 app.js \uba85\ub839 \ud568\uc218\ub85c \ubcf4\ub0b8\ub2e4.
+  // \ud654\uba74\uc740 \uc11c\ubc84 state(\ub610\ub294 \ub04a\uae40 \uc2dc \uc2dc\ubbac\ub808\uc774\uc158 \ub300\uccb4)\uac00 \uc640\uc57c \uac31\uc2e0\ub41c\ub2e4.
   document.querySelectorAll('[data-max]').forEach(inp=>inp.addEventListener('change',e=>{
-    channels[+e.target.dataset.max].max=+e.target.value||0; updateSystem();
+    window.cmdSetMax(+e.target.dataset.max, +e.target.value||0);
   }));
   document.querySelectorAll('[data-sv]').forEach(inp=>inp.addEventListener('change',e=>{
-    const i=+e.target.dataset.sv; channels[i].sv=+e.target.value||0; updateSystem();
+    window.cmdSetSv(+e.target.dataset.sv, +e.target.value||0);
   }));
   document.querySelectorAll('[data-v]').forEach(v=>v.addEventListener('click',()=>{
     const [idxStr,side]=v.dataset.v.split('-'); const idx=+idxStr; const c=channels[idx];
-    if(!c.en) return;   // disabled channel: valves locked
-    v.classList.toggle('open'); v.classList.toggle('closed');
-    if(side==='in') c.valveIn=v.classList.contains('open');
-    else c.valveOut=v.classList.contains('open');
-    const _open=v.classList.contains('open');
-    logMsg(`${c.id} ${side==='in'?'MFC':'SOL'} \ubc38\ube0c ${_open?'\uc5f4\ub9bc':'\ub2eb\ud798'}`, _open?'ok':'warn');
-    const laneEl=v.closest('.lane');
-    // pre: always on; mid: VA open; post: VA AND SOL open
-    laneEl.querySelectorAll('[data-seg=pre]').forEach(p=>{p.classList.toggle('on',c.en);});
-    laneEl.querySelectorAll('[data-seg=mid]').forEach(p=>{p.classList.toggle('on',c.en&&c.valveIn);});
-    laneEl.querySelector('.n-mfc')?.classList.toggle('on',c.en&&c.valveIn);
-    laneEl.querySelectorAll('[data-seg=post]').forEach(p=>{p.classList.toggle('on',c.en&&c.valveIn&&c.valveOut);});
-    laneEl.classList.toggle('lit',c.valveIn&&c.valveOut);
-    drawBuses();
+    if(!c||!c.en) return;   // disabled channel: valves locked
+    const cur = side==='in' ? c.valveIn : c.valveOut;
+    window.cmdSetValve(idx, side, !cur);
   }));
 }
 document.querySelectorAll('.way').forEach(w=>w.addEventListener('click',()=>{
-  document.querySelectorAll('.way').forEach(x=>x.classList.remove('active')); w.classList.add('active');
-  routeOut=w.dataset.out||'sensor';
-  drawBuses();
-  logMsg('4-Way \uc804\ud658 \u2192 '+(routeOut==='vent'?'Vent (\ubc30\uae30)':'Sensor (\uce21\uc815)'), 'info');
+  window.cmdSet4way(w.dataset.out||'sensor');
 }));
 
 /* ===== System Setup modal ===== */
@@ -647,25 +664,32 @@ function buildSetupRows(){
 }
 function openSetup(){ buildSetupRows(); setupOverlay.classList.add('on'); }
 function closeSetup(){ setupOverlay.classList.remove('on'); }
-function applySetup(){
+// 설정 모달의 입력을 읽어 명령 페이로드로 변환(서버 INTERFACE 4.2 apply_setup 형식).
+function collectSetup(){
+  const chans=[];
   channels.forEach((c,i)=>{
-    const en=document.querySelector(`[data-sen="${i}"]`).checked;
-    const gv=document.querySelector(`[data-sgrp="${i}"]`).value;
-    const mx=parseFloat(document.querySelector(`[data-smax="${i}"]`).value)||0;
-    const sv=parseFloat(document.querySelector(`[data-ssv="${i}"]`).value)||0;
-    const wasEn=c.en;
-    c.en=en; c.max=mx; c.sv=sv;
-    // preserve valve states; only (re)open valves when a channel is newly enabled,
-    // and close them when disabled
-    if(en && !wasEn){ c.valveIn=true; c.valveOut=true; }
-    else if(!en){ c.valveIn=false; c.valveOut=false; }
-    // (en && wasEn) → keep existing valveIn/valveOut as-is
-    if(gv==='gas'){c.grp='gas';c.route='mix';}
-    else if(gv==='pure-air'){c.grp='air';c.route='pure';}
-    else {c.grp='air';c.route='mix';}
+    const enEl=document.querySelector(`[data-sen="${i}"]`);
+    const gvEl=document.querySelector(`[data-sgrp="${i}"]`);
+    const mxEl=document.querySelector(`[data-smax="${i}"]`);
+    const svEl=document.querySelector(`[data-ssv="${i}"]`);
+    if(!enEl||!gvEl||!mxEl||!svEl) return;
+    const gv=gvEl.value;
+    let grp='air', route='pure';
+    if(gv==='gas'){grp='gas';route='mix';}
+    else if(gv==='mix-air'){grp='air';route='mix';}
+    else {grp='air';route='pure';}
+    chans.push({ch:i, en:enEl.checked, grp, route,
+      max:parseFloat(mxEl.value)||0, sv:parseFloat(svEl.value)||0});
   });
-  relabel(); renderLanes();
-  // sync a few process params if present
+  const num=id=>parseFloat(document.getElementById(id)?.value)||0;
+  const params={vStart:num('setVStart'), vEnd:num('setVEnd'),
+    grafInterval:num('setGraf'), smuCompliance:num('setComp')};
+  return {channels:chans, params};
+}
+function applySetup(){
+  const {channels:chans, params}=collectSetup();
+  window.cmdApplySetup(chans, params);
+  // sync a few process params into the Auto Process panel inputs for immediate feedback
   const set=(id,el)=>{const a=document.getElementById(id),b=document.getElementById(el);if(a&&b)b.value=a.value;};
   set('setVStart','vStart'); set('setVEnd','vEnd'); set('setGraf','grafInt'); set('setLoop','loopCount'); set('setComp','smuComp');
   closeSetup();
@@ -836,15 +860,8 @@ function drawBuses(){
 }
 
 /* ===================== recipe data ===================== */
-let procs=[
-  {flow:1000, rh:40, g:[5,0,0,0], prep:3600, meas:300, way:'sensor', rep:false},
-  {flow:1000, rh:40, g:[5,0,0,0], prep:600,  meas:300, way:'sensor', rep:false},
-  {flow:1000, rh:40, g:[5,0,5,0], prep:600,  meas:300, way:'sensor', rep:false},
-  {flow:1000, rh:40, g:[0,0,5,0], prep:600,  meas:300, way:'sensor', rep:false},
-  {flow:1000, rh:40, g:[0,0,0,5], prep:2400, meas:300, way:'vent',   rep:false},
-  {flow:1000, rh:40, g:[0,0,0,0], prep:600,  meas:300, way:'sensor', rep:false},
-  {flow:1000, rh:40, g:[5,0,0,0], prep:600,  meas:300, way:'sensor', rep:true},
-];
+// 시작은 빈 레시피. 서버 state(recipe_load 등)로 채워진다.
+let procs=[];
 const recipeBody=document.getElementById('recipeBody');
 
 function renderRecipe(){
@@ -884,9 +901,36 @@ function bindRecipe(){
   recipeBody.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{procs.splice(+e.target.dataset.del,1);renderRecipe();}));
 }
 document.getElementById('addProc').addEventListener('click',()=>{
+  // 표 편집은 로컬 초안(draft). 저장(Save as) 시 서버로 레시피 전체를 보낸다.
   procs.push({flow:1000, rh:40, g:[0,0,0,0], prep:600, meas:300, way:'sensor', rep:false}); renderRecipe();
 });
 document.getElementById('useHumidity').addEventListener('change',renderRecipe);
+
+/* 레시피 New/Open/Save as → app.js 명령 */
+document.getElementById('recNew')?.addEventListener('click',()=>window.cmdRecipeNew());
+document.getElementById('recOpen')?.addEventListener('click',()=>window.cmdRecipeList());
+document.getElementById('recSave')?.addEventListener('click',()=>{
+  const r=collectRecipe();
+  if(!r.name){ logMsg('레시피 이름을 입력하세요','warn'); return; }
+  window.cmdRecipeSave(r.name, r, false);
+});
+
+/* 현재 화면의 레시피 초안을 INTERFACE 3.3 형식으로 수집 */
+function collectRecipe(){
+  const name=(document.getElementById('recname').value||'').trim();
+  const useHumidity=document.getElementById('useHumidity').checked;
+  const loopCount=+(document.getElementById('loopCount')?.value)||0;
+  const num=id=>parseFloat(document.getElementById(id)?.value)||0;
+  const params={
+    vStart:num('vStart'), vEnd:num('vEnd'), vStep:num('vStep'),
+    grafInterval:num('grafInt'),
+    smuMode:document.getElementById('smuMode')?.value||'Source V, Measure I',
+    smuSource:num('smuSrc'), smuCompliance:num('smuComp'),
+    chFrom:num('chFrom'), chTo:num('chTo'),
+  };
+  return {name, useHumidity, loopCount,
+    procs:procs.map(p=>Object.assign({},p,{g:(p.g||[0,0,0,0]).slice()})), params};
+}
 
 /* ===================== Auto Process dock ===================== */
 const viewProc=document.getElementById('viewProc');
@@ -923,20 +967,18 @@ document.getElementById('popOut').addEventListener('click',()=>{
   setDock(false);
 });
 
-/* ===================== run state + sim ===================== */
-let running=false, t=0;
-function setRun(on){
+/* ===================== run state ===================== */
+let running=false;
+function uiSetRunning(on){
   running=on;
   const pill=document.getElementById('runpill');
-  pill.classList.toggle('idle',!on);
-  document.getElementById('runtxt').textContent=on?'AUTO RUN':'IDLE';
-  document.getElementById('hdrLoop').textContent=on?'3 / '+(document.getElementById('loopCount').value||7):'0 / '+(document.getElementById('loopCount').value||7);
-  logMsg(on?'AUTO RUN \uc2dc\uc791 \u2014 \ub808\uc2dc\ud53c \uc2e4\ud589':'PROGRAM END \u2014 \uc2dc\ud000\uc2a4 \uc815\uc9c0', on?'ok':'warn');
+  if(pill) pill.classList.toggle('idle',!on);
+  const rt=document.getElementById('runtxt'); if(rt) rt.textContent=on?'AUTO RUN':'IDLE';
 }
-document.querySelectorAll('.hbtn.run, .pbtn.runbig').forEach(b=>b.addEventListener('click',()=>setRun(true)));
-document.querySelectorAll('.hbtn.end, .pbtn.stopbig').forEach(b=>b.addEventListener('click',()=>setRun(false)));
-document.querySelector('.hbtn.purge')?.addEventListener('click',()=>logMsg('PURGE \u2014 \uc21c\uc218 Air\ub85c \ub77c\uc778 \uccad\uc18c','info'));
-document.getElementById('recname').addEventListener('change',e=>{document.getElementById('hdrRecipe').textContent=e.target.value.split(' ').pop();});
+document.querySelectorAll('.hbtn.run, .pbtn.runbig').forEach(b=>b.addEventListener('click',()=>window.cmdRun()));
+document.querySelectorAll('.hbtn.end, .pbtn.stopbig').forEach(b=>b.addEventListener('click',()=>window.cmdStop()));
+document.querySelector('.hbtn.purge')?.addEventListener('click',()=>window.cmdPurge());
+document.getElementById('recname').addEventListener('change',e=>{document.getElementById('hdrRecipe').textContent=(e.target.value||'').trim()||'\u2014';});
 
 /* ===================== system log ===================== */
 function logMsg(msg, level){
@@ -952,26 +994,82 @@ function logMsg(msg, level){
   body.scrollTop=body.scrollHeight;
 }
 document.getElementById('logClear')?.addEventListener('click',()=>{document.getElementById('logBody').innerHTML='';logMsg('\ub85c\uadf8 \uc9c0\uc6c0','info');});
-logMsg('\uc2dc\uc2a4\ud15c \ucd08\uae30\ud654 \uc644\ub8cc \u00b7 PMC4000 / SMU \uc5f0\uacb0\ub428','ok');
+logMsg('\ud654\uba74 \uc900\ube44 \uc644\ub8cc \u2014 \uc11c\ubc84 \uc5f0\uacb0 \ub300\uae30','info');
+// \uce21\uc815\uac12 \uc2dc\ubbac\ub808\uc774\uc158\uc740 \ub354 \uc774\uc0c1 \ud654\uba74\uc5d0 \ub450\uc9c0 \uc54a\ub294\ub2e4.
+// \uc5f0\uacb0 \uc2dc: \uc11c\ubc84\uac00 telemetry\ub97c push. \ub04a\uae40 \uc2dc: app.js\uac00 \uc2dc\ubbac\ub808\uc774\uc158\uc73c\ub85c \ub300\uccb4\ud55c\ub2e4.
 
-function jit(b,a,d){return (b+(Math.random()-.5)*a).toFixed(d);}
-setInterval(()=>{
-  channels.forEach((c,i)=>{
-    if(!c.en) return; const el=document.querySelector(`[data-pv="${i}"]`); if(!el) return;
-    const base=running?Math.max(c.pv,c.sv):c.pv;
-    el.textContent=jit(base, base>0?1.6:0.4, dec(c));
-  });
-  const rh=jit(40,0.8,1);
-  document.getElementById('rh').textContent=rh;
-  const rhp=document.getElementById('rhProc'); if(rhp) rhp.textContent=rh;
-  document.getElementById('measVal').textContent=`+${(1.16398+(Math.random()-.5)*0.04).toFixed(5)}E-05`;
-  updateSystem();
-},900);
-setInterval(()=>{
-  if(running)t++;
-  const h=String(Math.floor(t/3600)).padStart(2,'0'),m=String(Math.floor(t%3600/60)).padStart(2,'0'),s=String(t%60).padStart(2,'0');
-  document.getElementById('clk').textContent=`${h}:${m}:${s}`;
-},1000);
+/* ===================== \uc11c\ubc84 \uc5f0\ub3d9 \ube0c\ub9ac\uc9c0 (app.js\uac00 \ud638\ucd9c) ===================== */
+function fmtElapsed(sec){
+  sec=Math.max(0,Math.floor(sec||0));
+  const h=String(Math.floor(sec/3600)).padStart(2,'0');
+  const m=String(Math.floor(sec%3600/60)).padStart(2,'0');
+  const s=String(sec%60).padStart(2,'0');
+  return `${h}:${m}:${s}`;
+}
+function applyParams(p){
+  if(!p) return;
+  const set=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null) e.value=v;};
+  set('vStart',p.vStart); set('vEnd',p.vEnd); set('vStep',p.vStep);
+  set('grafInt',p.grafInterval); set('smuSrc',p.smuSource); set('smuComp',p.smuCompliance);
+  set('chFrom',p.chFrom); set('chTo',p.chTo);
+  const sm=document.getElementById('smuMode'); if(sm&&p.smuMode) sm.value=p.smuMode;
+}
+// \uc11c\ubc84 state \uba54\uc2dc\uc9c0 \u2192 \ub0b4\ubd80 \uc0c1\ud0dc \ubc18\uc601 \ud6c4 \uc7ac\ub80c\ub354
+function applyState(s){
+  if(!s) return;
+  if(s.channels){
+    channels.length=0;
+    s.channels.forEach(c=>channels.push(Object.assign({}, c)));
+    deriveDisplay();   // 정렬 없이 표시 필드만 derive (서버 인덱스 유지)
+  }
+  if(s.recipe){
+    procs.length=0;
+    (s.recipe.procs||[]).forEach(p=>procs.push(Object.assign({}, p, {g:(p.g||[0,0,0,0]).slice()})));
+    const rn=document.getElementById('recname'); if(rn) rn.value=s.recipe.name||'';
+    const hdr=document.getElementById('hdrRecipe'); if(hdr) hdr.textContent=s.recipe.name||'\u2014';
+    const uh=document.getElementById('useHumidity'); if(uh) uh.checked=!!s.recipe.useHumidity;
+    const lc=document.getElementById('loopCount'); if(lc&&s.recipe.loopCount!=null) lc.value=s.recipe.loopCount;
+    applyParams(s.recipe.params);
+  }
+  if(s.system){
+    if(s.system.routeOut) routeOut=s.system.routeOut;
+    uiSetRunning(!!s.system.running);
+    document.querySelectorAll('.way').forEach(w=>w.classList.toggle('active', w.dataset.out===routeOut));
+    const hl=document.getElementById('hdrLoop');
+    if(hl&&s.system.loop) hl.textContent=`${s.system.loop.current} / ${s.system.loop.total}`;
+    const rh=document.getElementById('rh'); if(rh&&s.system.rh!=null) rh.textContent=(+s.system.rh).toFixed(1);
+    const mv=document.getElementById('measVal'); if(mv&&s.system.smu) mv.textContent=s.system.smu;
+  }
+  renderLanes();   // \ubc30\uad00\ub3c4 \uc7ac\ub80c\ub354
+  renderRecipe();  // \ub808\uc2dc\ud53c \ud45c \uc7ac\ub80c\ub354
+  updateSystem();  // \uc0c1\ub2e8 \ud1b5\uacc4
+}
+// \ube60\ub978 \uce21\uc815\uac12\ub9cc \uac00\ubccd\uac8c \ubc18\uc601 \u2014 \ubc30\uad00 SVG/\ub808\uc2dc\ud53c\ub97c \uc7ac\ub80c\ub354\ud558\uc9c0 \uc54a\ub294\ub2e4.
+function applyTelemetry(tl){
+  if(!tl) return;
+  if(Array.isArray(tl.pv)){
+    tl.pv.forEach((v,i)=>{
+      const el=document.querySelector(`[data-pv="${i}"]`);
+      if(el) el.textContent=(+v).toFixed(dec(channels[i]||{max:2000}));
+      if(channels[i]) channels[i].pv=+v;
+    });
+  }
+  if(tl.rh!=null){
+    const rh=document.getElementById('rh'); if(rh) rh.textContent=(+tl.rh).toFixed(1);
+    const rhp=document.getElementById('rhProc'); if(rhp) rhp.textContent=(+tl.rh).toFixed(1);
+  }
+  if(tl.smu!=null){ const mv=document.getElementById('measVal'); if(mv) mv.textContent=tl.smu; }
+  if(tl.elapsed!=null){ const c=document.getElementById('clk'); if(c) c.textContent=fmtElapsed(tl.elapsed); }
+  if(tl.loop){ const hl=document.getElementById('hdrLoop'); if(hl) hl.textContent=`${tl.loop.current} / ${tl.loop.total}`; }
+  updateSystem();  // activeCh / totalFlow \ud14d\uc2a4\ud2b8\ub9cc \uac31\uc2e0(\uac00\ubcbc\uc6c0)
+}
+
+/* app.js\uac00 \ucc38\uc870\ud560 \uc804\uc5ed \ub178\ucd9c */
+window.channels=channels; window.procs=procs;
+window.renderLanes=renderLanes; window.renderRecipe=renderRecipe;
+window.drawBuses=drawBuses; window.updateSystem=updateSystem; window.logMsg=logMsg;
+window.applyState=applyState; window.applyTelemetry=applyTelemetry;
+window.collectRecipe=collectRecipe; window.collectSetup=collectSetup;
 
 /* ===================== fit ===================== */
 let lastScale=0;
@@ -992,9 +1090,10 @@ if(window.visualViewport)window.visualViewport.addEventListener('resize',()=>{fi
 setInterval(()=>{const p=lastScale;fit();if(lastScale!==p||document.getElementById('wires').innerHTML.length===0)drawBuses();},300);
 
 /* init */
-renderLanes(); renderRecipe(); setRun(false);
+renderLanes(); renderRecipe(); uiSetRunning(false);
 fit(); setTimeout(()=>{fit();drawBuses();},60);
 requestAnimationFrame(()=>requestAnimationFrame(()=>{fit();drawBuses();}));
 </script>
+<script src="app.js"></script>
 </body>
 </html>

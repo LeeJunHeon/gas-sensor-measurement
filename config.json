@@ -1,0 +1,23 @@
+{
+  "channels": [
+    { "id": "VA1", "grp": "air", "route": "pure", "en": true,  "max": 2000, "sv": 0 },
+    { "id": "VA2", "grp": "air", "route": "pure", "en": true,  "max": 2000, "sv": 0 },
+    { "id": "VA3", "grp": "air", "route": "mix",  "en": true,  "max": 2000, "sv": 0 },
+    { "id": "VA4", "grp": "air", "route": "mix",  "en": true,  "max": 2000, "sv": 0 },
+    { "id": "VA5", "grp": "gas", "route": "mix",  "en": true,  "max": 2000, "sv": 0 },
+    { "id": "VA6", "grp": "gas", "route": "mix",  "en": false, "max": 200,  "sv": 0 },
+    { "id": "VA7", "grp": "gas", "route": "mix",  "en": false, "max": 200,  "sv": 0 },
+    { "id": "VA8", "grp": "gas", "route": "mix",  "en": false, "max": 100,  "sv": 0 }
+  ],
+  "params": {
+    "vStart": 0.5,
+    "vEnd": 0.0,
+    "vStep": 0,
+    "grafInterval": 1,
+    "smuMode": "Source V, Measure I",
+    "smuSource": 0.5,
+    "smuCompliance": 1.0,
+    "chFrom": 1,
+    "chTo": 1
+  }
+}
