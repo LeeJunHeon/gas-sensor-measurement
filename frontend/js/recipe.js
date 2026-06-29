@@ -83,7 +83,6 @@ function renderRecipe(){
       ${gcells}
       <td><input class="ci" value="${r.prep}" data-f="prep-${i}"></td>
       <td><input class="ci" value="${r.meas}" data-f="meas-${i}"></td>
-      <td><div class="waycell"><button class="waytog ${r.way==='vent'?'vent':''}" data-way="${i}">${r.way==='vent'?'Vent':'Sensor'}</button></div></td>
       <td><input type="checkbox" class="reptog" ${r.rep?'checked':''} data-rep="${i}"></td>
       <td><button class="delrow" data-del="${i}">×</button></td>`;
     recipeBody.appendChild(tr);
@@ -98,15 +97,12 @@ function bindRecipe(){
   recipeBody.querySelectorAll('[data-f]').forEach(inp=>inp.addEventListener('change',e=>{
     const [k,i]=e.target.dataset.f.split('-'); procs[+i][k]=+e.target.value||0;
   }));
-  recipeBody.querySelectorAll('[data-way]').forEach(b=>b.addEventListener('click',e=>{
-    const i=+e.target.dataset.way; procs[i].way=procs[i].way==='vent'?'sensor':'vent'; renderRecipe();
-  }));
   recipeBody.querySelectorAll('[data-rep]').forEach(cb=>cb.addEventListener('change',e=>{procs[+e.target.dataset.rep].rep=e.target.checked;}));
   recipeBody.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{procs.splice(+e.target.dataset.del,1);renderRecipe();}));
 }
 document.getElementById('addProc').addEventListener('click',()=>{
   // 표 편집은 로컬 초안(draft). 저장(Save as) 시 서버로 레시피 전체를 보낸다.
-  procs.push({flow:1000, rh:40, g:[0,0,0,0], prep:600, meas:300, way:'sensor', rep:false}); renderRecipe();
+  procs.push({flow:1000, rh:40, g:[0,0,0,0], prep:600, meas:300, rep:false}); renderRecipe();
 });
 document.getElementById('useHumidity').addEventListener('change',renderRecipe);
 

@@ -292,9 +292,6 @@
   table.rcp td .ci:focus{outline:2px solid var(--primary);outline-offset:-2px;background:#fff;border-radius:2px}
   table.rcp td.pcol{font-weight:700;color:var(--pv);font-family:'IBM Plex Mono',monospace;padding:6px 4px;background:#eef6f4;cursor:grab}
   table.rcp td.zero .ci{color:#b3bccb}
-  .waycell{display:flex;justify-content:center}
-  .waytog{font-size:10px;font-weight:700;border:1px solid var(--line2);border-radius:4px;padding:3px 8px;cursor:pointer;margin:3px;background:#eef6f4;color:var(--pv)}
-  .waytog.vent{background:#fdeee9;color:#b14a2a}
   .reptog{width:15px;height:15px;accent-color:var(--primary);cursor:pointer;margin:5px}
   .delrow{cursor:pointer;color:#b9495a;font-weight:700;font-size:13px;padding:4px 7px;border:none;background:transparent}
   .delrow:hover{color:#8a2233}

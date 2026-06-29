@@ -64,7 +64,6 @@
       g:    [5, 0, 0, 0],              // 측정 MFC 농도 G1~G4 (ppm)
       prep: 3600,                      // 준비 시간(초)
       meas: 300,                       // 측정 시간(초)
-      way:  "sensor" | "vent",         // 이 단계의 4-way 방향
       rep:  false                      // 이 단계 반복 여부
     }
   ]
@@ -146,7 +145,7 @@
 #connStatus          연결 상태 표시 pill (신규)
 #logBody             로그 컨테이너
 #recipePicker        레시피 선택창 (신규)
-레시피: [data-f="키-i"] [data-g="i-gi"] [data-way="i"] [data-rep="i"] [data-del="i"] #addProc
+레시피: [data-f="키-i"] [data-g="i-gi"] [data-rep="i"] [data-del="i"] #addProc
 ```
 
 ### 5.2 전역 함수/상태 (화면 js가 window.*로 제공 — schematic/recipe/core.js)

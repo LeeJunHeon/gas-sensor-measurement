@@ -68,7 +68,6 @@ def normalize_recipe(r: dict) -> dict:
                 "g": g,
                 "prep": to_num(p.get("prep")),
                 "meas": to_num(p.get("meas")),
-                "way": p.get("way") if p.get("way") in ("sensor", "vent") else "sensor",
                 "rep": bool(p.get("rep")),
             })
     params = {**DEFAULT_PARAMS, **(r.get("params") if isinstance(r.get("params"), dict) else {})}
