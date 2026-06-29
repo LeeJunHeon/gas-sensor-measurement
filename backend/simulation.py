@@ -35,10 +35,9 @@ def sim_tick(state, dt: float) -> dict:
     # rh·smu(측정값)는 측정 하드웨어가 아직 없으므로 시뮬레이션하지 않는다(화면은 "—" 표시).
     # 가스 유량(PV)은 MFC 흐름이라 유효 → 위에서 계속 시뮬레이션한다.
 
+    # loop 진행은 엔진(engine.py)이 소유한다. 시뮬은 total 기본값만 채우고 current는 건드리지 않는다.
     total = int(state.recipe.get("loopCount") or 0) or 1
-    state.system["loop"]["total"] = total
-    if state.system["running"]:
-        state.system["loop"]["current"] = min(total, 1 + elapsed // 10)
+    state.system["loop"].setdefault("total", total)
     state.system["loop"]["current"] = state.system["loop"].get("current", 0)
 
     return {
@@ -49,4 +48,8 @@ def sim_tick(state, dt: float) -> dict:
         "elapsed": elapsed,
         "running": state.system["running"],
         "loop": dict(state.system["loop"]),
+        "phase": state.system.get("phase", "idle"),
+        "stepIndex": state.system.get("stepIndex", 0),
+        "stepTotal": state.system.get("stepTotal", 0),
+        "stepRemain": state.system.get("stepRemain", 0),
     }

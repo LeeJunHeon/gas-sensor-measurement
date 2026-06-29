@@ -207,6 +207,9 @@
   .railbtn.purge{background:#3a59c9;border-color:#3450b8}.railbtn.purge:hover{background:#3350bd}
   .railbtn.end{background:#c5343a;border-color:#ad2e33}.railbtn.end:hover{background:#b22f35}
   .railbtn.setup{background:#fff;border-color:var(--line2);color:#2a3645}.railbtn.setup:hover{background:#eef2f7;border-color:var(--primary)}
+  /* 비상정지 — 하단 버튼 줄에 들어가는 위험 강조 버튼(footer 높이에 맞춰 패딩 조정) */
+  .railbtn.estop{padding:9px 16px;font-size:11.5px;letter-spacing:.2px;white-space:nowrap;background:#b3261e;border-color:#8c1d18;color:#fff}
+  .railbtn.estop:hover{background:#9a1f17;border-color:#7a1813}
   /* ===== System Setup modal ===== */
   .modal-overlay{position:absolute;inset:0;background:rgba(20,28,40,.42);display:none;align-items:center;justify-content:center;z-index:50}
   .modal-overlay.on{display:flex}

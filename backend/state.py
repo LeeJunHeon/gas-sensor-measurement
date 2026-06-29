@@ -99,6 +99,10 @@ class State:
             "smu": None,         # 측정 하드웨어 없음 → 화면 "—"
             "connected": True,   # 서버↔하드웨어 (1단계는 시뮬, 항상 연결됨으로 표시)
             "safeStop": False,
+            "phase": "idle",      # idle | prep | meas
+            "stepIndex": 0,       # 현재 단계(1-base, 0=대기)
+            "stepTotal": 0,       # 전체 단계 수
+            "stepRemain": 0,      # 현재 단계 남은 초
         }
         self.recipe = default_recipe()
         self._elapsed_f = 0.0    # 내부 누적 경과시간(float)

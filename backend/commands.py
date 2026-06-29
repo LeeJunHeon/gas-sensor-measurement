@@ -7,6 +7,7 @@ commands.py — 화면 명령 처리(handle_command).
 
 import os
 
+import engine
 from state import state, default_recipe, DEFAULT_PARAMS, normalize_recipe, to_num
 from recipe_calc import compute_step_setpoints
 from connection import manager, push_state, push_log
@@ -66,17 +67,28 @@ async def handle_command(data: dict):
                 await push_state()
 
         elif cmd == "run":
-            state.system["running"] = True
-            state.system["safeStop"] = False
-            state._elapsed_f = 0.0
-            state.system["elapsed"] = 0
-            state.system["loop"]["current"] = 0
-            await push_log("AUTO RUN 시작 — 레시피 실행", "ok")
-            await push_state()
+            problems = engine.precheck(state.recipe)
+            if problems:
+                await manager.broadcast({"type": "ack", "of": "run", "ok": False,
+                                         "reason": "invalid", "problems": problems})
+                await push_log("AUTO RUN 불가 — " + " / ".join(problems[:3])
+                               + (" …" if len(problems) > 3 else ""), "err")
+                await push_state()
+            else:
+                state._elapsed_f = 0.0
+                state.system["elapsed"] = 0
+                engine.start()
+                await push_log("AUTO RUN 시작 — 레시피 실행", "ok")
+                await push_state()
 
         elif cmd == "stop":
-            state.system["running"] = False
-            await push_log("AUTO STOP — 시퀀스 정지", "info")
+            engine.stop()
+            await push_log("AUTO STOP — 자동 진행 중단(현재 상태 유지)", "info")
+            await push_state()
+
+        elif cmd == "emergency":
+            engine.emergency()
+            await push_log("⛔ 비상정지 — 전 채널 차단", "err")
             await push_state()
 
         elif cmd == "purge":

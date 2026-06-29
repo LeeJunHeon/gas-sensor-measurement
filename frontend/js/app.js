@@ -133,6 +133,12 @@
   }
 
   function handleAck(msg) {
+    if (msg.of === 'run' && !msg.ok) {
+      // AUTO RUN 시작 불가(계산/MAX 검증 실패) → 사유 팝업(서버가 로그는 별도로 push)
+      const probs = msg.problems || [];
+      window.alert('AUTO RUN 시작 불가:\n\n' + (probs.length ? probs.join('\n') : (msg.reason || '알 수 없는 오류')));
+      return;
+    }
     if (msg.of !== 'recipe_save') return;
     if (msg.ok) return;                       // 성공 로그는 서버가 push
     if (msg.reason === 'exists') {
@@ -312,6 +318,9 @@
       loop: { current: current, total: total },
     });
   }
+
+  // 비상정지 — 확인 없이 즉시 전송(비상이므로). 서버 engine.emergency()가 전 채널 차단.
+  document.getElementById('btnEstop')?.addEventListener('click', () => send({ cmd: 'emergency' }));
 
   // ===================== 시작 =====================
   bindPicker();
