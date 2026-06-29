@@ -39,6 +39,48 @@ def default_recipe() -> dict:
     }
 
 
+def to_num(v, d=0):
+    """안전 숫자 변환: 정수면 int, 아니면 float, 실패하면 기본값 d."""
+    try:
+        f = float(v)
+        return int(f) if f == int(f) else f
+    except (TypeError, ValueError):
+        return d
+
+
+def normalize_recipe(r: dict) -> dict:
+    """클라이언트/파일에서 온 레시피를 안전한 구조로 정규화(저장·로드 공용).
+    손상되거나 타입이 틀린 데이터가 들어와도 안전한 형태로 만든다."""
+    if not isinstance(r, dict):
+        r = {}
+    procs = []
+    if isinstance(r.get("procs"), list):
+        for p in r["procs"]:
+            if not isinstance(p, dict):
+                continue
+            g_in = p.get("g")
+            g = [to_num(x) for x in g_in[:4]] if isinstance(g_in, list) else []
+            while len(g) < 4:
+                g.append(0)
+            procs.append({
+                "flow": to_num(p.get("flow")),
+                "rh": to_num(p.get("rh")),
+                "g": g,
+                "prep": to_num(p.get("prep")),
+                "meas": to_num(p.get("meas")),
+                "way": p.get("way") if p.get("way") in ("sensor", "vent") else "sensor",
+                "rep": bool(p.get("rep")),
+            })
+    params = {**DEFAULT_PARAMS, **(r.get("params") if isinstance(r.get("params"), dict) else {})}
+    return {
+        "name": str(r.get("name") or ""),
+        "useHumidity": bool(r.get("useHumidity", True)),
+        "loopCount": int(to_num(r.get("loopCount"), 1)) or 1,
+        "procs": procs,
+        "params": params,
+    }
+
+
 # ===================== 상태 (서버가 주인) =====================
 class State:
     def __init__(self):
