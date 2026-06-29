@@ -121,6 +121,7 @@
 { "cmd": "set_sv",    "ch": 4, "value": 5 }
 { "cmd": "set_max",   "ch": 0, "value": 2000 }
 { "cmd": "set_4way",  "route": "vent" }                        // sensor | vent
+// 의미: 'sensor'면 Air→Sensor·Gas→Vent, 'vent'면 반전(Air→Vent·Gas→Sensor). 명령/필드 이름은 그대로.
 { "cmd": "run" }
 { "cmd": "stop" }
 { "cmd": "purge" }
@@ -139,7 +140,7 @@
 [data-sv="N"]    채널 N SV 입력 (value)
 [data-max="N"]   채널 N MAX 입력 (value)
 [data-v="N-in"]                      VA 밸브 (클릭)
-.way[data-out="sensor|vent"]         4-way 버튼 (클릭)
+#wayToggle                           4-way 방향 전환 토글 (클릭: sensor↔vent)
 #rh                  RH 표시
 #activeCh #totalFlow #clk #hdrLoop #runtxt #measVal   상단 상태 표시
 #connStatus          연결 상태 표시 pill (신규)

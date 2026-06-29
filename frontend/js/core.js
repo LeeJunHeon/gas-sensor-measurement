@@ -153,7 +153,7 @@ function applyState(s){
   if(s.system){
     if(s.system.routeOut) routeOut=s.system.routeOut;
     uiSetRunning(!!s.system.running);
-    document.querySelectorAll('.way').forEach(w=>w.classList.toggle('active', w.dataset.out===routeOut));
+    if(typeof updateWayToggle==='function') updateWayToggle();   // 4-Way 토글 버튼 모드 표시 갱신
     const hl=document.getElementById('hdrLoop');
     if(hl&&s.system.loop) hl.textContent=`${s.system.loop.current} / ${s.system.loop.total}`;
     const rh=document.getElementById('rh'); if(rh&&s.system.rh!=null) rh.textContent=(+s.system.rh).toFixed(1);

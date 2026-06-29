@@ -232,16 +232,21 @@
   .modal-foot .danger:hover{background:#b22f35;border-color:#9a2a2f}
   .railcard{border:1px solid var(--line2);border-radius:7px;background:#fff;padding:10px;margin-top:2px}
   .railcard h4{font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px;font-weight:700}
-  .way{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:34px;box-sizing:border-box;font-size:11.5px;padding:0;border-radius:6px;border:1px solid var(--line);background:#f5f7fa;color:var(--ink-dim);cursor:pointer;font-weight:600}
-  .way .wic{stroke:currentColor;stroke-width:1.7;fill:none}
-  .way[data-out="vent"]{color:#b5610c;border-color:#e6c79a}
-  .way[data-out="sensor"]{color:#0d7a6a;border-color:#9fd0c6}
-  .way.active[data-out="vent"]{background:#e0851f;border-color:#e0851f;color:#fff;font-weight:700}
-  .way.active[data-out="sensor"]{background:#0d7a6a;border-color:#0d7a6a;color:#fff;font-weight:700}
   /* VC control card placed at the 4-way in the schematic */
-  .vc-control{position:absolute;z-index:4;right:10px;top:50%;width:150px;border:2px solid #222;border-radius:9px;background:#fff;padding:9px;box-shadow:0 6px 18px rgba(20,28,40,.2);transform:translateY(-50%)}
+  .vc-control{position:absolute;z-index:4;right:10px;top:50%;width:178px;border:2px solid #222;border-radius:9px;background:#fff;padding:9px;box-shadow:0 6px 18px rgba(20,28,40,.2);transform:translateY(-50%)}
   .vc-control h4{font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:#1a1a1a;margin-bottom:7px;text-align:center;font-weight:700;border-bottom:1px solid #d8dde4;padding-bottom:5px}
-  .vc-control .vc-btns{display:flex;flex-direction:column;gap:6px;align-items:center}
+  /* 4-Way 십자(크로스) 라우팅 — 카드 내부 인라인 SVG */
+  .vc-control .vccross{display:flex;justify-content:center;min-height:78px;margin:2px 0}
+  .vc-control .vccross svg{display:block;width:100%;height:auto}
+  .vccross .base{fill:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+  .vccross .stripe{fill:none;stroke:rgba(255,255,255,.78);stroke-width:4;stroke-dasharray:5 17;stroke-linecap:butt;stroke-linejoin:round;animation:vcflow 1.1s linear infinite}
+  .vccross .plabel{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;fill:#2a3645}
+  @keyframes vcflow{to{stroke-dashoffset:-22}}
+  /* "방향 전환" 토글 버튼 — .vc-control 톤에 맞춤 */
+  .vctoggle{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;height:32px;margin-top:4px;border:1px solid var(--line2);border-radius:6px;background:#f5f7fa;color:#2a3645;font-size:11.5px;font-weight:700;cursor:pointer}
+  .vctoggle:hover{background:#eef2f7;border-color:var(--primary)}
+  .vctoggle .ar{font-size:14px;line-height:1}
+  .vctoggle.vent{background:#fdeee9;border-color:#e6b8a8;color:#b14a2a}
   .rhbox{margin-top:8px;display:flex;align-items:baseline;justify-content:center;gap:5px;padding:9px;border-radius:6px;background:#f3f6f4;border:1px solid var(--line)}
   .rhbox .num{font-size:24px;font-weight:700;color:#1a1a1a;line-height:1;font-family:'IBM Plex Mono',monospace}
   .rhbox .u{font-size:10px;color:var(--ink-faint)}
