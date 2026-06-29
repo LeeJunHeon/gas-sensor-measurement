@@ -42,10 +42,11 @@ const mfcSvg = `<svg width="40" height="34" viewBox="0 0 40 34">
   <rect class="mt" x="7" y="6" width="26" height="8" rx="1.5" transform="rotate(-9 20 10)"/>
   <text class="mtxt" x="11" y="12" transform="rotate(-9 20 10)">Tylan</text>
   <path class="ar" d="M9 22 H29 M25 18 L29 22 L25 26"/></svg>`;
-const tankSvg = c => `<svg width="22" height="29" viewBox="0 0 24 32">
+const tankSvg = c => `<svg width="30" height="40" viewBox="0 0 24 32">
+  <rect x="4" y="5" width="16" height="25" rx="4" style="fill:var(--bg2)"/>
   <rect x="7" y="2" width="10" height="3" rx="1.5" fill="${c}"/>
   <rect x="4" y="5" width="16" height="25" rx="4" fill="none" stroke="${c}" stroke-width="1.5"/>
-  <path d="M5 17 q3 -2 6 0 t6 0 v9 a1.5 1.5 0 0 1 -1.5 1.5 h-9 a1.5 1.5 0 0 1 -1.5 -1.5 z" fill="${c}" opacity="0.25"/>
+  <path d="M5 17 q3 -2 6 0 t6 0 v9 a1.5 1.5 0 0 1 -1.5 1.5 h-9 a1.5 1.5 0 0 1 -1.5 -1.5 z" fill="${c}" opacity="0.28"/>
   <path d="M5 17 q3 -2 6 0 t6 0" fill="none" stroke="${c}" stroke-width="1.2" opacity="0.75"/>
   <circle cx="9" cy="22" r="1.1" fill="${c}" opacity="0.6"/>
   <circle cx="13" cy="25" r="0.9" fill="${c}" opacity="0.5"/>
@@ -116,38 +117,6 @@ function updateWayToggle(){
   const sen=routeOut==='sensor';
   b.classList.toggle('vent', !sen);
   b.title = sen ? 'Air→Sensor / Gas→Vent (클릭: 전환)' : 'Air→Vent / Gas→Sensor (클릭: 전환)';
-}
-
-// 4-Way 카드 내부 십자(크로스) 라우팅을 인라인 SVG로 그린다(카드 위에 항상 보이게).
-// 위=Air 입력, 아래=Gas 입력, 오른쪽=Sensor 출력, 왼쪽=Vent 출력. routeOut에 따라 ㄱㄴ 경로 반전.
-// 활성(흐름 있음) 경로는 색+움직이는 흰 줄무늬, 비활성은 회색. (fL/fP와 동일한 룩)
-function renderVcCross(airFlow, gasFlow){
-  const el=document.getElementById('vcCross'); if(!el) return;
-  const sen=routeOut==='sensor';
-  const BLUE='#2f72c4', RED='#c8384c', GREY='#cdd5e0', OFF='#9aa6b6';
-  // local viewBox 188×92 — Air(top 94,12) Gas(bot 94,80) Vent(left 44,46) Sensor(right 144,46)
-  // 스타일 C: 두 대각선 채널이 서로 반대 삼각형에 놓여 가운데에서 만나지 않는다(가운데 빔). 방향전환 시 반대 대각으로 회전.
-  const airOutX=sen?144:44, gasOutX=sen?44:144;
-  const airD=`M94 12 L${airOutX} 46`;     // Air → Sensor/Vent 대각
-  const gasD=`M94 80 L${gasOutX} 46`;     // Gas → Vent/Sensor 대각
-  const airCol=airFlow?BLUE:GREY, gasCol=gasFlow?RED:GREY;
-  let s=`<svg viewBox="0 0 188 92" preserveAspectRatio="xMidYMid meet">`;
-  s+=`<path class="base" d="${airD}" stroke="${airCol}"/>`;
-  s+=`<path class="base" d="${gasD}" stroke="${gasCol}"/>`;
-  if(airFlow) s+=`<path class="stripe" d="${airD}"/>`;
-  if(gasFlow) s+=`<path class="stripe" d="${gasD}"/>`;
-  const dot=(x,y,col)=>`<circle cx="${x}" cy="${y}" r="4.5" fill="${col}"/>`;
-  // 출력색 = 들어온 입력색: Air=파랑, Gas=빨강. Sensor/Vent 포트는 어떤 입력이 도달했는지에 따라 색이 바뀐다.
-  s+=dot(94,12, airFlow?BLUE:OFF);
-  s+=dot(94,80, gasFlow?RED:OFF);
-  s+=dot(144,46, (sen?airFlow:gasFlow)?(sen?BLUE:RED):OFF);   // Sensor 포트
-  s+=dot(44,46,  (sen?gasFlow:airFlow)?(sen?RED:BLUE):OFF);   // Vent 포트
-  s+=`<text class="plabel" x="94" y="11" text-anchor="middle">Air</text>`;
-  s+=`<text class="plabel" x="94" y="86" text-anchor="middle">Gas</text>`;
-  s+=`<text class="plabel" x="40" y="40" text-anchor="end">Vent</text>`;
-  s+=`<text class="plabel" x="148" y="40" text-anchor="start">Sensor</text>`;
-  s+=`</svg>`;
-  el.innerHTML=s;
 }
 
 /* ===================== manifold buses ===================== */
@@ -239,26 +208,18 @@ function drawBuses(){
   const mixMidRow=mixRows.length?(Math.min(...mixRows)+Math.max(...mixRows))/2:S.height*0.6;
   const vcY=S.height*0.34;   // 4-way moved up to leave room for the log panel bottom-right
 
-  // 4-way 밸브 바디(#vcBody) 박스의 실제 위치/크기(visual px)로 파이프 연결점을 잡는다.
-  // (토글·RH가 박스 아래에 붙어도 파이프는 박스 네 변에만 닿도록 — #vcControl 전체가 아니라 박스 기준)
+  // 4-way 밸브 = 박스 없이 파이프로 직접 그린다. 접합부 중심(cCx,cCy)·반경 r(밸브 크기).
+  // 토글/RH(#vcControl)는 접합부 아래에 배치한다.
   const vcEl=document.getElementById('vcControl');
-  const bodyEl=document.getElementById('vcBody');
-  let cLeft, cRight, cTop, cBot;
-  const br=bodyEl?bodyEl.getBoundingClientRect():null;
-  if(br&&br.width){
-    cLeft=br.left-S.left; cRight=br.right-S.left; cTop=br.top-S.top; cBot=br.bottom-S.top;
-  }else{
-    const cardW=124*sc, cardH=62*sc;   // fallback (첫 프레임): 박스 측정 전
-    cLeft=vcX; cRight=vcX+cardW; cTop=vcY-cardH/2; cBot=vcY+cardH/2;
-  }
-  const cCx=(cLeft+cRight)/2, cCy=(cTop+cBot)/2;
+  const r=22*sc;
+  const cCx=vcX+62*sc, cCy=vcY;
   const senOn=routeOut==='sensor';
 
   // AIR (pure) bus — FIXED grey structure across ALL rows + coloured flow only on the FLOWING span.
   // 4-way 신배치: Air 버스는 카드 위(top-center)로 들어간다(ㄱ 모양: 가로 → 아래로 꺾여 top 포트).
   if(pureRows.length>0){
     const ptop=Math.min(...pureRows), pbot=Math.max(...pureRows);
-    const airFeed=`M${bx} ${pureMidRow} H${cCx} V${cTop}`;
+    const airFeed=`M${bx} ${pureMidRow} H${cCx} V${cCy-r}`;   // 밸브 위쪽 입력점까지
     // fixed structural line (always, no flow)
     if(pureRows.length>1) p+=fL(bx,ptop,bx,pbot,GREY,'dn',false);
     p+=fP(airFeed,pureF.length>0?BLUE:GREY,false);
@@ -288,7 +249,7 @@ function drawBuses(){
     if(gasFlow) p+=fL(bx,gas1Y,bx,Math.max(...gasFlowY),RED,'up',true);
     // combined feeder gas1 row → card bottom
     const feeding=airMixFlow||gasFlow;
-    p+=fP(`M${bx} ${gas1Y} H${cCx} V${cBot}`,feeding?feedColor:GREY,feeding);
+    p+=fP(`M${bx} ${gas1Y} H${cCx} V${cCy+r}`,feeding?feedColor:GREY,feeding);   // 밸브 아래쪽 입력점까지
   }
 
   // endcap joints (coloured only where that channel actually flows)
@@ -297,21 +258,36 @@ function drawBuses(){
     p+=`<rect x="${bx-6}" y="${bys[i]-4}" width="12" height="8" rx="3" fill="#cfd8e3" stroke="${flow(ech)?col:GREY}" stroke-width="1.2"/>`;
   });
 
-  /* ── 4-way valve = card. Ports: Air(top in) · Gas(bottom in) · Sensor(right out) · Vent(left out).
-       ㄱㄴ 내부 라우팅은 카드 인라인 SVG(renderVcCross)가 그린다. 여기선 외부 출력 스텁만. ── */
+  /* ── 4-way 밸브 = 파이프로 직접(박스 없음). 입력 Air(위)·Gas(아래), 출력 Sensor(오른)·Vent(왼).
+       스타일 C: 두 대각선이 반대 삼각형에 놓여 가운데에서 안 만난다. routeOut 따라 회전. ── */
   const airFlow=pureF.length>0, gasFlow=mixF.length>0;
-  // 현재 라우팅에 따라 각 출력이 받는 소스가 흐르는지: sensor 모드면 Sensor←Air, Vent←Gas / vent 모드면 반전.
-  const senFlow = senOn ? airFlow : gasFlow;
-  const ventFlow = senOn ? gasFlow : airFlow;
-  // Sensor output stub (박스 오른변 중앙) — 출력색 = 들어온 입력색(sensor 모드면 Air=BLUE, vent 모드면 Gas=RED)
-  p+=fL(cRight,cCy,cRight+41*sc,cCy,(senFlow?(senOn?BLUE:RED):GREY),'dn',senFlow);
-  // Vent output stub (박스 왼변 중앙) — 출력색 = 들어온 입력색(sensor 모드면 Gas=RED, vent 모드면 Air=BLUE)
-  p+=fL(cLeft,cCy,cLeft-41*sc,cCy,(ventFlow?(senOn?RED:BLUE):GREY),'dn',ventFlow);
+  const senFlow = senOn ? airFlow : gasFlow;      // Sensor로 도달하는 입력이 흐르는가
+  const ventFlow = senOn ? gasFlow : airFlow;     // Vent로 도달하는 입력이 흐르는가
+  // 밸브 네 접점
+  const vTop=[cCx,cCy-r], vBot=[cCx,cCy+r], vRight=[cCx+r,cCy], vLeft=[cCx-r,cCy];
+  const airTo = senOn ? vRight : vLeft;           // Air 대각의 도착(출력) 접점
+  const gasTo = senOn ? vLeft  : vRight;          // Gas 대각의 도착(출력) 접점
+  // 라우팅 대각선(메인 파이프와 동일 두께/룩). Air=파랑, Gas=빨강, 안 흐르면 회색, 흐르면 줄무늬.
+  p+=fL(vTop[0],vTop[1],airTo[0],airTo[1],airFlow?BLUE:GREY,'dn',airFlow);
+  p+=fL(vBot[0],vBot[1],gasTo[0],gasTo[1],gasFlow?RED:GREY,'dn',gasFlow);
+  // 출력 파이프 — 출력색 = 들어온 입력색(senOn이면 Sensor←Air=파랑/Vent←Gas=빨강, 아니면 반전)
+  const L=46*sc;
+  p+=fL(vRight[0],vRight[1],cCx+r+L,cCy,(senFlow?(senOn?BLUE:RED):GREY),'dn',senFlow);
+  p+=fL(vLeft[0],vLeft[1],cCx-r-L,cCy,(ventFlow?(senOn?RED:BLUE):GREY),'dn',ventFlow);
+  // 밸브 접점 점(입력색/출력색)
+  const dotC=(x,y,col)=>`<circle cx="${x}" cy="${y}" r="${(3.6*sc).toFixed(1)}" fill="${col}"/>`;
+  p+=dotC(vTop[0],vTop[1],airFlow?BLUE:GREY);
+  p+=dotC(vBot[0],vBot[1],gasFlow?RED:GREY);
+  p+=dotC(vRight[0],vRight[1],senFlow?(senOn?BLUE:RED):GREY);
+  p+=dotC(vLeft[0],vLeft[1],ventFlow?(senOn?RED:BLUE):GREY);
+  // Vent/Sensor 라벨만 출력 파이프 끝에(배관도 라벨 톤). Air/Gas 텍스트는 넣지 않음.
+  const lf=(13.5*sc).toFixed(1);
+  p+=`<text x="${cCx+r+L+8*sc}" y="${cCy+4.5*sc}" text-anchor="start" font-family="'IBM Plex Sans',sans-serif" font-size="${lf}" font-weight="700" fill="#2a3645">Sensor</text>`;
+  p+=`<text x="${cCx-r-L-8*sc}" y="${cCy+4.5*sc}" text-anchor="end" font-family="'IBM Plex Sans',sans-serif" font-size="${lf}" font-weight="700" fill="#2a3645">Vent</text>`;
 
-  renderVcCross(airFlow, gasFlow);
   updateWayToggle();
 
   svg.innerHTML=p;
-  // position card so LEFT edge sits at the air inlet (convert scaled px → layout px)
-  if(vcEl){vcEl.style.right='auto'; vcEl.style.left=(vcX/sc)+'px'; vcEl.style.top=(vcY/sc)+'px';}
+  // 토글+RH는 접합부 아래에 가로 중앙정렬로 배치(scaled px → layout px). 박스 없음.
+  if(vcEl){vcEl.style.right='auto'; vcEl.style.left=(cCx/sc)+'px'; vcEl.style.top=((cCy+r+24*sc)/sc)+'px';}
 }

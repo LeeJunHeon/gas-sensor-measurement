@@ -158,6 +158,8 @@
 
   .pipe{height:5px;background:#bcc6d3;border-radius:2px;flex:1 1 auto;min-width:10px;max-width:104px;position:relative;overflow:hidden}
   .pipe.grow{flex:1 1 auto;min-width:10px;max-width:104px}
+  /* 소스→VA는 짧게(VA 왼쪽), VA→MFC(.midpipe)는 길게(MFC 오른쪽) → 물탱크가 가운데 여유있게 */
+  .pipe[data-seg="pre"]{max-width:56px}
   .pipe.on{background:var(--c)}
   .pipe.on::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.7) 0 5px,transparent 5px 22px);background-size:22px 100%;animation:flow 1.1s linear infinite}
   @keyframes flow{to{background-position:22px 0}}
@@ -174,7 +176,7 @@
   .n-valve .vlbl{position:absolute;top:100%;left:0;right:0;text-align:center;margin-top:0;font-size:11px;font-weight:700;color:var(--primary);letter-spacing:.2px}
 
   /* VA~MFC 사이는 끊김 없는 연속 파이프(.midpipe 래퍼 안의 .pipe 하나). 물탱크는 그 위에 겹쳐 얹는다. */
-  .midpipe{position:relative;flex:1 1 auto;min-width:10px;max-width:104px;display:flex;align-items:center}
+  .midpipe{position:relative;flex:1 1 auto;min-width:10px;max-width:170px;display:flex;align-items:center}
   .midpipe .pipe{flex:1 1 auto;min-width:0;max-width:none;width:100%}
   /* 물탱크(가습기) 오버레이 — VA2·VA4만. 파이프 위 중앙에 절대배치(파이프 overflow:hidden에 안 잘리게 래퍼에 둠). */
   .tank-ov{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3;display:flex;pointer-events:none}
@@ -235,17 +237,9 @@
   .modal-foot .danger:hover{background:#b22f35;border-color:#9a2a2f}
   .railcard{border:1px solid var(--line2);border-radius:7px;background:#fff;padding:10px;margin-top:2px}
   .railcard h4{font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px;font-weight:700}
-  /* VC control card placed at the 4-way in the schematic */
-  /* 4-Way: 흰 카드 대신 투명 컨테이너 + 테두리형 밸브 바디(파이프가 네 변에 연결). 토글/RH는 박스 아래 별도. */
-  .vc-control{position:absolute;z-index:4;right:10px;top:50%;width:124px;display:flex;flex-direction:column;align-items:center;gap:6px;background:transparent;transform:translateY(-50%)}
-  /* 밸브 바디 박스 — 둥근 사각 테두리, 배경 투명. 이 박스의 네 변에 파이프가 닿는다. */
-  .vc-body{position:relative;width:124px;height:62px;border:1.6px solid #6b7686;border-radius:8px;background:transparent}
-  .vc-body .vccross{position:absolute;inset:0;display:flex}
-  .vc-body .vccross svg{display:block;width:100%;height:100%}
-  .vccross .base{fill:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
-  .vccross .stripe{fill:none;stroke:rgba(255,255,255,.78);stroke-width:4;stroke-dasharray:5 17;stroke-linecap:butt;stroke-linejoin:round;animation:vcflow 1.1s linear infinite}
-  .vccross .plabel{font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;fill:#46536a}
-  @keyframes vcflow{to{stroke-dashoffset:-22}}
+  /* 4-Way: 박스(테두리) 없음 — 라우팅은 배관도 SVG(#wires)에 파이프로 직접 그린다. */
+  /* #vcControl엔 토글+RH만 남고, 접합부 "아래"에 가로 중앙정렬로 배치(JS가 left/top 지정). */
+  .vc-control{position:absolute;z-index:4;width:124px;display:flex;flex-direction:column;align-items:center;gap:6px;background:transparent;transform:translateX(-50%)}
   /* "방향 전환" 토글 버튼 — .vc-control 톤에 맞춤 */
   .vctoggle{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;height:32px;border:1px solid var(--line2);border-radius:6px;background:#f5f7fa;color:#2a3645;font-size:11.5px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(20,28,40,.12)}
   .vctoggle:hover{background:#eef2f7;border-color:var(--primary)}

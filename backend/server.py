@@ -39,11 +39,14 @@ FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
 INDEX_PATH = os.path.join(FRONTEND_DIR, "index.html")
 
 # ===================== 종료 =====================
-WINDOW = None   # main()에서 생성한 pywebview 창 객체를 보관
+WINDOW = None         # main()에서 생성한 pywebview 창 객체를 보관
+_allow_close = False  # 창 닫기 허용 플래그(종료 확인 통과 후 True). X 클릭은 모달로 되묻는다.
 
 
 def request_shutdown():
-    """PROGRAM END → 창을 닫아 프로세스를 깔끔히 종료한다."""
+    """PROGRAM END / 창 X 종료확인 통과 → 창을 닫아 프로세스를 깔끔히 종료한다."""
+    global _allow_close
+    _allow_close = True   # 이후 destroy(및 closing 이벤트)가 실제로 닫히도록 허용
     if WINDOW is not None:
         try:
             WINDOW.destroy()   # webview.start()가 반환되며 데몬 스레드와 함께 종료
@@ -52,6 +55,17 @@ def request_shutdown():
             print(f"[warn] 창 종료 실패: {e}")
     # 창이 없거나(브라우저 폴백) destroy 실패 → 프로세스 종료
     os._exit(0)
+
+
+def _on_closing():
+    """창 우상단 X → 바로 닫지 않고 앱 내부 종료확인 모달로 되묻는다(확인 전엔 닫기 취소)."""
+    if _allow_close:
+        return True       # 종료확인 통과(또는 destroy 진행 중) → 닫기 허용
+    try:
+        WINDOW.evaluate_js("window.requestExitConfirm && window.requestExitConfirm()")
+    except Exception:  # noqa: BLE001
+        pass
+    return False          # 확인 전에는 닫기 취소(창 유지)
 
 
 # commands의 "exit" 명령이 위 종료 함수를 호출하도록 주입.
@@ -142,6 +156,11 @@ def main():
         width=1480, height=1020,   # 최대화 해제 시 사용할 기본 크기
         maximized=True,            # 실행 시 최대화(타이틀바·작업표시줄 유지)
     )
+    # 창 X(닫기) 클릭 → _on_closing이 종료확인 모달로 되묻는다(False 반환 시 닫기 취소).
+    try:
+        WINDOW.events.closing += _on_closing
+    except Exception as e:  # noqa: BLE001
+        print(f"[warn] closing 이벤트 연결 실패: {e}")
     webview.start()   # 창을 닫으면 여기서 반환 → 데몬 스레드와 함께 종료
 
 

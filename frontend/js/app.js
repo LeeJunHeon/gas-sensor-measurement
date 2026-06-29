@@ -205,6 +205,8 @@
     if (typeof window.confirmExit === 'function') window.confirmExit(doExit);
     else if (window.confirm('프로그램을 종료하시겠습니까?')) doExit();   // 폴백
   };
+  // 창 우상단 X → 서버(_on_closing)가 호출. PROGRAM END와 동일한 종료확인 모달을 띄운다.
+  window.requestExitConfirm = function () { window.cmdExit(); };
   window.cmdApplySetup = function (channels, params) {
     if (send({ cmd: 'apply_setup', channels: channels, params: params })) return;
     localApply(m => {
