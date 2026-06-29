@@ -11,11 +11,11 @@ from storage import atomic_write_json, safe_read_json, CONFIG_PATH
 # ===================== 기본값 =====================
 DEFAULT_CHANNELS = [
     {"id": "VA1", "grp": "air", "route": "pure", "en": True,  "max": 2000, "sv": 0},
-    {"id": "VA2", "grp": "air", "route": "pure", "en": True,  "max": 2000, "sv": 0},
+    {"id": "VA2", "grp": "air", "route": "pure", "en": False, "max": 2000, "sv": 0},
     {"id": "VA3", "grp": "air", "route": "mix",  "en": True,  "max": 2000, "sv": 0},
-    {"id": "VA4", "grp": "air", "route": "mix",  "en": True,  "max": 2000, "sv": 0},
+    {"id": "VA4", "grp": "air", "route": "mix",  "en": False, "max": 2000, "sv": 0},
     {"id": "VA5", "grp": "gas", "route": "mix",  "en": True,  "max": 2000, "sv": 0},
-    {"id": "VA6", "grp": "gas", "route": "mix",  "en": False, "max": 200,  "sv": 0},
+    {"id": "VA6", "grp": "gas", "route": "mix",  "en": True,  "max": 200,  "sv": 0},
     {"id": "VA7", "grp": "gas", "route": "mix",  "en": False, "max": 200,  "sv": 0},
     {"id": "VA8", "grp": "gas", "route": "mix",  "en": False, "max": 100,  "sv": 0},
 ]
@@ -85,7 +85,6 @@ class State:
         # 사용 채널은 시작 시 밸브 열림으로 둔다(데모 일관성).
         for c in self.channels:
             c.setdefault("valveIn", bool(c["en"]))
-            c.setdefault("valveOut", bool(c["en"]))
             c.setdefault("pv", 0)
 
     def save_config(self):

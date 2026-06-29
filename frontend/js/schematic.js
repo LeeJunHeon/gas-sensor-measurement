@@ -3,14 +3,14 @@
 /* ===================== channel model ===================== */
 // 초기값은 모두 0 / 비어 있음. 실제 값은 서버 state(또는 config 로드)가 채운다.
 let channels = [
-  {grp:'air', route:'pure', max:2000, sv:0, pv:0, en:true},
-  {grp:'air', route:'pure', max:2000, sv:0, pv:0, en:true},
-  {grp:'air', route:'mix',  max:2000, sv:0, pv:0, en:true},
-  {grp:'air', route:'mix',  max:2000, sv:0, pv:0, en:true},
-  {grp:'gas', route:'mix',  max:2000, sv:0, pv:0, en:true},
-  {grp:'gas', route:'mix',  max:200,  sv:0, pv:0, en:false},
-  {grp:'gas', route:'mix',  max:200,  sv:0, pv:0, en:false},
-  {grp:'gas', route:'mix',  max:100,  sv:0, pv:0, en:false},
+  {grp:'air', route:'pure', max:2000, sv:0, pv:0, en:true},   // VA1
+  {grp:'air', route:'pure', max:2000, sv:0, pv:0, en:false},  // VA2
+  {grp:'air', route:'mix',  max:2000, sv:0, pv:0, en:true},   // VA3
+  {grp:'air', route:'mix',  max:2000, sv:0, pv:0, en:false},  // VA4
+  {grp:'gas', route:'mix',  max:2000, sv:0, pv:0, en:true},   // VA5
+  {grp:'gas', route:'mix',  max:200,  sv:0, pv:0, en:true},   // VA6
+  {grp:'gas', route:'mix',  max:200,  sv:0, pv:0, en:false},  // VA7
+  {grp:'gas', route:'mix',  max:100,  sv:0, pv:0, en:false},  // VA8
 ];
 // derive display fields (label/color/sub) from group — does NOT reorder.
 // 서버가 채널 인덱스/순서/id의 주인이므로 화면은 받은 순서를 그대로 쓴다.
@@ -31,8 +31,8 @@ function relabel(){
   deriveDisplay();
 }
 relabel();
-channels.forEach(c=>{c.valveIn=c.en;c.valveOut=c.en;});
-const flowing=c=>c.en&&c.valveIn&&c.valveOut;
+channels.forEach(c=>{c.valveIn=c.en;});
+const flowing=c=>c.en&&c.valveIn;
 
 const valveSvg = `<svg width="34" height="22" viewBox="0 0 34 22">
   <line class="vstem" x1="17" y1="11" x2="17" y2="4"/><rect class="vact" x="12" y="0" width="10" height="5" rx="1"/>
@@ -56,6 +56,8 @@ function renderLanes(){
     lane.className='lane'+(flowing(c)&&c.pv>0?' lit':'')+(c.en?'':' off');
     lane.dataset.grp=c.grp; lane.dataset.idx=idx;
     const showLabel = '';
+    // 물탱크(가습기): VA2·VA4 레인에만 그리고, 나머지는 같은 폭의 빈 자리로 둬 MFC 정렬을 맞춘다.
+    const hasTank = (c.id==='VA2'||c.id==='VA4');
     lane.innerHTML=`
       <div class="n-src">
         <span class="srclbl">${showLabel}</span><span class="tap"></span>
@@ -63,6 +65,7 @@ function renderLanes(){
       <i class="pipe ${c.en?'on':''}" data-seg="pre" style="--c:${c.color}"></i>
       <div class="n-valve ${c.valveIn?'open':'closed'}${c.en?'':' dis'}" data-v="${idx}-in" title="MFC 밸브 (VA)">${valveSvg}<span class="vlbl">${c.id}</span></div>
       <i class="pipe ${c.en&&c.valveIn?'on':''}" data-seg="mid" style="--c:${c.color}"></i>
+      <div class="n-tank" title="${hasTank?'물탱크 (가습기)':''}">${hasTank?tankSvg('#3a9fe0'):''}</div>
       <div class="n-mfc ${c.en&&c.valveIn?'on':''}${c.en?'':' dis'}">
         <div class="mfc-read">
           <span class="vid">${c.id} · MFC</span>
@@ -71,9 +74,7 @@ function renderLanes(){
           <div class="svrow"><span class="rlbl">SV</span><input class="svi" size="4" value="${c.sv.toFixed(d)}" data-sv="${idx}" ${c.en?'':'disabled'}><span class="un">sccm</span></div>
         </div>
       </div>
-      <i class="pipe ${c.en&&c.valveIn?'on':''}" data-seg="mid" style="--c:${c.color}"></i>
-      <div class="n-valve sol ${c.valveOut?'open':'closed'}${c.en?'':' dis'}" data-v="${idx}-out" title="솔레노이드 밸브 (SOL)">${valveSvg}<span class="vlbl">SOL</span></div>
-      <i class="pipe grow ${c.en&&c.valveIn&&c.valveOut?'on':''}" data-seg="post" style="--c:${c.color}"></i>
+      <i class="pipe grow ${c.en&&c.valveIn?'on':''}" data-seg="post" style="--c:${c.color}"></i>
       <span class="endcap"></span>`;
     lanesEl.appendChild(lane);
   });
@@ -92,10 +93,9 @@ function bindLaneEvents(){
     window.cmdSetSv(+e.target.dataset.sv, +e.target.value||0);
   }));
   document.querySelectorAll('[data-v]').forEach(v=>v.addEventListener('click',()=>{
-    const [idxStr,side]=v.dataset.v.split('-'); const idx=+idxStr; const c=channels[idx];
-    if(!c||!c.en) return;   // disabled channel: valves locked
-    const cur = side==='in' ? c.valveIn : c.valveOut;
-    window.cmdSetValve(idx, side, !cur);
+    const idx=+v.dataset.v.split('-')[0]; const c=channels[idx];
+    if(!c||!c.en) return;   // disabled channel: valve locked
+    window.cmdSetValve(idx, !c.valveIn);
   }));
 }
 document.querySelectorAll('.way').forEach(w=>w.addEventListener('click',()=>{
@@ -153,7 +153,7 @@ function drawBuses(){
   /* ── Gas inlets: each lane = ONE continuous line from inlet cap to VA valve ── */
   const gasTaps=[...document.querySelectorAll('.lane[data-grp="gas"] .tap')];
   const gasChs=channels.filter(c=>c.grp==='gas');
-  const flowC=c=>c.en&&c.valveIn&&c.valveOut;
+  const flowC=c=>c.en&&c.valveIn;
   const glayer=document.getElementById('gaslabels'); if(glayer) glayer.innerHTML='';
   const scG=(typeof lastScale==='number'&&lastScale>0)?lastScale:1;
   gasTaps.forEach((t,i)=>{
@@ -180,7 +180,7 @@ function drawBuses(){
   const caps=[...document.querySelectorAll('.lane .endcap')];
   if(!caps.length){svg.innerHTML=p;return;}
   const bx=cx(caps[0]); const bys=caps.map(cy);
-  const flow=c=>c.en&&c.valveIn&&c.valveOut;
+  const flow=c=>c.en&&c.valveIn;
   const pureRows=channels.map((c,i)=>c.route==='pure'?bys[i]:null).filter(v=>v!=null);
   const mixRows=channels.map((c,i)=>c.route==='mix'?bys[i]:null).filter(v=>v!=null);
   const pureF=channels.map((c,i)=>c.route==='pure'&&flow(c)?bys[i]:null).filter(v=>v!=null);

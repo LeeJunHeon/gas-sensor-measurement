@@ -157,12 +157,12 @@
     window.applyState(snap);
   }
 
-  window.cmdSetValve = function (ch, side, open) {
-    if (send({ cmd: 'set_valve', ch: ch, side: side, open: open })) return;
+  window.cmdSetValve = function (ch, open) {
+    if (send({ cmd: 'set_valve', ch: ch, open: open })) return;
     localApply(m => {
       const c = m.channels[ch];
       if (!c || !c.en) return;
-      if (side === 'in') c.valveIn = open; else c.valveOut = open;
+      c.valveIn = open;
     });
   };
   window.cmdSetSv = function (ch, value) {
@@ -214,8 +214,8 @@
         const wasEn = c.en;
         c.en = !!item.en; c.grp = item.grp; c.route = item.route;
         c.max = item.max; c.sv = item.sv;
-        if (c.en && !wasEn) { c.valveIn = true; c.valveOut = true; }
-        else if (!c.en) { c.valveIn = false; c.valveOut = false; }
+        if (c.en && !wasEn) { c.valveIn = true; }
+        else if (!c.en) { c.valveIn = false; }
       });
       if (params) m.recipe.params = Object.assign({}, m.recipe.params, params);
     });
@@ -294,7 +294,7 @@
     if (running) simElapsed += dt;
 
     const pv = mirror.channels.map(c => {
-      const flowing = c.en && c.valveIn && c.valveOut;
+      const flowing = c.en && c.valveIn;
       if (!flowing) return 0;
       const target = +c.sv || 0;
       const amp = target > 0 ? 1.6 : 0.4;

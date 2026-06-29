@@ -27,18 +27,13 @@ async def handle_command(data: dict):
 
     if cmd == "set_valve":
         ch = int(data.get("ch", -1))
-        side = data.get("side")
         is_open = bool(data.get("open"))
         if 0 <= ch < len(state.channels):
             c = state.channels[ch]
             if not c["en"]:
                 return  # 비활성 채널 밸브는 잠김
-            if side == "in":
-                c["valveIn"] = is_open
-            elif side == "out":
-                c["valveOut"] = is_open
-            label = "MFC" if side == "in" else "SOL"
-            await push_log(f"{c['id']} {label} 밸브 {'열림' if is_open else '닫힘'}",
+            c["valveIn"] = is_open
+            await push_log(f"{c['id']} VA 밸브 {'열림' if is_open else '닫힘'}",
                            "ok" if is_open else "warn")
             await push_state()
 
@@ -99,10 +94,8 @@ async def handle_command(data: dict):
             c["sv"] = item.get("sv", c["sv"])
             if en and not was_en:
                 c["valveIn"] = True
-                c["valveOut"] = True
             elif not en:
                 c["valveIn"] = False
-                c["valveOut"] = False
         if isinstance(data.get("params"), dict):
             state.params = {**state.params, **data["params"]}
             state.recipe["params"] = dict(state.params)

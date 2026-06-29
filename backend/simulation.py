@@ -20,7 +20,7 @@ def sim_tick(state, dt: float) -> dict:
 
     pv = []
     for c in state.channels:
-        flowing = c["en"] and c.get("valveIn") and c.get("valveOut")
+        flowing = c["en"] and c.get("valveIn")
         if flowing:
             target = float(c.get("sv") or 0)
             amp = 1.6 if target > 0 else 0.4

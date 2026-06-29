@@ -93,8 +93,26 @@ function logMsg(msg, level){
   body.appendChild(el);
   while(body.children.length>200) body.removeChild(body.firstChild);
   body.scrollTop=body.scrollHeight;
+  // \uc911\uc694\ub85c\uadf8(warn/err)\uac00 \ubaa8\ub2ec \ub2eb\ud78c \uc0c1\ud0dc\uc5d0\uc11c \ubc1c\uc0dd\ud558\uba74 "\ub85c\uadf8" \ubc84\ud2bc\uc5d0 \ubc30\uc9c0 \ud45c\uc2dc
+  if(level==='warn'||level==='err'){
+    const lm=document.getElementById('logModal'), ob=document.getElementById('openLog');
+    if(lm&&ob&&!lm.classList.contains('on')) ob.classList.add('hasalert');
+  }
 }
 document.getElementById('logClear')?.addEventListener('click',()=>{document.getElementById('logBody').innerHTML='';logMsg('\ub85c\uadf8 \uc9c0\uc6c0','info');});
+
+/* ===== System Log \ubaa8\ub2ec (System Setup\uacfc \ub3d9\uc77c\ud55c \uad6c\uc870) ===== */
+const logModal=document.getElementById('logModal');
+const openLogBtn=document.getElementById('openLog');
+function openLog(){
+  if(!logModal) return;
+  logModal.classList.add('on');
+  if(openLogBtn) openLogBtn.classList.remove('hasalert');   // \uc5f4\uba74 \ubc30\uc9c0 \uc81c\uac70
+}
+function closeLog(){ if(logModal) logModal.classList.remove('on'); }
+openLogBtn?.addEventListener('click',openLog);
+document.getElementById('logModalClose')?.addEventListener('click',closeLog);
+logModal?.addEventListener('click',e=>{if(e.target===logModal)closeLog();});
 logMsg('\ud654\uba74 \uc900\ube44 \uc644\ub8cc \u2014 \uc11c\ubc84 \uc5f0\uacb0 \ub300\uae30','info');
 // \uce21\uc815\uac12 \uc2dc\ubbac\ub808\uc774\uc158\uc740 \ub354 \uc774\uc0c1 \ud654\uba74\uc5d0 \ub450\uc9c0 \uc54a\ub294\ub2e4.
 // \uc5f0\uacb0 \uc2dc: \uc11c\ubc84\uac00 telemetry\ub97c push. \ub04a\uae40 \uc2dc: app.js\uac00 \uc2dc\ubbac\ub808\uc774\uc158\uc73c\ub85c \ub300\uccb4\ud55c\ub2e4.

@@ -31,7 +31,6 @@
   route:    "pure" | "mix"    // pure=순수 Air, mix=혼합
   en:       true | false      // 사용 여부 (false면 비활성·잠김)
   valveIn:  true | false      // MFC 밸브(VA) 개폐
-  valveOut: true | false      // 솔레노이드 밸브(SOL) 개폐
   max:      2000              // MFC 최대 용량 (sccm)
   sv:       0                 // 설정 유량 (sccm)
   pv:       0                 // 현재 유량 (sccm) — 측정값, telemetry로 갱신
@@ -118,7 +117,7 @@
 
 ### 4.2 화면 → 서버 (보냄)
 ```
-{ "cmd": "set_valve", "ch": 0, "side": "in", "open": true }   // side: in(VA) | out(SOL)
+{ "cmd": "set_valve", "ch": 0, "open": true }                 // VA 밸브 개폐
 { "cmd": "set_sv",    "ch": 4, "value": 5 }
 { "cmd": "set_max",   "ch": 0, "value": 2000 }
 { "cmd": "set_4way",  "route": "vent" }                        // sensor | vent
@@ -139,7 +138,7 @@
 [data-pv="N"]    채널 N PV 표시 (textContent)
 [data-sv="N"]    채널 N SV 입력 (value)
 [data-max="N"]   채널 N MAX 입력 (value)
-[data-v="N-in"] / [data-v="N-out"]   밸브 (클릭)
+[data-v="N-in"]                      VA 밸브 (클릭)
 .way[data-out="sensor|vent"]         4-way 버튼 (클릭)
 #rh                  RH 표시
 #activeCh #totalFlow #clk #hdrLoop #runtxt #measVal   상단 상태 표시
