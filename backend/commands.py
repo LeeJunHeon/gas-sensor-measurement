@@ -27,6 +27,10 @@ def set_shutdown_handler(fn):
 async def handle_command(data: dict):
     try:
         cmd = data.get("cmd")
+        # 자동 실행 중에는 수동 채널 조작 차단(엔진과 충돌 방지)
+        if state.system.get("running") and cmd in ("set_valve", "set_sv", "set_max", "apply_setup"):
+            await push_log("자동 실행 중에는 수동 조작이 잠깁니다 (AUTO STOP 후 가능)", "warn")
+            return
 
         if cmd == "set_valve":
             ch = int(data.get("ch", -1))
@@ -92,6 +96,25 @@ async def handle_command(data: dict):
             await push_state()
 
         elif cmd == "purge":
+            if state.system.get("running"):
+                await push_log("자동 실행 중에는 PURGE 불가 (AUTO STOP 후)", "warn")
+                return
+            # 가스 채널 닫고 SV=0, 마른 공기 채널을 열어 일정 유량으로 라인 청소
+            from state import channel_role
+            PURGE_DRY_FLOW = 1000.0   # 청소용 총 마른공기 유량(sccm)
+            dry_idx = [i for i, c in enumerate(state.channels)
+                       if channel_role(c) == "dry_air" and c.get("en")]
+            for i, c in enumerate(state.channels):
+                role = channel_role(c)
+                if role == "gas":
+                    c["valveIn"] = False
+                    c["sv"] = 0.0
+                elif role == "dry_air" and c.get("en"):
+                    c["valveIn"] = True
+                    c["sv"] = min(PURGE_DRY_FLOW / max(1, len(dry_idx)), float(c.get("max") or 0))
+                elif role == "wet_air":
+                    c["sv"] = 0.0
+            state.system["routeOut"] = "sensor"
             await push_log("PURGE — 순수 Air로 라인 청소", "info")
             await push_state()
 

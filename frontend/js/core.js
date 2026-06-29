@@ -73,6 +73,16 @@ function uiSetRunning(on){
   if(on){ _hdrTransient=false; clearTimeout(_hdrTimer); }  // 실행 시작은 즉시 반영
   refreshHdrStatus();
 }
+// 자동 실행 중 수동 조작 영역을 잠근다(서버에서도 막히므로 화면도 시각적으로 잠금).
+// 잠금: 배관도 밸브·MAX/SV 입력·System Setup·PURGE·AUTO RUN(중복 시작 방지).
+// 비잠금: AUTO STOP·비상정지·EXIT·PROGRAM END(항상 동작).
+function applyRunLock(run){
+  const lock=sel=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle('locked',run));
+  lock('.n-valve'); lock('[data-max]'); lock('[data-sv]');
+  document.getElementById('openSetup')?.classList.toggle('locked',run);
+  document.querySelectorAll('.hbtn.purge').forEach(b=>b.classList.toggle('locked',run));
+  document.querySelectorAll('.hbtn.run, .pbtn.runbig').forEach(b=>{b.disabled=run; b.classList.toggle('locked',run);});
+}
 document.querySelectorAll('.hbtn.run, .pbtn.runbig').forEach(b=>b.addEventListener('click',()=>window.cmdRun()));
 // AUTO STOP(푸터 신설) + 도크 AUTO STOP → 시퀀스 정지
 document.querySelectorAll('.hbtn.stop, .pbtn.stopbig').forEach(b=>b.addEventListener('click',()=>window.cmdStop()));
@@ -163,6 +173,7 @@ function applyState(s){
   renderLanes();   // \ubc30\uad00\ub3c4 \uc7ac\ub80c\ub354
   renderRecipe();  // \ub808\uc2dc\ud53c \ud45c \uc7ac\ub80c\ub354
   updateSystem();  // \uc0c1\ub2e8 \ud1b5\uacc4
+  applyRunLock(running);   // \uc7ac\ub80c\ub354\ub41c \ubc30\uad00\ub3c4\uc5d0 \uc2e4\ud589\uc911 \uc7a0\uae08 \uc7ac\uc801\uc6a9
 }
 // \ube60\ub978 \uce21\uc815\uac12\ub9cc \uac00\ubccd\uac8c \ubc18\uc601 \u2014 \ubc30\uad00 SVG/\ub808\uc2dc\ud53c\ub97c \uc7ac\ub80c\ub354\ud558\uc9c0 \uc54a\ub294\ub2e4.
 function applyTelemetry(tl){
@@ -188,6 +199,7 @@ function applyTelemetry(tl){
       setHdrStatus(`\uc790\ub3d9 \uc2e4\ud589 \uc911 \u00b7 P${tl.stepIndex||0}/${tl.stepTotal||0} \u00b7 ${ph} ${tl.stepRemain||0}s`, 'run');
     }
   }
+  if(tl.running!=null) applyRunLock(!!tl.running);   // \uc2e4\ud589\uc911 \uc218\ub3d9\uc870\uc791 \uc7a0\uae08 \uc720\uc9c0
   updateSystem();  // activeCh / totalFlow \ud14d\uc2a4\ud2b8\ub9cc \uac31\uc2e0(\uac00\ubcbc\uc6c0)
 }
 

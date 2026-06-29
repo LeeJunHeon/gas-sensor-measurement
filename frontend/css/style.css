@@ -73,6 +73,8 @@
   /* 공통 비활성 처리 — 회색 + 클릭/선택 불가 (폼 요소엔 disabled도 함께 건다) */
   .uidis{opacity:.5;pointer-events:none}
   .uidis input,.uidis select,.uidis button,.uidis textarea{pointer-events:none}
+  /* 자동 실행 중 수동 조작 잠금(밸브·MAX/SV·Setup·PURGE·AUTO RUN). STOP/비상정지/EXIT는 안 잠금. */
+  .locked{pointer-events:none;opacity:.55}
 
   .views{flex:1;min-height:0;display:flex;flex-direction:row}
   .view{display:none}

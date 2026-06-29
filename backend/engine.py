@@ -60,6 +60,11 @@ async def _run_recipe():
 
     state.system["stepTotal"] = total_steps
     state.system["loop"]["total"] = loop_count
+    # 시작 시 진행 표시를 깨끗이 초기화(이전 실행 잔상 제거)
+    state.system["stepIndex"] = 0
+    state.system["phase"] = "idle"
+    state.system["stepRemain"] = 0
+    state.system["loop"]["current"] = 0
     try:
         for loop_i in range(loop_count):
             state.system["loop"]["current"] = loop_i + 1
