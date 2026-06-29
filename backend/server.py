@@ -50,7 +50,7 @@ def request_shutdown():
     _allow_close = True
     # 어떤 경로(PROGRAM END·창 X 모달)에서든 확실히 종료: destroy 시도 + 강제종료 백업
     def _force_exit():
-        time.sleep(0.4)   # ack/정리 flush 여유 후 강제 종료
+        time.sleep(0.3)   # ack/정리 flush 여유 후 강제 종료(데드락과 무관하게 무조건 종료)
         os._exit(0)
     threading.Thread(target=_force_exit, daemon=True).start()
     if WINDOW is not None:
@@ -61,14 +61,18 @@ def request_shutdown():
 
 
 def _on_closing():
-    """창 우상단 X → 바로 닫지 않고 앱 내부 종료확인 모달로 되묻는다(확인 전엔 닫기 취소)."""
+    """창 우상단 X → 앱 내부 종료확인 모달로 되묻는다(확인 전엔 닫기 취소).
+    ★ WebView2 데드락 방지: evaluate_js를 closing 핸들러에서 '동기' 호출하면 GUI 스레드가
+      재진입 데드락에 빠져 멈춘다('응답 없음'). 반드시 별도 스레드에서 호출하고 즉시 반환해야 한다."""
     if _allow_close:
         return True       # 종료확인 통과(또는 destroy 진행 중) → 닫기 허용
-    try:
-        WINDOW.evaluate_js("window.requestExitConfirm && window.requestExitConfirm()")
-    except Exception:  # noqa: BLE001
-        pass
-    return False          # 확인 전에는 닫기 취소(창 유지)
+    def _ask():
+        try:
+            WINDOW.evaluate_js("window.requestExitConfirm && window.requestExitConfirm()")
+        except Exception:  # noqa: BLE001
+            pass
+    threading.Thread(target=_ask, daemon=True).start()
+    return False          # 확인 전에는 닫기 취소(창 유지). evaluate_js는 위 스레드가 처리.
 
 
 # commands의 "exit" 명령이 위 종료 함수를 호출하도록 주입.

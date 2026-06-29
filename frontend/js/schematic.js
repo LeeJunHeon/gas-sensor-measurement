@@ -292,13 +292,11 @@ function drawBuses(){
   updateWayToggle();
 
   svg.innerHTML=p;
-  // 토글+RH는 밸브 아래(가스 입력 수평피드 아래의 빈 공간)에 밸브 중심 정렬로 배치 → 파이프와 안 겹침.
-  const gas1Idx=channels.findIndex(c=>c.grp==='gas');
-  const gFeedY=(gas1Idx>=0)?bys[gas1Idx]:(cCy+90*sc);
+  // 토글+RH는 밸브에 가까운 우하단(밸브 오른쪽 옆 + Sensor 출력선 아래)에 배치 → 파이프와 안 겹침.
   if(vcEl){
     vcEl.style.right='auto';
-    vcEl.style.left=(cCx/sc)+'px';
-    vcEl.style.top=((gFeedY+34*sc)/sc)+'px';
-    vcEl.style.transform='translateX(-50%)';
+    vcEl.style.left=((cCx+r+16*sc)/sc)+'px';   // 밸브 오른쪽 옆
+    vcEl.style.top=((cCy+r+14*sc)/sc)+'px';     // Sensor 출력선 아래
+    vcEl.style.transform='none';                // 좌상단 기준
   }
 }
