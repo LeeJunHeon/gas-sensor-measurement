@@ -195,21 +195,13 @@ let lastScale=0;
 let contentW=2040;                      // #app 고정 폭(배관도 1320 + 도크 720)
 const contentH=1010;                    // #app 기준 높이(세로 비율 판단용)
 function fit(){
-  // 내용 비율(가로 2040)은 유지하되 위아래 여백 없이 화면을 꽉 채운다.
+  // 가로·세로 중 빡빡한 쪽 기준으로 균일 축소(왜곡 없음). 세로 늘림은 1.15배까지만,
+  // 넘으면 위아래 여백으로 처리(전체화면 1920×1080은 기존처럼 꽉 참).
   const w=window.innerWidth, h=window.innerHeight; if(!w||!h){requestAnimationFrame(fit);return;}
-  const sW=w/contentW, sH=h/contentH;
   const app=document.getElementById('app');
-  let s, appH;
-  if(sW<=sH){
-    // 일반 가로형: 가로 폭에 맞춰 축소하고, #app 높이를 늘려 세로를 정확히 채운다.
-    // (남는 세로는 내부 flex가 .views=schematic+dock에 분배 → drawBuses가 재측정해 맞춤)
-    s=sW; appH=h/s;
-  }else{
-    // 울트라와이드(캔버스보다 가로가 더 넓음): 세로에 맞춰 축소하고 좌우 가운데 정렬.
-    s=sH; appH=contentH;
-  }
+  const s=Math.min(w/contentW, h/contentH);
   lastScale=s;
-  app.style.height=appH+'px';
+  app.style.height=Math.min(h/s, contentH*1.15)+'px';
   app.style.zoom=s;
 }
 window.addEventListener('resize',()=>{fit();drawBuses();});

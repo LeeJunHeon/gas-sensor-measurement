@@ -12,6 +12,7 @@ server.py — 진입점.
 """
 
 import os
+import time
 import json
 import asyncio
 import threading
@@ -44,17 +45,19 @@ _allow_close = False  # 창 닫기 허용 플래그(종료 확인 통과 후 Tru
 
 
 def request_shutdown():
-    """PROGRAM END / 창 X 종료확인 통과 → 창을 닫아 프로세스를 깔끔히 종료한다."""
+    """PROGRAM END / 창 X 종료확인 통과 → 확실히 프로세스를 종료한다."""
     global _allow_close
-    _allow_close = True   # 이후 destroy(및 closing 이벤트)가 실제로 닫히도록 허용
+    _allow_close = True
+    # 어떤 경로(PROGRAM END·창 X 모달)에서든 확실히 종료: destroy 시도 + 강제종료 백업
+    def _force_exit():
+        time.sleep(0.4)   # ack/정리 flush 여유 후 강제 종료
+        os._exit(0)
+    threading.Thread(target=_force_exit, daemon=True).start()
     if WINDOW is not None:
         try:
-            WINDOW.destroy()   # webview.start()가 반환되며 데몬 스레드와 함께 종료
-            return
+            WINDOW.destroy()
         except Exception as e:  # noqa: BLE001
             print(f"[warn] 창 종료 실패: {e}")
-    # 창이 없거나(브라우저 폴백) destroy 실패 → 프로세스 종료
-    os._exit(0)
 
 
 def _on_closing():

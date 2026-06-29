@@ -197,7 +197,8 @@
   .svi{flex:0 0 52px;width:52px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:14.5px;font-weight:700;padding:2px 6px;border-radius:3px;color:var(--sv);background:#fbf2e8;border:1px solid #ecd2b3}
   .svi:focus{outline:none;border-color:var(--sv);background:#fff}
   .endcap{width:8px;height:8px;border-radius:50%;background:#9aa6b6;flex:0 0 auto;border:2px solid var(--bg2)}
-  .lane.lit .endcap{background:var(--pv)}
+  .lane[data-grp="air"].lit .endcap{background:var(--air)}   /* 파랑 */
+  .lane[data-grp="gas"].lit .endcap{background:var(--g1)}    /* 빨강 */
 
   /* right rail in schematic */
   .schem-rail{width:170px;flex:0 0 auto;border-left:1px solid var(--line2);background:var(--bg);padding:14px 14px;display:flex;flex-direction:column;gap:10px}

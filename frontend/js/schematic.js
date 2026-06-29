@@ -130,10 +130,13 @@ function drawBuses(){
   if(!S.width||!probe||probe.getBoundingClientRect().height===0){setTimeout(drawBuses,100);return;}
   svg.setAttribute('viewBox',`0 0 ${S.width} ${S.height}`);
 
+  // 화면 축소 비율(sc): 모든 SVG 선 두께·점·글자를 이 비율로 줄여 작은 창에서도 비율 유지.
+  const sc=(typeof lastScale==='number'&&lastScale>0)?lastScale:1;
+  const SW=(4*sc).toFixed(2);   // 메인 파이프 두께(sc 비례)
   const BLUE='#2f72c4', RED='#c8384c', GREY='#b6c4d6';
   // pipe look = solid colored base + white moving stripes (matches horizontal CSS pipes)
   let p=`<style>
-    .stripe{stroke:rgba(255,255,255,.7);stroke-width:4;stroke-dasharray:5 17;stroke-linecap:butt;fill:none}
+    .stripe{stroke:rgba(255,255,255,.7);stroke-width:${SW};stroke-dasharray:5 17;stroke-linecap:butt;fill:none}
     .sdn{animation:sdn 1.1s linear infinite}
     .sup{animation:sup 1.1s linear infinite}
     @keyframes sdn{to{stroke-dashoffset:-22}}
@@ -141,12 +144,12 @@ function drawBuses(){
   </style>`;
   // flow line: base + white stripe overlay; dir: 'dn' (toward 2nd point) or 'up' (toward 1st)
   const fL=(x1,y1,x2,y2,col,dir,on)=> on
-    ? `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="4" stroke-linecap="round"/><line class="stripe ${dir==='up'?'sup':'sdn'}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`
-    : `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="4" stroke-linecap="round"/>`;
+    ? `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${SW}" stroke-linecap="round"/><line class="stripe ${dir==='up'?'sup':'sdn'}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`
+    : `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${SW}" stroke-linecap="round"/>`;
   const fP=(d,col,on)=> on
-    ? `<path d="${d}" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path class="stripe sdn" d="${d}" stroke-linejoin="round"/>`
-    : `<path d="${d}" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
-  const Bbox=(x,y)=>`<rect x="${x-13}" y="${y-13}" width="26" height="26" rx="6" fill="#f0ece2" stroke="#b9ad8e" stroke-width="1.6"/><text x="${x}" y="${y+4}" text-anchor="middle" font-size="11" font-weight="700" fill="#8a7c55">B</text>`;
+    ? `<path d="${d}" fill="none" stroke="${col}" stroke-width="${SW}" stroke-linecap="round" stroke-linejoin="round"/><path class="stripe sdn" d="${d}" stroke-linejoin="round"/>`
+    : `<path d="${d}" fill="none" stroke="${col}" stroke-width="${SW}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const Bbox=(x,y)=>`<rect x="${x-13*sc}" y="${y-13*sc}" width="${26*sc}" height="${26*sc}" rx="${6*sc}" fill="#f0ece2" stroke="#b9ad8e" stroke-width="${(1.6*sc).toFixed(2)}"/><text x="${x}" y="${y+4*sc}" text-anchor="middle" font-size="${(11*sc).toFixed(1)}" font-weight="700" fill="#8a7c55">B</text>`;
 
   /* ── Air supply left manifold ── */
   const airTaps=[...document.querySelectorAll('.lane[data-grp="air"] .tap')];
@@ -160,11 +163,11 @@ function drawBuses(){
     const xIn=ax-42;
     // left inlet pipe + inlet cap (label sits at its left end)
     p+=fL(xIn,topY,ax,topY,BLUE,'dn',has);
-    p+=`<circle cx="${xIn}" cy="${topY}" r="4.5" fill="#fff" stroke="${BLUE}" stroke-width="2.4"/>`;
+    p+=`<circle cx="${xIn}" cy="${topY}" r="${(4.5*sc).toFixed(2)}" fill="#fff" stroke="${BLUE}" stroke-width="${(2.4*sc).toFixed(2)}"/>`;
     // vertical manifold: flow only across the enabled air span
     if(has) p+=fL(ax,topY,ax,botY,BLUE,'dn',true);
-    {const sc=(typeof lastScale==='number'&&lastScale>0)?lastScale:1; const al=document.getElementById('airsupply'); al.style.left=((xIn-8)/sc)+'px'; al.style.top=(topY/sc)+'px';}
-    airTaps.forEach((t,i)=>{const on=airChs[i]&&airChs[i].en;p+=`<circle cx="${ax}" cy="${ays[i]}" r="3.5" fill="${on?BLUE:GREY}" opacity="${on?1:0.45}"/>`;});
+    {const al=document.getElementById('airsupply'); al.style.left=((xIn-8)/sc)+'px'; al.style.top=(topY/sc)+'px';}
+    airTaps.forEach((t,i)=>{const on=airChs[i]&&airChs[i].en;p+=`<circle cx="${ax}" cy="${ays[i]}" r="${(3.5*sc).toFixed(2)}" fill="${on?BLUE:GREY}" opacity="${on?1:0.45}"/>`;});
   }
 
   /* ── Gas inlets: each lane = ONE continuous line from inlet cap to VA valve ── */
@@ -183,7 +186,7 @@ function drawBuses(){
     // hide the HTML pre-pipe so this is a single SVG line
     const pre=lane.querySelector('.pipe[data-seg="pre"]'); if(pre) pre.style.visibility='hidden';
     // pre-segment flows whenever enabled (supply reaches the valve), like air
-    let seg=fL(xIn,gy,vx,gy,col,'dn',on)+`<circle cx="${xIn}" cy="${gy}" r="4.5" fill="#fff" stroke="${col}" stroke-width="2.4"/>`;
+    let seg=fL(xIn,gy,vx,gy,col,'dn',on)+`<circle cx="${xIn}" cy="${gy}" r="${(4.5*sc).toFixed(2)}" fill="#fff" stroke="${col}" stroke-width="${(2.4*sc).toFixed(2)}"/>`;
     if(!on) seg=`<g opacity="0.42">${seg}</g>`;   // match disabled air lanes (.lane.off opacity:.42)
     p+=seg;
     if(glayer&&ch){
@@ -202,8 +205,7 @@ function drawBuses(){
   const mixRows=channels.map((c,i)=>c.route==='mix'?bys[i]:null).filter(v=>v!=null);
   const pureF=channels.map((c,i)=>c.route==='pure'&&flow(c)?bys[i]:null).filter(v=>v!=null);
   const mixF=channels.map((c,i)=>c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
-  const sc=(typeof lastScale==='number'&&lastScale>0)?lastScale:1;
-  const vcR=24, vcX=bx+138*sc, jx=bx+93*sc;
+  const vcR=24, vcX=bx+186*sc, jx=bx+93*sc;
   const pureMidRow=pureRows.length?(Math.min(...pureRows)+Math.max(...pureRows))/2:S.height*0.25;
   const mixMidRow=mixRows.length?(Math.min(...mixRows)+Math.max(...mixRows))/2:S.height*0.6;
   const vcY=S.height*0.34;   // 4-way moved up to leave room for the log panel bottom-right
@@ -255,31 +257,33 @@ function drawBuses(){
   // endcap joints (coloured only where that channel actually flows)
   caps.forEach((c,i)=>{
     const ech=channels[i]; const col=ech.grp==='gas'?RED:BLUE;
-    p+=`<rect x="${bx-6}" y="${bys[i]-4}" width="12" height="8" rx="3" fill="#cfd8e3" stroke="${flow(ech)?col:GREY}" stroke-width="1.2"/>`;
+    p+=`<rect x="${bx-6*sc}" y="${bys[i]-4*sc}" width="${12*sc}" height="${8*sc}" rx="${3*sc}" fill="#cfd8e3" stroke="${flow(ech)?col:GREY}" stroke-width="${(1.2*sc).toFixed(2)}"/>`;
   });
 
-  /* ── 4-way 밸브 = 파이프로 직접(박스 없음). 입력 Air(위)·Gas(아래), 출력 Sensor(오른)·Vent(왼).
-       스타일 C: 두 대각선이 반대 삼각형에 놓여 가운데에서 안 만난다. routeOut 따라 회전. ── */
-  const airFlow=pureF.length>0, gasFlow=mixF.length>0;
-  const senFlow = senOn ? airFlow : gasFlow;      // Sensor로 도달하는 입력이 흐르는가
-  const ventFlow = senOn ? gasFlow : airFlow;     // Vent로 도달하는 입력이 흐르는가
-  // 밸브 네 접점
+  /* ── 4-way 밸브 = 둥근 테두리 박스 + 스타일 C 대각선(반대 삼각형, 가운데 빔). 출력색 = 들어온 입력색. ── */
+  // 입력 색: 위=순수공기(파랑), 아래=mix(실제 흐름 기준: 공기희석=파랑/가스=빨강/둘다=보라)
+  const BLEND='#8a4f9e';
+  const airMixFlowY=channels.map((c,i)=>c.grp==='air'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
+  const gasMixFlowY=channels.map((c,i)=>c.grp==='gas'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
+  const topFlow=pureF.length>0, topCol=BLUE;
+  const botFlow=mixF.length>0;
+  const botCol=(airMixFlowY.length>0&&gasMixFlowY.length>0)?BLEND:(airMixFlowY.length>0?BLUE:(gasMixFlowY.length>0?RED:GREY));
   const vTop=[cCx,cCy-r], vBot=[cCx,cCy+r], vRight=[cCx+r,cCy], vLeft=[cCx-r,cCy];
-  const airTo = senOn ? vRight : vLeft;           // Air 대각의 도착(출력) 접점
-  const gasTo = senOn ? vLeft  : vRight;          // Gas 대각의 도착(출력) 접점
-  // 라우팅 대각선(메인 파이프와 동일 두께/룩). Air=파랑, Gas=빨강, 안 흐르면 회색, 흐르면 줄무늬.
-  p+=fL(vTop[0],vTop[1],airTo[0],airTo[1],airFlow?BLUE:GREY,'dn',airFlow);
-  p+=fL(vBot[0],vBot[1],gasTo[0],gasTo[1],gasFlow?RED:GREY,'dn',gasFlow);
-  // 출력 파이프 — 출력색 = 들어온 입력색(senOn이면 Sensor←Air=파랑/Vent←Gas=빨강, 아니면 반전)
+  const topTo=senOn?vRight:vLeft, botTo=senOn?vLeft:vRight;
+  // 테두리 박스(입·출력 파이프가 4변 통과, 안쪽 배경색) — 대각선보다 먼저 그려 대각선이 위로.
+  p+=`<rect x="${cCx-r}" y="${cCy-r}" width="${r*2}" height="${r*2}" rx="${6*sc}" style="fill:var(--bg2)" stroke="#6b7686" stroke-width="${(1.6*sc).toFixed(2)}"/>`;
+  p+=fL(vTop[0],vTop[1],topTo[0],topTo[1],topFlow?topCol:GREY,'dn',topFlow);
+  p+=fL(vBot[0],vBot[1],botTo[0],botTo[1],botFlow?botCol:GREY,'dn',botFlow);
   const L=46*sc;
-  p+=fL(vRight[0],vRight[1],cCx+r+L,cCy,(senFlow?(senOn?BLUE:RED):GREY),'dn',senFlow);
-  p+=fL(vLeft[0],vLeft[1],cCx-r-L,cCy,(ventFlow?(senOn?RED:BLUE):GREY),'dn',ventFlow);
-  // 밸브 접점 점(입력색/출력색)
+  const senSrcFlow=senOn?topFlow:botFlow, senSrcCol=senOn?topCol:botCol;
+  const venSrcFlow=senOn?botFlow:topFlow, venSrcCol=senOn?botCol:topCol;
+  p+=fL(vRight[0],vRight[1],cCx+r+L,cCy,senSrcFlow?senSrcCol:GREY,'dn',senSrcFlow);
+  p+=fL(vLeft[0],vLeft[1],cCx-r-L,cCy,venSrcFlow?venSrcCol:GREY,'dn',venSrcFlow);
   const dotC=(x,y,col)=>`<circle cx="${x}" cy="${y}" r="${(3.6*sc).toFixed(1)}" fill="${col}"/>`;
-  p+=dotC(vTop[0],vTop[1],airFlow?BLUE:GREY);
-  p+=dotC(vBot[0],vBot[1],gasFlow?RED:GREY);
-  p+=dotC(vRight[0],vRight[1],senFlow?(senOn?BLUE:RED):GREY);
-  p+=dotC(vLeft[0],vLeft[1],ventFlow?(senOn?RED:BLUE):GREY);
+  p+=dotC(vTop[0],vTop[1],topFlow?topCol:GREY);
+  p+=dotC(vBot[0],vBot[1],botFlow?botCol:GREY);
+  p+=dotC(vRight[0],vRight[1],senSrcFlow?senSrcCol:GREY);
+  p+=dotC(vLeft[0],vLeft[1],venSrcFlow?venSrcCol:GREY);
   // Vent/Sensor 라벨만 출력 파이프 끝에(배관도 라벨 톤). Air/Gas 텍스트는 넣지 않음.
   const lf=(13.5*sc).toFixed(1);
   p+=`<text x="${cCx+r+L+8*sc}" y="${cCy+4.5*sc}" text-anchor="start" font-family="'IBM Plex Sans',sans-serif" font-size="${lf}" font-weight="700" fill="#2a3645">Sensor</text>`;
@@ -288,6 +292,13 @@ function drawBuses(){
   updateWayToggle();
 
   svg.innerHTML=p;
-  // 토글+RH는 접합부 아래에 가로 중앙정렬로 배치(scaled px → layout px). 박스 없음.
-  if(vcEl){vcEl.style.right='auto'; vcEl.style.left=(cCx/sc)+'px'; vcEl.style.top=((cCy+r+24*sc)/sc)+'px';}
+  // 토글+RH는 밸브 아래(가스 입력 수평피드 아래의 빈 공간)에 밸브 중심 정렬로 배치 → 파이프와 안 겹침.
+  const gas1Idx=channels.findIndex(c=>c.grp==='gas');
+  const gFeedY=(gas1Idx>=0)?bys[gas1Idx]:(cCy+90*sc);
+  if(vcEl){
+    vcEl.style.right='auto';
+    vcEl.style.left=(cCx/sc)+'px';
+    vcEl.style.top=((gFeedY+34*sc)/sc)+'px';
+    vcEl.style.transform='translateX(-50%)';
+  }
 }
