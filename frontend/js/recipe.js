@@ -121,6 +121,7 @@ function collectRecipe(){
   const useHumidity=document.getElementById('useHumidity').checked;
   const loopCount=+(document.getElementById('loopCount')?.value)||0;
   const num=id=>parseFloat(document.getElementById(id)?.value)||0;
+  const bottle=[0,1,2,3].map(i=>parseFloat(document.getElementById('b'+i)?.value)||0);
   const params={
     vStart:num('vStart'), vEnd:num('vEnd'), vStep:num('vStep'),
     grafInterval:num('grafInt'),
@@ -128,6 +129,6 @@ function collectRecipe(){
     smuSource:num('smuSrc'), smuCompliance:num('smuComp'),
     chFrom:num('chFrom'), chTo:num('chTo'),
   };
-  return {name, useHumidity, loopCount,
+  return {name, useHumidity, loopCount, bottle,
     procs:procs.map(p=>Object.assign({},p,{g:(p.g||[0,0,0,0]).slice()})), params};
 }

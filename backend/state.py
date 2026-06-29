@@ -71,10 +71,15 @@ def normalize_recipe(r: dict) -> dict:
                 "rep": bool(p.get("rep")),
             })
     params = {**DEFAULT_PARAMS, **(r.get("params") if isinstance(r.get("params"), dict) else {})}
+    bottle = r.get("bottle")
+    bottle = [to_num(x) for x in bottle[:4]] if isinstance(bottle, list) else []
+    while len(bottle) < 4:
+        bottle.append(0)
     return {
         "name": str(r.get("name") or ""),
         "useHumidity": bool(r.get("useHumidity", True)),
         "loopCount": int(to_num(r.get("loopCount"), 1)) or 1,
+        "bottle": bottle,
         "procs": procs,
         "params": params,
     }
@@ -154,6 +159,19 @@ class State:
         if include_recipe:
             snap["recipe"] = json.loads(json.dumps(self.recipe))
         return snap
+
+
+# 채널 역할(엔진/계산용). 물탱크(가습기)가 달린 채널 = 젖은 공기.
+HUMID_CHANNEL_IDS = {"VA2", "VA4"}   # 물탱크 장착 채널(습한 공기)
+
+
+def channel_role(c: dict) -> str:
+    """'gas' | 'wet_air' | 'dry_air' — 엔진이 SV를 배분할 때 쓰는 역할."""
+    if c.get("grp") == "gas":
+        return "gas"
+    if c.get("id") in HUMID_CHANNEL_IDS:
+        return "wet_air"
+    return "dry_air"
 
 
 # 서버 전역에서 공유하는 단일 상태 인스턴스

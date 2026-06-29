@@ -148,6 +148,7 @@ function applyState(s){
     const hdr=document.getElementById('hdrRecipe'); if(hdr) hdr.textContent=s.recipe.name||'\u2014';
     const uh=document.getElementById('useHumidity'); if(uh) uh.checked=!!s.recipe.useHumidity;
     const lc=document.getElementById('loopCount'); if(lc&&s.recipe.loopCount!=null) lc.value=s.recipe.loopCount;
+    (s.recipe.bottle||[]).forEach((v,i)=>{const el=document.getElementById('b'+i); if(el) el.value=(v||v===0)?v:'';});
     applyParams(s.recipe.params);
   }
   if(s.system){
