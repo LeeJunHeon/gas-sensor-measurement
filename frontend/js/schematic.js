@@ -69,9 +69,10 @@ function renderLanes(){
       </div>
       <i class="pipe ${c.en?'on':''}" data-seg="pre" style="--c:${c.color}"></i>
       <div class="n-valve ${c.valveIn?'open':'closed'}${c.en?'':' dis'}" data-v="${idx}-in" title="MFC 밸브 (VA)">${valveSvg}<span class="vlbl">${c.id}</span></div>
-      <i class="pipe ${c.en&&c.valveIn?'on':''}" data-seg="mid" style="--c:${c.color}"></i>
-      <div class="n-tank" title="${hasTank?'물탱크 (가습기)':''}">${hasTank?tankSvg('#3a9fe0'):''}</div>
-      <i class="pipe ${c.en&&c.valveIn?'on':''}" data-seg="mid" style="--c:${c.color}"></i>
+      <div class="midpipe">
+        <i class="pipe ${c.en&&c.valveIn?'on':''}" data-seg="mid" style="--c:${c.color}"></i>
+        ${hasTank?`<div class="tank-ov" title="물탱크 (가습기)">${tankSvg('#3a9fe0')}</div>`:''}
+      </div>
       <div class="n-mfc ${c.en&&c.valveIn?'on':''}${c.en?'':' dis'}">
         <div class="mfc-read">
           <span class="vid">${c.id} · MFC</span>
@@ -124,11 +125,11 @@ function renderVcCross(airFlow, gasFlow){
   const el=document.getElementById('vcCross'); if(!el) return;
   const sen=routeOut==='sensor';
   const BLUE='#2f72c4', RED='#c8384c', GREY='#cdd5e0', OFF='#9aa6b6';
-  // local viewBox 188×92 — center(94,46), Air(top 94,12) Gas(bot 94,80) Vent(left 44,46) Sensor(right 144,46)
-  // 두 경로는 가운데를 거치지 않고 반대 모서리에서 ㄱ/ㄴ로 꺾인다(가운데가 빈다). 방향전환 시 반대 모서리로 이동.
+  // local viewBox 188×92 — Air(top 94,12) Gas(bot 94,80) Vent(left 44,46) Sensor(right 144,46)
+  // 스타일 C: 두 대각선 채널이 서로 반대 삼각형에 놓여 가운데에서 만나지 않는다(가운데 빔). 방향전환 시 반대 대각으로 회전.
   const airOutX=sen?144:44, gasOutX=sen?44:144;
-  const airD=`M94 12 H${airOutX} V46`;     // 위(Air) → 가로 → 좌/우 출력 모서리
-  const gasD=`M94 80 H${gasOutX} V46`;     // 아래(Gas) → 가로 → 좌/우 출력 모서리
+  const airD=`M94 12 L${airOutX} 46`;     // Air → Sensor/Vent 대각
+  const gasD=`M94 80 L${gasOutX} 46`;     // Gas → Vent/Sensor 대각
   const airCol=airFlow?BLUE:GREY, gasCol=gasFlow?RED:GREY;
   let s=`<svg viewBox="0 0 188 92" preserveAspectRatio="xMidYMid meet">`;
   s+=`<path class="base" d="${airD}" stroke="${airCol}"/>`;
@@ -141,10 +142,10 @@ function renderVcCross(airFlow, gasFlow){
   s+=dot(94,80, gasFlow?RED:OFF);
   s+=dot(144,46, (sen?airFlow:gasFlow)?(sen?BLUE:RED):OFF);   // Sensor 포트
   s+=dot(44,46,  (sen?gasFlow:airFlow)?(sen?RED:BLUE):OFF);   // Vent 포트
-  s+=`<text class="plabel" x="94" y="8" text-anchor="middle">Air</text>`;
-  s+=`<text class="plabel" x="94" y="91" text-anchor="middle">Gas</text>`;
-  s+=`<text class="plabel" x="38" y="49" text-anchor="end">Vent</text>`;
-  s+=`<text class="plabel" x="150" y="49" text-anchor="start">Sensor</text>`;
+  s+=`<text class="plabel" x="94" y="11" text-anchor="middle">Air</text>`;
+  s+=`<text class="plabel" x="94" y="86" text-anchor="middle">Gas</text>`;
+  s+=`<text class="plabel" x="40" y="40" text-anchor="end">Vent</text>`;
+  s+=`<text class="plabel" x="148" y="40" text-anchor="start">Sensor</text>`;
   s+=`</svg>`;
   el.innerHTML=s;
 }
@@ -238,11 +239,19 @@ function drawBuses(){
   const mixMidRow=mixRows.length?(Math.min(...mixRows)+Math.max(...mixRows))/2:S.height*0.6;
   const vcY=S.height*0.34;   // 4-way moved up to leave room for the log panel bottom-right
 
-  // card (4-way) geometry — measured then scaled to SVG units (= visual px)
+  // 4-way 밸브 바디(#vcBody) 박스의 실제 위치/크기(visual px)로 파이프 연결점을 잡는다.
+  // (토글·RH가 박스 아래에 붙어도 파이프는 박스 네 변에만 닿도록 — #vcControl 전체가 아니라 박스 기준)
   const vcEl=document.getElementById('vcControl');
-  const cardW=(vcEl?vcEl.offsetWidth:150)*sc;
-  const cardH=(vcEl?vcEl.offsetHeight:120)*sc;
-  const cLeft=vcX, cCx=vcX+cardW/2, cRight=vcX+cardW, cTop=vcY-cardH/2, cBot=vcY+cardH/2;
+  const bodyEl=document.getElementById('vcBody');
+  let cLeft, cRight, cTop, cBot;
+  const br=bodyEl?bodyEl.getBoundingClientRect():null;
+  if(br&&br.width){
+    cLeft=br.left-S.left; cRight=br.right-S.left; cTop=br.top-S.top; cBot=br.bottom-S.top;
+  }else{
+    const cardW=124*sc, cardH=62*sc;   // fallback (첫 프레임): 박스 측정 전
+    cLeft=vcX; cRight=vcX+cardW; cTop=vcY-cardH/2; cBot=vcY+cardH/2;
+  }
+  const cCx=(cLeft+cRight)/2, cCy=(cTop+cBot)/2;
   const senOn=routeOut==='sensor';
 
   // AIR (pure) bus — FIXED grey structure across ALL rows + coloured flow only on the FLOWING span.
@@ -294,10 +303,10 @@ function drawBuses(){
   // 현재 라우팅에 따라 각 출력이 받는 소스가 흐르는지: sensor 모드면 Sensor←Air, Vent←Gas / vent 모드면 반전.
   const senFlow = senOn ? airFlow : gasFlow;
   const ventFlow = senOn ? gasFlow : airFlow;
-  // Sensor output stub (right) — 출력색 = 들어온 입력색(sensor 모드면 Air=BLUE, vent 모드면 Gas=RED)
-  p+=fL(cRight,vcY,cRight+41*sc,vcY,(senFlow?(senOn?BLUE:RED):GREY),'dn',senFlow);
-  // Vent output stub (left) — 출력색 = 들어온 입력색(sensor 모드면 Gas=RED, vent 모드면 Air=BLUE)
-  p+=fL(cLeft,vcY,cLeft-41*sc,vcY,(ventFlow?(senOn?RED:BLUE):GREY),'dn',ventFlow);
+  // Sensor output stub (박스 오른변 중앙) — 출력색 = 들어온 입력색(sensor 모드면 Air=BLUE, vent 모드면 Gas=RED)
+  p+=fL(cRight,cCy,cRight+41*sc,cCy,(senFlow?(senOn?BLUE:RED):GREY),'dn',senFlow);
+  // Vent output stub (박스 왼변 중앙) — 출력색 = 들어온 입력색(sensor 모드면 Gas=RED, vent 모드면 Air=BLUE)
+  p+=fL(cLeft,cCy,cLeft-41*sc,cCy,(ventFlow?(senOn?RED:BLUE):GREY),'dn',ventFlow);
 
   renderVcCross(airFlow, gasFlow);
   updateWayToggle();
