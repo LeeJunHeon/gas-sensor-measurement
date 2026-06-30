@@ -136,15 +136,15 @@
     if (msg.of === 'run' && !msg.ok) {
       // AUTO RUN 시작 불가(계산/MAX 검증 실패) → 사유 팝업(서버가 로그는 별도로 push)
       const probs = msg.problems || [];
-      window.alert('AUTO RUN 시작 불가:\n\n' + (probs.length ? probs.join('\n') : (msg.reason || '알 수 없는 오류')));
+      window.appAlert((probs.length ? probs.join('\n') : (msg.reason || '알 수 없는 오류')), 'AUTO RUN 시작 불가');
       return;
     }
     if (msg.of !== 'recipe_save') return;
     if (msg.ok) return;                       // 성공 로그는 서버가 push
     if (msg.reason === 'exists') {
-      if (window.confirm('같은 이름이 있습니다. 덮어쓸까요?') && lastSave) {
-        send({ cmd: 'recipe_save', name: lastSave.name, overwrite: true, recipe: lastSave.recipe });
-      }
+      window.appConfirm('같은 이름이 있습니다. 덮어쓸까요?', () => {
+        if (lastSave) send({ cmd: 'recipe_save', name: lastSave.name, overwrite: true, recipe: lastSave.recipe });
+      }, '덮어쓰기 확인');
     } else if (msg.reason === 'invalid') {
       window.logMsg('레시피 저장 실패 — 잘못된 이름', 'err');
     } else {
@@ -209,7 +209,7 @@
       window.logMsg('프로그램 종료 중...', 'warn');
     };
     if (typeof window.confirmExit === 'function') window.confirmExit(doExit);
-    else if (window.confirm('프로그램을 종료하시겠습니까?')) doExit();   // 폴백
+    else window.appConfirm('프로그램을 종료하시겠습니까?', doExit, '프로그램 종료');   // 폴백
   };
   // 창 우상단 X → 서버(_on_closing)가 호출. PROGRAM END와 동일한 종료확인 모달을 띄운다.
   window.requestExitConfirm = function () { window.cmdExit(); };
@@ -314,6 +314,38 @@
     if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') close(); });
   }
 
+  // ===================== 공용 알림/확인 모달 =====================
+  window.appAlert = function (message, title) {
+    const ov = document.getElementById('alertModal');
+    if (!ov) { window.alert(message); return; }   // 안전 폴백
+    document.getElementById('alertModalTitle').textContent = title || '알림';
+    document.getElementById('alertModalBody').textContent = message || '';
+    ov.classList.add('on');
+  };
+  let _confirmCb = null;
+  window.appConfirm = function (message, onOk, title) {
+    const ov = document.getElementById('confirmModal');
+    if (!ov) { if (window.confirm(message)) onOk && onOk(); return; }
+    document.getElementById('confirmModalTitle').textContent = title || '확인';
+    document.getElementById('confirmModalBody').textContent = message || '';
+    _confirmCb = onOk || null;
+    ov.classList.add('on');
+  };
+  function bindCommonModals() {
+    const aOv = document.getElementById('alertModal');
+    const aClose = () => aOv && aOv.classList.remove('on');
+    document.getElementById('alertModalOk')?.addEventListener('click', aClose);
+    document.getElementById('alertModalClose')?.addEventListener('click', aClose);
+    if (aOv) aOv.addEventListener('click', e => { if (e.target === aOv) aClose(); });
+
+    const cOv = document.getElementById('confirmModal');
+    const cClose = () => cOv && cOv.classList.remove('on');
+    document.getElementById('confirmModalOk')?.addEventListener('click', () => { cClose(); const cb = _confirmCb; _confirmCb = null; if (cb) cb(); });
+    document.getElementById('confirmModalCancel')?.addEventListener('click', () => { _confirmCb = null; cClose(); });
+    document.getElementById('confirmModalClose')?.addEventListener('click', () => { _confirmCb = null; cClose(); });
+    if (cOv) cOv.addEventListener('click', e => { if (e.target === cOv) { _confirmCb = null; cClose(); } });
+  }
+
   // ===================== 시뮬레이션 대체(서버 끊김 시) =====================
   let simTimer = null;
   let simElapsed = 0;
@@ -359,6 +391,7 @@
   // ===================== 시작 =====================
   bindPicker();
   bindSaveName();
+  bindCommonModals();
   // 초기엔 로그 없이 pill만 "연결 끊김"으로 표시(첫 연결/실패 시 로그가 남는다).
   const pill0 = document.getElementById('connStatus');
   if (pill0) { pill0.classList.add('disc'); pill0.classList.remove('conn'); }

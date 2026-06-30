@@ -245,6 +245,39 @@
       </div>
     </div>
 
+    <!-- 공용 알림 모달(확인 버튼 1개) -->
+    <div class="modal-overlay" id="alertModal">
+      <div class="modal" style="width:420px">
+        <div class="modal-head">
+          <h2 id="alertModalTitle">알림</h2>
+          <button class="x" id="alertModalClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div id="alertModalBody" style="font-size:13px;color:#2a3645;white-space:pre-line;line-height:1.5"></div>
+        </div>
+        <div class="modal-foot">
+          <button class="apply" id="alertModalOk">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 공용 확인 모달(취소/확인 2개) -->
+    <div class="modal-overlay" id="confirmModal">
+      <div class="modal" style="width:420px">
+        <div class="modal-head">
+          <h2 id="confirmModalTitle">확인</h2>
+          <button class="x" id="confirmModalClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div id="confirmModalBody" style="font-size:13px;color:#2a3645;white-space:pre-line;line-height:1.5"></div>
+        </div>
+        <div class="modal-foot">
+          <button class="cancel" id="confirmModalCancel">취소</button>
+          <button class="apply" id="confirmModalOk">확인</button>
+        </div>
+      </div>
+    </div>
+
     <!-- System Log modal -->
     <div class="modal-overlay" id="logModal">
       <div class="modal" style="width:560px">

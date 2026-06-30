@@ -9,7 +9,6 @@ import os
 
 import engine
 from state import state, default_recipe, DEFAULT_PARAMS, normalize_recipe, to_num
-from recipe_calc import compute_step_setpoints
 from connection import manager, push_state, push_log
 from storage import (
     atomic_write_json, safe_read_json, valid_recipe_name, list_recipes, RECIPES_DIR,
@@ -195,22 +194,6 @@ async def handle_command(data: dict):
 
         elif cmd == "recipe_list":
             await manager.broadcast({"type": "recipe_list", "names": list_recipes()})
-
-        elif cmd == "calc_preview":
-            # 임시 검증용: 현재 레시피 각 단계의 목표 SV(또는 실행 불가 사유)를 로그로 출력.
-            r = state.recipe
-            procs = r.get("procs") or []
-            bottle = r.get("bottle") or []
-            use_h = bool(r.get("useHumidity", True))
-            if not procs:
-                await push_log("계산 미리보기 — 레시피에 단계가 없음", "warn")
-            for n, proc in enumerate(procs):
-                res = compute_step_setpoints(state.channels, proc, bottle, use_h)
-                if res["errors"]:
-                    await push_log(f"P{n+1} 실행 불가: " + " / ".join(res["errors"]), "err")
-                else:
-                    parts = [f"{state.channels[i]['id']}={v:.1f}" for i, v in res["sv"].items() if v > 0]
-                    await push_log(f"P{n+1} 목표유량 → " + ", ".join(parts), "ok")
 
         elif cmd == "exit":
             await push_log("프로그램 종료", "info")

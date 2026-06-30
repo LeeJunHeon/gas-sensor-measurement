@@ -88,7 +88,9 @@ async def _run_recipe():
                 await _phase("prep", float(proc.get("prep") or 0))
                 if not is_running_flag():
                     return
-                # 측정(meas): 값 유지하며 시간 흐름(측정 하드웨어 붙으면 여기에 기록)
+                # 측정(meas): 값 유지하며 시간 흐름.
+                # ── 하드웨어 연결 시 여기에 RH/SMU 측정값 기록 코드 삽입 위치 ──
+                #    (예: 주기적으로 센서값을 읽어 그래프/파일에 저장)
                 await _phase("meas", float(proc.get("meas") or 0))
                 if not is_running_flag():
                     return
