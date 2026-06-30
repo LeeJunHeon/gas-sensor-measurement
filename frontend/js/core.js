@@ -176,6 +176,15 @@ function applyState(s){
     const rh=document.getElementById('rh'); if(rh&&s.system.rh!=null) rh.textContent=(+s.system.rh).toFixed(1);
     const mv=document.getElementById('measVal'); if(mv&&s.system.smu) mv.textContent=s.system.smu;
   }
+  if(s.settings){   // \ub85c\uae45 \uc124\uc815 \u2192 System Setup \ubaa8\ub2ec \uc785\ub825\uc5d0 \ubc18\uc601
+    const st=s.settings;
+    const setC=(id,v)=>{const e=document.getElementById(id); if(e) e.checked=!!v;};
+    const setV=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null) e.value=v;};
+    setC('logEnabled', st.logEnabled);
+    setV('logDir', st.logDir);
+    const ll=document.getElementById('logLevel'); if(ll&&st.logLevel) ll.value=st.logLevel;
+    setV('logKeepDays', st.logKeepDays);
+  }
   renderLanes();   // \ubc30\uad00\ub3c4 \uc7ac\ub80c\ub354
   renderRecipe();  // \ub808\uc2dc\ud53c \ud45c \uc7ac\ub80c\ub354
   updateSystem();  // \uc0c1\ub2e8 \ud1b5\uacc4

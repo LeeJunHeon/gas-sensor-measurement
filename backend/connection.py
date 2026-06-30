@@ -6,6 +6,7 @@ import json
 
 from fastapi import WebSocket
 
+import logger
 from state import state
 
 
@@ -51,4 +52,5 @@ async def push_state(include_recipe: bool = False):
 
 
 async def push_log(msg: str, level: str = "info"):
+    logger.write(level, msg)   # 화면 로그와 함께 파일에도 기록(설정에 따라 on/off·레벨 필터)
     await manager.broadcast({"type": "log", "msg": msg, "level": level})

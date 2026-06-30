@@ -47,11 +47,17 @@ function collectSetup(){
   const num=id=>parseFloat(document.getElementById(id)?.value)||0;
   const params={vStart:num('setVStart'), vEnd:num('setVEnd'),
     grafInterval:num('setGraf'), smuCompliance:num('setComp')};
-  return {channels:chans, params};
+  const settings={
+    logEnabled: !!document.getElementById('logEnabled')?.checked,
+    logDir: (document.getElementById('logDir')?.value || 'logs').trim(),
+    logLevel: document.getElementById('logLevel')?.value || 'info',
+    logKeepDays: parseInt(document.getElementById('logKeepDays')?.value, 10) || 30,
+  };
+  return {channels:chans, params, settings};
 }
 function applySetup(){
-  const {channels:chans, params}=collectSetup();
-  window.cmdApplySetup(chans, params);
+  const {channels:chans, params, settings}=collectSetup();
+  window.cmdApplySetup(chans, params, settings);
   // sync a few process params into the Auto Process panel inputs for immediate feedback
   const set=(id,el)=>{const a=document.getElementById(id),b=document.getElementById(el);if(a&&b)b.value=a.value;};
   set('setVStart','vStart'); set('setVEnd','vEnd'); set('setGraf','grafInt'); set('setLoop','loopCount'); set('setComp','smuComp');

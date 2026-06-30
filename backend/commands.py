@@ -8,6 +8,7 @@ commands.py — 화면 명령 처리(handle_command).
 import os
 
 import engine
+import logger
 from state import state, default_recipe, DEFAULT_PARAMS, normalize_recipe, to_num
 from connection import manager, push_state, push_log
 from storage import (
@@ -138,6 +139,9 @@ async def handle_command(data: dict):
             if isinstance(data.get("params"), dict):
                 state.params = {**state.params, **data["params"]}
                 state.recipe["params"] = dict(state.params)
+            if isinstance(data.get("settings"), dict):
+                state.settings = {**state.settings, **data["settings"]}
+                logger.configure(state.settings)   # 변경 즉시 로거 재설정
             state.save_config()
             await push_log("System Setup 적용 — 채널 설정 저장됨", "ok")
             await push_state()

@@ -40,6 +40,7 @@
           smuCompliance: 1.0, chFrom: 1, chTo: 1,
         },
       },
+      settings: { logEnabled: true, logDir: 'logs', logLevel: 'info', logKeepDays: 30 },
     };
   }
 
@@ -111,7 +112,8 @@
       case 'state':
         mirror = { channels: deepCopy(msg.channels || []),
                    system: deepCopy(msg.system || mirror.system),
-                   recipe: deepCopy(msg.recipe || mirror.recipe) };
+                   recipe: deepCopy(msg.recipe || mirror.recipe),
+                   settings: deepCopy(msg.settings || mirror.settings) };
         window.applyState(msg);
         break;
       case 'telemetry':
@@ -213,8 +215,8 @@
   };
   // 창 우상단 X → 서버(_on_closing)가 호출. PROGRAM END와 동일한 종료확인 모달을 띄운다.
   window.requestExitConfirm = function () { window.cmdExit(); };
-  window.cmdApplySetup = function (channels, params) {
-    if (send({ cmd: 'apply_setup', channels: channels, params: params })) return;
+  window.cmdApplySetup = function (channels, params, settings) {
+    if (send({ cmd: 'apply_setup', channels: channels, params: params, settings: settings })) return;
     localApply(m => {
       (channels || []).forEach(item => {
         const c = m.channels[item.ch];
@@ -226,6 +228,7 @@
         else if (!c.en) { c.valveIn = false; }
       });
       if (params) m.recipe.params = Object.assign({}, m.recipe.params, params);
+      if (settings) m.settings = Object.assign({}, m.settings, settings);
     });
     window.logMsg('System Setup 적용 (시뮬레이션 — 서버 연결 시 config.json 저장)', 'warn');
   };

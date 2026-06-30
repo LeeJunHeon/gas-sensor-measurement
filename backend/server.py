@@ -23,6 +23,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+import logger
 from storage import PROJECT_ROOT
 from state import state
 from simulation import sim_tick
@@ -82,7 +83,8 @@ commands.set_shutdown_handler(request_shutdown)
 # ===================== FastAPI =====================
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # startup: 시뮬레이션 telemetry 백그라운드 태스크 시작
+    # startup: 파일 로거 구성(config의 settings 기준) + 시뮬레이션 telemetry 백그라운드 태스크 시작
+    logger.configure(state.settings)
     async def telemetry_loop():
         dt = 1.0 / TELEMETRY_HZ
         while True:

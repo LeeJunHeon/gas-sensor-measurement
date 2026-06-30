@@ -188,6 +188,26 @@
             <div class="setup-field"><label>SMU Compliance (mA)</label><input id="setComp" value="1.0"></div>
             <div class="setup-field"><label>목표 습도 RH (%)</label><input id="setRH" value="40"></div>
           </div>
+          <div class="setup-section">
+            <div class="setup-sec-title">로깅 (파일 기록)</div>
+            <div class="setup-row">
+              <label><input type="checkbox" id="logEnabled"> 파일 로그 사용</label>
+            </div>
+            <div class="setup-row">
+              <span class="setup-lbl">저장 폴더</span>
+              <input class="recname mono" id="logDir" style="flex:1" placeholder="logs (또는 절대경로)">
+            </div>
+            <div class="setup-row">
+              <span class="setup-lbl">기록 레벨</span>
+              <select id="logLevel">
+                <option value="info">전체(info 이상)</option>
+                <option value="warn">경고 이상</option>
+                <option value="err">오류만</option>
+              </select>
+              <span class="setup-lbl" style="margin-left:12px">보관일수</span>
+              <input class="recname mono" id="logKeepDays" style="width:70px" placeholder="30">
+            </div>
+          </div>
         </div>
         <div class="modal-foot">
           <button class="cancel" id="cancelSetup">취소</button>

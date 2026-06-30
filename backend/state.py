@@ -28,6 +28,13 @@ DEFAULT_PARAMS = {
     "chFrom": 1, "chTo": 1,
 }
 
+DEFAULT_SETTINGS = {
+    "logEnabled": True,           # 파일 로그 사용
+    "logDir": "logs",             # 저장 폴더(프로젝트 루트 기준 상대경로 또는 절대경로)
+    "logLevel": "info",           # info | warn | err (이 레벨 이상만 파일 기록)
+    "logKeepDays": 30,            # 보관 일수(이보다 오래된 로그 파일 삭제)
+}
+
 
 def default_recipe() -> dict:
     return {
@@ -90,6 +97,7 @@ class State:
     def __init__(self):
         self.channels = [dict(c) for c in DEFAULT_CHANNELS]
         self.params = dict(DEFAULT_PARAMS)
+        self.settings = dict(DEFAULT_SETTINGS)
         self.system = {
             "running": False,
             "routeOut": "sensor",
@@ -132,6 +140,7 @@ class State:
         if isinstance(data.get("params"), dict):
             self.params = {**DEFAULT_PARAMS, **data["params"]}
             self.recipe["params"] = dict(self.params)
+        self.settings = {**DEFAULT_SETTINGS, **(data.get("settings") or {})}
         # 사용 채널은 시작 시 밸브 열림으로 둔다(데모 일관성).
         for c in self.channels:
             c.setdefault("valveIn", bool(c["en"]))
@@ -145,6 +154,7 @@ class State:
                 for c in self.channels
             ],
             "params": self.params,
+            "settings": self.settings,
         }
         try:
             atomic_write_json(CONFIG_PATH, payload)
@@ -159,6 +169,7 @@ class State:
             "type": "state",
             "channels": [dict(c) for c in self.channels],
             "system": dict(self.system),
+            "settings": dict(self.settings),
         }
         if include_recipe:
             snap["recipe"] = json.loads(json.dumps(self.recipe))
