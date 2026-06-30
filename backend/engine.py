@@ -101,17 +101,17 @@ def is_running_flag() -> bool:
 
 
 async def _phase(name: str, seconds: float):
-    """name 구간을 seconds 동안 진행. 1초 단위로 남은시간 갱신+push. running이 꺼지면 즉시 반환."""
+    """name 구간을 seconds 동안 진행. 남은시간은 telemetry(5Hz)가 전달. running 꺼지면 즉시 반환."""
     state.system["phase"] = name
     remain = int(round(seconds))
     state.system["stepRemain"] = remain
-    await push_state()
+    await push_state()          # 구간 시작만 즉시 알림(이후 카운트다운은 telemetry)
     while remain > 0:
         if not is_running_flag():
             return
         await asyncio.sleep(1.0)
         remain -= 1
-        state.system["stepRemain"] = remain
+        state.system["stepRemain"] = remain   # telemetry가 이 값을 5Hz로 내려보냄
     state.system["stepRemain"] = 0
 
 

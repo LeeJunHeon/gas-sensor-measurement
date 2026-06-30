@@ -147,8 +147,14 @@ function applyParams(p){
 function applyState(s){
   if(!s) return;
   if(s.channels){
+    // 서버 state에 pv가 없을 수 있으므로 교체 시 이전 pv를 보존(없으면 sv 근처) — PV 깜빡임 방지.
+    const prevPv = channels.map(c=>c.pv);
     channels.length=0;
-    s.channels.forEach(c=>channels.push(Object.assign({}, c)));
+    s.channels.forEach((c,i)=>{
+      const merged = Object.assign({}, c);
+      if(merged.pv==null) merged.pv = (prevPv[i]!=null ? prevPv[i] : (merged.sv||0));
+      channels.push(merged);
+    });
     deriveDisplay();   // 정렬 없이 표시 필드만 derive (서버 인덱스 유지)
   }
   if(s.recipe){
