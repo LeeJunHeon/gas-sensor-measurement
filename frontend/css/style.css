@@ -37,7 +37,13 @@
   .topspacer{flex:1}
   .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.25}
   .stat .k{font-size:9px;color:var(--ink-faint);letter-spacing:.7px;text-transform:uppercase}
-  .stat .v{font-size:13px;font-weight:600;color:#21303f;white-space:nowrap}
+  /* 값 영역 고정폭(우측 정렬) — 자릿수가 바뀌어도 옆 항목이 안 밀린다 */
+  .stat .v{font-size:13px;font-weight:600;color:#21303f;white-space:nowrap;display:inline-block;text-align:right}
+  #activeCh{min-width:46px}
+  #totalFlow{min-width:84px}
+  #hdrRecipe{min-width:64px;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+  #clk{min-width:64px}
+  #hdrLoop{min-width:40px}
   .divv{width:1px;height:28px;background:var(--line)}
   .runpill{display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:5px;background:#e6f4ea;border:1px solid #b6dcc2;font-size:12px;font-weight:600;color:#176b35;white-space:nowrap}
   .runpill .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}

@@ -110,9 +110,8 @@ document.getElementById('useHumidity').addEventListener('change',renderRecipe);
 document.getElementById('recNew')?.addEventListener('click',()=>window.cmdRecipeNew());
 document.getElementById('recOpen')?.addEventListener('click',()=>window.cmdRecipeList());
 document.getElementById('recSave')?.addEventListener('click',()=>{
-  const r=collectRecipe();
-  if(!r.name){ logMsg('레시피 이름을 입력하세요','warn'); return; }
-  window.cmdRecipeSave(r.name, r, false);
+  const cur=(document.getElementById('recname')?.value||'').trim();
+  window.openSaveName(cur);   // app.js에 정의된 저장 이름 모달 오픈
 });
 
 /* 현재 화면의 레시피 초안을 INTERFACE 3.3 형식으로 수집 */

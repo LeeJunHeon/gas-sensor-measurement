@@ -280,6 +280,40 @@
     if (overlay) overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('on'); });
   }
 
+  // ===================== 레시피 저장 이름 모달 (Save as) =====================
+  window.openSaveName = function (preset) {
+    const ov = document.getElementById('saveNameModal');
+    const inp = document.getElementById('saveNameInput');
+    const warn = document.getElementById('saveNameWarn');
+    if (!ov || !inp) return;
+    warn.textContent = '';
+    inp.value = preset || '';
+    ov.classList.add('on');
+    setTimeout(() => { inp.focus(); inp.select(); }, 30);
+  };
+  function bindSaveName() {
+    const ov = document.getElementById('saveNameModal');
+    const inp = document.getElementById('saveNameInput');
+    const warn = document.getElementById('saveNameWarn');
+    const close = () => ov && ov.classList.remove('on');
+    const submit = () => {
+      const name = (inp.value || '').trim();
+      if (!name) { warn.textContent = '이름을 입력하세요.'; return; }
+      if (/[\\/:*?"<>|]/.test(name)) { warn.textContent = '사용할 수 없는 문자가 있습니다.'; return; }
+      // 이름을 표 상단 입력칸에도 반영 후 저장(중복이면 서버 ack로 덮어쓰기 확인)
+      const rn = document.getElementById('recname'); if (rn) rn.value = name;
+      const r = (typeof collectRecipe === 'function') ? collectRecipe() : window.collectRecipe();
+      r.name = name;
+      window.cmdRecipeSave(name, r, false);
+      close();
+    };
+    document.getElementById('saveNameOk')?.addEventListener('click', submit);
+    document.getElementById('saveNameCancel')?.addEventListener('click', close);
+    document.getElementById('saveNameClose')?.addEventListener('click', close);
+    if (ov) ov.addEventListener('click', e => { if (e.target === ov) close(); });
+    if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') close(); });
+  }
+
   // ===================== 시뮬레이션 대체(서버 끊김 시) =====================
   let simTimer = null;
   let simElapsed = 0;
@@ -324,6 +358,7 @@
 
   // ===================== 시작 =====================
   bindPicker();
+  bindSaveName();
   // 초기엔 로그 없이 pill만 "연결 끊김"으로 표시(첫 연결/실패 시 로그가 남는다).
   const pill0 = document.getElementById('connStatus');
   if (pill0) { pill0.classList.add('disc'); pill0.classList.remove('conn'); }
