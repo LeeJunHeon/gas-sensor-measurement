@@ -33,9 +33,16 @@ def precheck(recipe) -> list:
 
 
 def _apply_setpoints(sv: dict):
-    """계산된 SV를 채널에 적용. 4-way는 측정 방향(sensor)으로."""
+    """계산된 SV를 채널에 적용하고 밸브를 자동 개폐한다.
+    유량이 필요한 채널(sv>0)은 열고, 0인 채널은 닫는다(비상정지로 닫혀 있어도 자동 복구).
+    꺼진 채널(en=False)은 항상 닫힘. 4-way는 측정 방향(sensor)으로."""
     for i, c in enumerate(state.channels):
-        c["sv"] = sv.get(i, 0.0)
+        v = sv.get(i, 0.0)
+        c["sv"] = v
+        if c.get("en") and v > 0:
+            c["valveIn"] = True
+        else:
+            c["valveIn"] = False
     state.system["routeOut"] = "sensor"
 
 
