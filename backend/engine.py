@@ -24,11 +24,11 @@ def precheck(recipe) -> list:
     use_h = bool(recipe.get("useHumidity", True))
     problems = []
     if not procs:
-        return ["레시피에 단계가 없음"]
+        return ["추가된 프로세스 단계가 없습니다 (＋Add Process로 단계를 추가하세요)"]
     for n, proc in enumerate(procs):
         res = compute_step_setpoints(state.channels, proc, bottle, use_h)
         for e in res["errors"]:
-            problems.append(f"P{n+1}: {e}")
+            problems.append(f"P{n + 1} — {e}")
     return problems
 
 

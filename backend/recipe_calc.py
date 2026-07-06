@@ -28,6 +28,14 @@ def compute_step_setpoints(channels, proc, bottle, use_humidity=True):
     while len(b) < 4:
         b.append(0)
 
+    # 이 단계가 실제로 흘릴 게 있는지 검증(전부 0이면 무의미한 단계)
+    any_gas = any(float(x or 0) > 0 for x in g[:4])
+    if total <= 0:
+        errors.append("전체 유량(Gas Flow)이 0")
+    if not any_gas and rh <= 0 and total > 0:
+        # 유량은 있는데 목표 가스도 습도도 없음 → 순수 건조공기만 흐르는 셈(측정 의미 없음일 수 있음). 경고성 안내.
+        errors.append("목표 가스 농도(G1~G4)와 습도가 모두 0 (흘릴 가스가 없음)")
+
     # 역할별 채널 인덱스(사용 중인 것만)
     gas_idx = [i for i, c in enumerate(channels) if channel_role(c) == "gas" and c.get("en")]
     wet_idx = [i for i, c in enumerate(channels) if channel_role(c) == "wet_air" and c.get("en")]
