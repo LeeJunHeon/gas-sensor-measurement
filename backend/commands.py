@@ -79,10 +79,16 @@ async def handle_command(data: dict):
                                + (" …" if len(problems) > 3 else ""), "err")
                 await push_state()
             else:
-                state._elapsed_f = 0.0
-                state.system["elapsed"] = 0
-                engine.start()
-                await push_log("AUTO RUN 시작 — 레시피 실행", "ok")
+                if engine.is_running():
+                    await push_log("이미 자동 실행 중입니다", "warn")
+                else:
+                    state._elapsed_f = 0.0
+                    state.system["elapsed"] = 0
+                    started = engine.start()
+                    if started:
+                        await push_log("AUTO RUN 시작 — 레시피 실행", "ok")
+                    else:
+                        await push_log("이미 자동 실행 중입니다", "warn")
                 await push_state()
 
         elif cmd == "stop":

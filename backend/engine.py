@@ -110,28 +110,36 @@ def is_running_flag() -> bool:
 
 
 async def _phase(name: str, seconds: float):
-    """name 구간을 seconds 동안 진행. 남은시간은 telemetry(5Hz)가 전달. running 꺼지면 즉시 반환."""
+    """name 구간을 seconds 동안 진행. 남은시간은 telemetry(5Hz)가 전달. running 꺼지면 즉시 반환.
+    1초를 0.1초 단위로 쪼개 running을 자주 확인 → STOP 반영이 최대 0.1초로 빨라짐
+    (AUTO STOP 직후 AUTO RUN을 눌러도 이전 태스크가 곧바로 끝나 재시작이 정상 동작)."""
     state.system["phase"] = name
     remain = int(round(seconds))
     state.system["stepRemain"] = remain
     await push_state()          # 구간 시작만 즉시 알림(이후 카운트다운은 telemetry)
+    ticks = 0
     while remain > 0:
         if not is_running_flag():
             return
-        await asyncio.sleep(1.0)
-        remain -= 1
-        state.system["stepRemain"] = remain   # telemetry가 이 값을 5Hz로 내려보냄
+        await asyncio.sleep(0.1)
+        ticks += 1
+        if ticks >= 10:               # 1초마다 남은시간 감소
+            ticks = 0
+            remain -= 1
+            state.system["stepRemain"] = remain   # telemetry가 이 값을 5Hz로 내려보냄
     state.system["stepRemain"] = 0
 
 
-def start():
-    """엔진 시작(이미 돌고 있으면 무시). 호출 전에 precheck 통과를 보장할 것."""
+def start() -> bool:
+    """엔진 시작. 이미 실행 중이면 False(시작 안 함), 시작하면 True.
+    호출 전에 precheck 통과를 보장할 것."""
     global _task
     if is_running():
-        return
+        return False
     state.system["running"] = True
     state.system["safeStop"] = False
     _task = asyncio.create_task(_run_recipe())
+    return True
 
 
 def stop():

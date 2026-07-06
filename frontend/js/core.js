@@ -71,6 +71,12 @@ function uiSetRunning(on){
   if(pill) pill.classList.toggle('idle',!on);
   const rt=document.getElementById('runtxt'); if(rt) rt.textContent=on?'AUTO RUN':'IDLE';
   if(on){ _hdrTransient=false; clearTimeout(_hdrTimer); }  // 실행 시작은 즉시 반영
+  // 실행 중에는 레시피 편집 영역을 잠근다(엔진은 시작 시점 레시피로 동작 — 실행 중 값 변경은 무시됨).
+  // 툴바(New/Open/Save·이름·Humidity)·표(봄베·단계행)·＋Add Process만 잠그고,
+  // AUTO STOP/EXIT/PURGE·파라미터 카드는 그대로 둔다(정지·종료는 항상 가능).
+  [document.querySelector('.ptoolbar'),
+   document.querySelector('.ptablewrap'),
+   document.querySelector('.addrow')].forEach(el=>{ if(el) el.classList.toggle('locked', on); });
   refreshHdrStatus();
 }
 // 자동 실행 중 수동 조작 영역을 잠근다(서버에서도 막히므로 화면도 시각적으로 잠금).
