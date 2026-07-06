@@ -70,7 +70,7 @@
   .hbtn.purge{color:#3450b8}.hbtn.purge:hover{background:#eef1fb;border-color:#3a59c9}
   /* PROGRAM END = 실제 종료(우측 하단 단독, 빨강 강조) */
   .hbtn.end{background:#fff;border-color:#c5343a;color:#c5343a}.hbtn.end:hover{background:#fdecec;border-color:#ad2e33;color:#ad2e33}
-  .hbtn.estop{background:#c5343a;border-color:#ad2e33;color:#fff}.hbtn.estop:hover{background:#b22f35;border-color:#9a2a2f}
+  .hbtn.estop{width:auto;min-width:150px;padding:8px 14px;background:#c5343a;border-color:#ad2e33;color:#fff}.hbtn.estop:hover{background:#b22f35;border-color:#9a2a2f}
   .hbtn.setup{color:#2a3645}.hbtn.setup:hover{background:#eef2f7;border-color:var(--primary)}
   .hbtn.log{position:relative;color:#2a3645}.hbtn.log:hover{background:#eef2f7;border-color:var(--primary)}
   /* 중요로그 배지(빨간 점) — 경고/에러가 모달 닫힘 상태에서 발생하면 표시 */

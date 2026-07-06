@@ -186,7 +186,10 @@
     localApply(m => { m.system.routeOut = route; });
   };
   window.cmdRun = function () {
-    if (send({ cmd: 'run' })) return;
+    // 현재 화면 표의 레시피(bottle/procs/params/loopCount)를 함께 보내 서버가 그걸로 검증·실행.
+    // 저장/불러오기 전에도 표에 입력한 그대로 동작(저장은 Save as 때만 파일에 기록).
+    const recipe = (typeof collectRecipe === 'function') ? collectRecipe() : (window.collectRecipe ? window.collectRecipe() : null);
+    if (send({ cmd: 'run', recipe: recipe })) return;
     localApply(m => { m.system.running = true; m.system.elapsed = 0; m.system.loop.current = 0; });
     simElapsed = 0;
   };

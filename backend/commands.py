@@ -71,6 +71,12 @@ async def handle_command(data: dict):
                 await push_state()
 
         elif cmd == "run":
+            # 화면이 현재 표 레시피를 함께 보내면 그걸 실행용으로 반영(저장은 하지 않음).
+            # 이름은 기존 것을 유지 → Save as 전까지 파일에 쓰지 않고 실행만.
+            if isinstance(data.get("recipe"), dict):
+                incoming = normalize_recipe(data["recipe"])
+                incoming["name"] = state.recipe.get("name", "") or incoming.get("name", "")
+                state.recipe = incoming
             problems = engine.precheck(state.recipe)
             if problems:
                 await manager.broadcast({"type": "ack", "of": "run", "ok": False,
