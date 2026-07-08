@@ -157,6 +157,8 @@ class State:
         self.settings = dict(DEFAULT_SETTINGS)
         self.plc = dict(DEFAULT_PLC)
         self.plc_system = dict(DEFAULT_PLC_SYSTEM)
+        # PLC 실측 라이브(읽기 경로): 폴링 태스크가 갱신, snapshot으로 프론트에 전송.
+        self.plc_live = {"connected": False, "pv": {}, "status": {}}
         self.system = {
             "running": False,
             "routeOut": "sensor",
@@ -241,6 +243,11 @@ class State:
             "settings": dict(self.settings),
             "plc": dict(self.plc),
             "plc_system": dict(self.plc_system),
+            "plc_live": {
+                "connected": bool(self.plc_live.get("connected")),
+                "pv": dict(self.plc_live.get("pv") or {}),
+                "status": dict(self.plc_live.get("status") or {}),
+            },
         }
         if include_recipe:
             snap["recipe"] = json.loads(json.dumps(self.recipe))

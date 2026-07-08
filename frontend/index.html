@@ -43,6 +43,19 @@
             <div class="vc-control" id="vcControl">
               <button class="vctoggle" id="wayToggle"><span class="ar">⇄</span> 방향 전환</button>
               <div class="rhbox"><span class="num" id="rh">—</span><span class="u">RH %</span></div>
+              <div class="plcbox" id="plcBox">
+                <div class="plc-head">
+                  <span class="plc-title">PLC 실측</span>
+                  <span class="plc-conn discon" id="plcConn"><span class="pdot"></span><span class="ptxt">미연결</span></span>
+                </div>
+                <div class="plc-dots">
+                  <span class="plcstat" id="stAir"><span class="d"></span>공압</span>
+                  <span class="plcstat" id="stSafe"><span class="d"></span>안전정지</span>
+                  <span class="plcstat" id="stAlmAir"><span class="d"></span>Air알람</span>
+                  <span class="plcstat" id="stAlmMfc"><span class="d"></span>MFC알람</span>
+                </div>
+                <button class="plcreset" id="plcReset" title="안전리셋(M112) 펄스 — 운전 준비">↺ 리셋(운전 준비)</button>
+              </div>
             </div>
           </div>
         </div>

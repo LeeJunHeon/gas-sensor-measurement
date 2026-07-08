@@ -28,12 +28,13 @@ import plc
 from storage import PROJECT_ROOT
 from state import state
 from simulation import sim_tick
-from connection import manager
+from connection import manager, push_state
 import commands
 from commands import handle_command
 
 # ===================== 설정 =====================
 TELEMETRY_HZ = 5            # 측정값 전송 빈도(초당 횟수). 숫자만 바꾸면 조절된다.
+PLC_POLL_INTERVAL_S = 0.7  # PLC 읽기(PV/상태) 폴링 주기(초).
 HOST = "127.0.0.1"
 PORT = 8000
 
@@ -100,13 +101,35 @@ async def lifespan(_app: FastAPI):
             except Exception as e:  # noqa: BLE001
                 print(f"[warn] telemetry tick 실패: {e}")
     task = asyncio.create_task(telemetry_loop())
+
+    # PLC 읽기 폴링: 연결돼 있으면 주기적으로 PV/상태를 읽어 state.plc_live 갱신 후 브로드캐스트.
+    # 미연결/예외면 connected=False로만 두고 조용히 넘어간다(죽지 않게, 로그·push 과하지 않게).
+    async def plc_poll_loop():
+        while True:
+            await asyncio.sleep(PLC_POLL_INTERVAL_S)
+            try:
+                if plc.plc.is_connected():
+                    res = await plc.plc.poll()
+                    state.plc_live = {"connected": True, "pv": res["pv"], "status": res["status"]}
+                    await push_state()
+                elif state.plc_live.get("connected"):
+                    state.plc_live = {"connected": False, "pv": {}, "status": {}}
+                    await push_state()   # 연결→끊김 전이에서만 한 번 알림
+            except Exception:  # noqa: BLE001 — 읽기 실패는 연결표시만 내리고 계속
+                if state.plc_live.get("connected"):
+                    state.plc_live = {"connected": False, "pv": {}, "status": {}}
+                    with contextlib.suppress(Exception):
+                        await push_state()
+    poll_task = asyncio.create_task(plc_poll_loop())
+
     try:
         yield
     finally:
         # shutdown: 태스크 정리 + PLC 연결 종료
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+        for t in (task, poll_task):
+            t.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await t
         with contextlib.suppress(Exception):
             await plc.plc.stop()
 

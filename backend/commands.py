@@ -174,6 +174,14 @@ async def handle_command(data: dict):
             # System Setup 모달의 포트 드롭다운 채우기용(pyserial 없으면 빈 목록)
             await manager.broadcast({"type": "plc_ports", "ports": plc.list_serial_ports()})
 
+        elif cmd == "plc_reset":
+            # 안전리셋(M112) 순간 펄스. 공압·통신 정상이면 PLC가 운전허가를 재가동.
+            try:
+                await plc.safety_reset()
+                await push_log("안전리셋 펄스 전송 — 공압·통신 정상이면 운전허가 재가동", "ok")
+            except Exception as e:  # noqa: BLE001
+                await push_log(f"안전리셋 실패 — PLC 미연결/통신오류 ({e})", "err")
+
         elif cmd == "recipe_new":
             keep_params = dict(state.recipe.get("params", DEFAULT_PARAMS))
             state.recipe = default_recipe()

@@ -45,6 +45,7 @@
         port: '', baudrate: 115200, bytesize: 8, stopbits: 1, parity: 'N',
         unit_id: 1, timeout_s: 1.5, inter_cmd_gap_s: 0.1, heartbeat_s: 1.0, reconnect_delay_s: 1.0,
       },
+      plc_live: { connected: false, pv: {}, status: {} },
     };
   }
 
@@ -118,7 +119,8 @@
                    system: deepCopy(msg.system || mirror.system),
                    recipe: deepCopy(msg.recipe || mirror.recipe),
                    settings: deepCopy(msg.settings || mirror.settings),
-                   plc: deepCopy(msg.plc || mirror.plc) };
+                   plc: deepCopy(msg.plc || mirror.plc),
+                   plc_live: deepCopy(msg.plc_live || mirror.plc_live) };
         window.applyState(msg);
         break;
       case 'telemetry':
@@ -248,6 +250,11 @@
   window.cmdPlcPorts = function () {
     if (send({ cmd: 'plc_ports' })) return;
     if (window.applyPlcPorts) window.applyPlcPorts([]);
+  };
+  // 안전리셋(M112 펄스) — 서버가 PLC로 순간 펄스 전송. 오프라인이면 안내만.
+  window.cmdPlcReset = function () {
+    if (send({ cmd: 'plc_reset' })) return;
+    window.logMsg('오프라인 — 서버에 연결되어야 안전리셋을 보낼 수 있습니다', 'warn');
   };
   window.cmdRecipeNew = function () {
     if (send({ cmd: 'recipe_new' })) return;
@@ -407,6 +414,8 @@
 
   // 비상정지 — 확인 없이 즉시 전송(비상이므로). 서버 engine.emergency()가 전 채널 차단.
   document.getElementById('btnEstop')?.addEventListener('click', () => send({ cmd: 'emergency' }));
+  // 안전리셋(운전 준비) — M112 순간 펄스 요청.
+  document.getElementById('plcReset')?.addEventListener('click', () => window.cmdPlcReset());
 
   // ===================== 시작 =====================
   bindPicker();

@@ -54,6 +54,12 @@ const tankSvg = c => `<svg width="30" height="40" viewBox="0 0 24 32">
 
 const lanesEl = document.getElementById('lanes');
 function dec(c){return c.max<=100?1:0;}
+// PLC 실측 PV 텍스트: 연결+값 있으면 숫자, 아니면 "—". window.plcLive는 core.js applyState가 갱신.
+function plcPvText(c,d){
+  const live=window.plcLive||{connected:false,pv:{}};
+  const v=live.connected?live.pv[c.id]:null;
+  return (v!=null&&!isNaN(+v))?(+v).toFixed(d):'—';
+}
 function renderLanes(){
   lanesEl.innerHTML='';
   channels.forEach((c,idx)=>{
@@ -78,6 +84,7 @@ function renderLanes(){
         <div class="mfc-read">
           <span class="vid">${c.id} · MFC</span>
           <div class="pvrow"><span class="rlbl">PV</span><span class="pvb" data-pv="${idx}">${c.pv.toFixed(d)}</span><span class="un" style="visibility:hidden">sccm</span></div>
+          ${c.plc?`<div class="pvrow plc"><span class="rlbl">PLC</span><span class="pvb plclive" data-plcpv="${c.id}">${plcPvText(c,d)}</span><span class="un" style="visibility:hidden">sccm</span></div>`:''}
           <span class="maxwrap">MAX<input value="${c.max}" size="4" data-max="${idx}" title="MFC 최대 용량" ${c.en?'':'disabled'}></span>
           <div class="svrow"><span class="rlbl">SV</span><input class="svi" size="4" value="${c.sv.toFixed(d)}" data-sv="${idx}" ${c.en?'':'disabled'}><span class="un">sccm</span></div>
         </div>

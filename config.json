@@ -6,15 +6,21 @@
       "route": "pure",
       "en": true,
       "max": 2000,
-      "sv": 0
+      "sv": 0.0,
+      "plc": {
+        "cmd_coil": 160,
+        "sv_reg": 100,
+        "pv_reg": 200
+      }
     },
     {
       "id": "VA2",
       "grp": "air",
       "route": "pure",
-      "en": true,
+      "en": false,
       "max": 2000,
-      "sv": 0
+      "sv": 0.0,
+      "plc": null
     },
     {
       "id": "VA3",
@@ -22,15 +28,21 @@
       "route": "mix",
       "en": true,
       "max": 2000,
-      "sv": 0
+      "sv": 0.0,
+      "plc": {
+        "cmd_coil": 161,
+        "sv_reg": 101,
+        "pv_reg": 201
+      }
     },
     {
       "id": "VA4",
       "grp": "air",
       "route": "mix",
-      "en": true,
+      "en": false,
       "max": 2000,
-      "sv": 0
+      "sv": 0.0,
+      "plc": null
     },
     {
       "id": "VA5",
@@ -38,7 +50,12 @@
       "route": "mix",
       "en": true,
       "max": 2000,
-      "sv": 0
+      "sv": 0.0,
+      "plc": {
+        "cmd_coil": 162,
+        "sv_reg": 102,
+        "pv_reg": 202
+      }
     },
     {
       "id": "VA6",
@@ -46,7 +63,12 @@
       "route": "mix",
       "en": true,
       "max": 200,
-      "sv": 0
+      "sv": 0.0,
+      "plc": {
+        "cmd_coil": 163,
+        "sv_reg": 103,
+        "pv_reg": 203
+      }
     },
     {
       "id": "VA7",
@@ -54,7 +76,8 @@
       "route": "mix",
       "en": false,
       "max": 200,
-      "sv": 0
+      "sv": 0.0,
+      "plc": null
     },
     {
       "id": "VA8",
@@ -62,7 +85,8 @@
       "route": "mix",
       "en": false,
       "max": 100,
-      "sv": 0
+      "sv": 0.0,
+      "plc": null
     }
   ],
   "params": {
@@ -75,5 +99,32 @@
     "smuCompliance": 1,
     "chFrom": 1,
     "chTo": 1
+  },
+  "settings": {
+    "logEnabled": true,
+    "logDir": "logs",
+    "logLevel": "info",
+    "logKeepDays": 30
+  },
+  "plc": {
+    "port": "",
+    "baudrate": 115200,
+    "bytesize": 8,
+    "stopbits": 1,
+    "parity": "N",
+    "unit_id": 1,
+    "timeout_s": 1.5,
+    "inter_cmd_gap_s": 0.1,
+    "heartbeat_s": 1.0,
+    "reconnect_delay_s": 1.0
+  },
+  "plc_system": {
+    "heartbeat": 176,
+    "safety_reset": 178,
+    "v4w_cmd": 164,
+    "air_ok": 320,
+    "safety_stop": 321,
+    "alm_air": 336,
+    "alm_mfc": 337
   }
 }
