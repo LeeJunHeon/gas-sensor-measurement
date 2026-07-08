@@ -422,7 +422,7 @@
   // 안전리셋(운전 준비) — M112 순간 펄스 요청.
   document.getElementById('plcReset')?.addEventListener('click', () => window.cmdPlcReset());
   // PLC 재연결 요청.
-  document.getElementById('plcReconnect')?.addEventListener('click', () => window.cmdPlcReconnect());
+  document.getElementById('plcReconnectBtn')?.addEventListener('click', () => window.cmdPlcReconnect());
 
   // ===================== 시작 =====================
   bindPicker();
