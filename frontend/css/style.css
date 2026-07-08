@@ -268,10 +268,10 @@
   .rhbox .num{font-size:24px;font-weight:700;color:#1a1a1a;line-height:1;font-family:'IBM Plex Mono',monospace}
   .rhbox .u{font-size:10px;color:var(--ink-faint)}
 
-  /* PLC 상태 패널(스키매틱 하단-중앙, JS가 4-way 아래로 위치 지정) */
-  .plc-panel{position:absolute;z-index:4;width:360px;display:flex;flex-direction:column;gap:8px;padding:11px 12px;border-radius:8px;background:#f3f6f4;border:1px solid var(--line);box-shadow:0 2px 8px rgba(20,28,40,.14)}
-  .plc-panel .pp-head{display:flex;align-items:center;justify-content:space-between;gap:6px}
-  .plc-panel .pp-title{font-size:12.5px;font-weight:700;color:#1f2c3a;letter-spacing:.2px}
+  /* PLC 상태 패널 — 우측 패널(.pcard) 테마 통일. 카드/헤더 룩은 .pcard/.pcard .h 재사용,
+     여기선 위치(JS가 right/bottom 앵커)·폭·떠 있는 느낌의 그림자만. */
+  .plc-panel{position:absolute;z-index:4;width:360px;box-shadow:0 2px 8px rgba(20,28,40,.14)}
+  .plc-panel .h .plc-conn{margin-left:auto}   /* 헤더 오른쪽 끝으로 연결 배지 */
   .plc-conn{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700}
   .plc-conn .pdot{width:9px;height:9px;border-radius:50%;background:#b7c0cc;box-shadow:0 0 0 2px #fff}
   .plc-conn.discon{color:#8a94a3}
