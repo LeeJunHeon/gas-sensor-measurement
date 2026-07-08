@@ -78,9 +78,12 @@ DEFAULT_SETTINGS = {
     "logKeepDays": 30,            # 보관 일수(이보다 오래된 로그 파일 삭제)
 }
 
-# PLC 통신(LS XGB 내장 Cnet Modbus RTU). port 비면 연결 안 함(설정 전 무해).
+# PLC 통신(LS XGB 내장 Cnet Modbus). 전송은 시리얼(RTU) 또는 TCP.
 DEFAULT_PLC = {
-    "port": "",                   # 예: COM3(Windows) / /dev/ttyUSB0(Linux). 필수.
+    "mode": "serial",             # serial(RTU) | tcp
+    "host": "127.0.0.1",          # tcp 호스트
+    "tcp_port": 502,              # tcp 포트
+    "port": "",                   # (시리얼) 예: COM3(Windows) / /dev/ttyUSB0(Linux). 비면 연결 안 함.
     "baudrate": 115200,
     "bytesize": 8,
     "stopbits": 1,

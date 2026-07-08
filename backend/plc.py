@@ -29,6 +29,11 @@ except Exception:  # noqa: BLE001 — pymodbus 미설치 환경에서도 앱은 
     ModbusSerialClient = None
 
 try:
+    from pymodbus.client import ModbusTcpClient
+except Exception:  # noqa: BLE001
+    ModbusTcpClient = None
+
+try:
     from serial.tools import list_ports as _list_ports
 except Exception:  # noqa: BLE001
     _list_ports = None
@@ -37,6 +42,11 @@ except Exception:  # noqa: BLE001
 # ===================== 연결 설정 =====================
 @dataclass
 class PlcConfig:
+    # --- 전송 방식 ---
+    mode: str = "serial"       # "serial"(RTU) | "tcp"
+    host: str = "127.0.0.1"    # tcp 호스트
+    tcp_port: int = 502        # tcp 포트(1~65535)
+    # --- 시리얼(RTU) ---
     port: str = ""              # 예: "COM3"(Windows), "/dev/ttyUSB0"(Linux). 비면 연결 안 함.
     baudrate: int = 115200
     bytesize: int = 8
@@ -73,6 +83,9 @@ def config_from_dict(d: dict) -> PlcConfig:
     out.unit_id = min(247, max(1, out.unit_id))
     if out.parity not in ("N", "E", "O"):
         out.parity = "N"
+    if out.mode not in ("serial", "tcp"):
+        out.mode = "serial"
+    out.tcp_port = min(65535, max(1, out.tcp_port))
     return out
 
 
@@ -125,6 +138,12 @@ class PlcClient:
     def is_connected(self) -> bool:
         return bool(self._connected)
 
+    def _conn_enabled(self) -> bool:
+        """연결 시도 여부: tcp면 host가 있으면(기본 127.0.0.1이라 항상), serial이면 port가 있으면."""
+        if self.cfg.mode == "tcp":
+            return bool(self.cfg.host)
+        return bool(self.cfg.port)
+
     # ---- unit/slave 키 자동판별(2.x=unit, 3.x=slave/device_id) ----
     def _unit_kwargs(self, fn) -> dict:
         if self._unit_key is None:
@@ -142,20 +161,29 @@ class PlcClient:
 
     # ---- 연결/해제 ----
     async def connect(self) -> bool:
-        if ModbusSerialClient is None:
+        is_tcp = self.cfg.mode == "tcp"
+        Client = ModbusTcpClient if is_tcp else ModbusSerialClient
+        if Client is None:                 # 해당 전송 라이브러리 미설치
             return False
-        if not self.cfg.port:
+        if not self._conn_enabled():       # tcp=host / serial=port 없으면 시도 안 함
             return False
 
         def _open():
-            client = ModbusSerialClient(
-                port=self.cfg.port,
-                baudrate=self.cfg.baudrate,
-                bytesize=self.cfg.bytesize,
-                parity=self.cfg.parity,     # 'N'/'E'/'O'
-                stopbits=self.cfg.stopbits,
-                timeout=self.cfg.timeout_s,
-            )
+            if is_tcp:
+                client = ModbusTcpClient(
+                    host=self.cfg.host,
+                    port=self.cfg.tcp_port,
+                    timeout=self.cfg.timeout_s,
+                )
+            else:
+                client = ModbusSerialClient(
+                    port=self.cfg.port,
+                    baudrate=self.cfg.baudrate,
+                    bytesize=self.cfg.bytesize,
+                    parity=self.cfg.parity,     # 'N'/'E'/'O'
+                    stopbits=self.cfg.stopbits,
+                    timeout=self.cfg.timeout_s,
+                )
             ok = client.connect()
             return client if ok else None
 
@@ -291,8 +319,8 @@ class PlcClient:
         return {"pv": await self.read_pv_all(), "status": await self.read_status()}
 
     async def start(self):
-        """port가 설정돼 있으면 연결 유지 루프 시작(중복 시작 방지)."""
-        if not self.cfg.port:
+        """연결 대상이 있으면(tcp=host / serial=port) 연결 유지 루프 시작(중복 시작 방지)."""
+        if not self._conn_enabled():
             return
         if self._task is not None and not self._task.done():
             return

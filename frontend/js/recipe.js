@@ -28,8 +28,16 @@ function buildSetupRows(){
 function openSetup(){
   buildSetupRows();
   if(window.cmdPlcPorts) window.cmdPlcPorts();   // 사용 가능한 시리얼 포트 목록 요청(드롭다운 채우기)
+  window.plcSyncModeFields();                     // 연결 방식에 맞는 필드만 표시
   setupOverlay.classList.add('on');
 }
+// 연결 방식(시리얼/TCP)에 따라 관련 필드만 보이게 토글.
+window.plcSyncModeFields=function(){
+  const tcp=(document.getElementById('plcMode')?.value||'serial')==='tcp';
+  document.querySelectorAll('.plc-serial-only').forEach(el=>el.style.display=tcp?'none':'');
+  document.querySelectorAll('.plc-tcp-only').forEach(el=>el.style.display=tcp?'':'none');
+};
+document.getElementById('plcMode')?.addEventListener('change',()=>window.plcSyncModeFields());
 function closeSetup(){ setupOverlay.classList.remove('on'); }
 // 서버가 보낸 포트 목록으로 datalist를 채운다(app.js가 plc_ports 메시지 수신 시 호출).
 window.applyPlcPorts=function(ports){
@@ -78,6 +86,9 @@ function collectSetup(){
   const pnum=(id,d)=>{const v=parseFloat(document.getElementById(id)?.value); return isNaN(v)?d:v;};
   const pint=(id,d)=>{const v=parseInt(document.getElementById(id)?.value,10); return isNaN(v)?d:v;};
   const plc={
+    mode: document.getElementById('plcMode')?.value || 'serial',
+    host: (document.getElementById('plcHost')?.value || '127.0.0.1').trim(),
+    tcp_port: pint('plcTcpPort', 502),
     port: (document.getElementById('plcPort')?.value || '').trim(),
     baudrate: pint('plcBaud', 115200),
     bytesize: pint('plcBytesize', 8),

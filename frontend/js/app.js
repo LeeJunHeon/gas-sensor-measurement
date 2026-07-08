@@ -42,6 +42,7 @@
       },
       settings: { logEnabled: true, logDir: 'logs', logLevel: 'info', logKeepDays: 30 },
       plc: {
+        mode: 'serial', host: '127.0.0.1', tcp_port: 502,
         port: '', baudrate: 115200, bytesize: 8, stopbits: 1, parity: 'N',
         unit_id: 1, timeout_s: 1.5, inter_cmd_gap_s: 0.1, heartbeat_s: 1.0, reconnect_delay_s: 1.0,
       },

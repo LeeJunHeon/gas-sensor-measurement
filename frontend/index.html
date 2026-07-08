@@ -230,14 +230,29 @@
           </div>
 
           <div class="setup-section">
-            <div class="setup-sec-title">PLC 통신 (Modbus RTU)</div>
+            <div class="setup-sec-title">PLC 통신 (Modbus)</div>
             <div class="setup-row">
+              <span class="setup-lbl">연결 방식</span>
+              <select id="plcMode">
+                <option value="serial" selected>시리얼 (RTU)</option>
+                <option value="tcp">TCP</option>
+              </select>
+              <span class="setup-lbl" style="margin-left:12px">국번(Unit ID)</span>
+              <input class="recname mono" id="plcUnitId" style="width:60px" placeholder="1">
+            </div>
+            <div class="setup-row plc-tcp-only">
+              <span class="setup-lbl">Host</span>
+              <input class="recname mono" id="plcHost" style="flex:1" placeholder="127.0.0.1">
+              <span class="setup-lbl" style="margin-left:12px">Port</span>
+              <input class="recname mono" id="plcTcpPort" style="width:80px" placeholder="502">
+            </div>
+            <div class="setup-row plc-serial-only">
               <span class="setup-lbl">PLC 연결 포트</span>
               <input class="recname mono" id="plcPort" list="plcPortList" style="flex:1" placeholder="COM3 (또는 /dev/ttyUSB0)">
               <datalist id="plcPortList"></datalist>
               <button type="button" class="cancel" id="plcPortsRefresh" style="padding:4px 10px">↻ 포트</button>
             </div>
-            <div class="setup-row">
+            <div class="setup-row plc-serial-only">
               <span class="setup-lbl">Baud</span>
               <select id="plcBaud">
                 <option>9600</option><option>19200</option><option>38400</option>
@@ -253,8 +268,6 @@
                 <option value="E">Even</option>
                 <option value="O">Odd</option>
               </select>
-              <span class="setup-lbl" style="margin-left:12px">국번(Unit ID)</span>
-              <input class="recname mono" id="plcUnitId" style="width:60px" placeholder="1">
             </div>
             <div class="setup-row">
               <span class="setup-lbl">고급</span>

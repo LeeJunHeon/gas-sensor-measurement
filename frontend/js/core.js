@@ -232,12 +232,14 @@ function applyState(s){
     const p=s.plc;
     const setV=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null) e.value=v;};
     const setSel=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null) e.value=String(v);};
+    setSel('plcMode', p.mode); setV('plcHost', p.host); setV('plcTcpPort', p.tcp_port);
     setV('plcPort', p.port);
     setSel('plcBaud', p.baudrate); setSel('plcBytesize', p.bytesize);
     setSel('plcStopbits', p.stopbits); setSel('plcParity', p.parity);
     setV('plcUnitId', p.unit_id);
     setV('plcTimeout', p.timeout_s); setV('plcGap', p.inter_cmd_gap_s);
     setV('plcHeartbeat', p.heartbeat_s); setV('plcReconnect', p.reconnect_delay_s);
+    if(window.plcSyncModeFields) window.plcSyncModeFields();   // 방식에 맞는 필드만 표시
   }
   if(s.plc_live) updatePlcLive(s.plc_live);   // PLC \uc2e4\uce21(\uc5f0\uacb0\u00b7PV\u00b7\uc0c1\ud0dc) \u2192 window.plcLive + \uc0c1\ud0dc \ud328\ub110
   renderLanes();   // \ubc30\uad00\ub3c4 \uc7ac\ub80c\ub354 (mapped \ucc44\ub110 PLC PV\ub294 window.plcLive\ub97c \uc77d\uc74c)
