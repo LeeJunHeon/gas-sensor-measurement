@@ -149,7 +149,14 @@ function applyParams(p){
   set('chFrom',p.chFrom); set('chTo',p.chTo);
   const sm=document.getElementById('smuMode'); if(sm&&p.smuMode) sm.value=p.smuMode;
 }
-// PLC \uc2e4\uce21(plc_live) \u2192 window.plcLive \uc800\uc7a5 + \uc5f0\uacb0 \ubc30\uc9c0\u00b7\uc0c1\ud0dc \ud45c\uc2dc\ub4f1 \uac31\uc2e0.
+// PLC \ud1b5\uc2e0 \uc694\uc57d(\ud3ec\ud2b8 \u00b7 baud \ud504\ub808\uc784 \u00b7 \uad6d\ubc88) \u2014 \uc124\uc815(state.plc)\uc5d0\uc11c \uc77d\uc5b4 \uc0c1\ud0dc \ud328\ub110 \ud5e4\ub354 \uc544\ub798 \ud45c\uc2dc.
+function updatePlcComm(p){
+  const el=document.getElementById('plcComm'); if(!el||!p) return;
+  const parity=({N:'N',E:'E',O:'O'})[p.parity]||'N';
+  const frame=`${p.bytesize||8}${parity}${p.stopbits||1}`;   // \uc608: 8N1
+  el.textContent=`${p.port||'\u2014'} \u00b7 ${p.baudrate||115200} ${frame} \u00b7 \uad6d\ubc88 ${p.unit_id||1}`;
+}
+// PLC \uc2e4\uce21(plc_live) \u2192 window.plcLive \uc800\uc7a5 + \uc5f0\uacb0\ubc30\uc9c0\u00b7\uc6b4\uc804\ud5c8\uac00\u00b7\uc0c1\ud0dc \ud45c\uc2dc\ub4f1 \uac31\uc2e0.
 // \ud45c\uc2dc\ub4f1: ok=\ucd08\ub85d, bad=\ube68\uac15, \ubbf8\uc5f0\uacb0=\ud68c\uc0c9(\ud074\ub798\uc2a4 \uc5c6\uc74c).
 function updatePlcLive(live){
   window.plcLive = live || {connected:false, pv:{}, status:{}};
@@ -159,7 +166,16 @@ function updatePlcLive(live){
   if(conn){
     conn.classList.toggle('con', connected);
     conn.classList.toggle('discon', !connected);
-    const t = conn.querySelector('.ptxt'); if(t) t.textContent = connected ? '\uc5f0\uacb0' : '\ubbf8\uc5f0\uacb0';
+    const t = conn.querySelector('.ptxt'); if(t) t.textContent = connected ? '\uc5f0\uacb0\ub428' : '\ubbf8\uc5f0\uacb0';
+  }
+  // \uc6b4\uc804 \ud5c8\uac00(\ud5e4\ub4dc\ub77c\uc778): RUN_PERMIT = !SAFETY_STOP. \uc5f0\uacb0+\ud5c8\uac00=\ucd08\ub85d, \uc5f0\uacb0+\uc815\uc9c0=\ube68\uac15, \ubbf8\uc5f0\uacb0=\ud68c\uc0c9.
+  const permit=document.getElementById('plcPermit');
+  if(permit){
+    permit.classList.remove('ok','bad');
+    const t=permit.querySelector('.pp-permit-txt');
+    if(!connected){ if(t) t.textContent='\ubbf8\uc5f0\uacb0'; }
+    else if(st.SAFETY_STOP===true){ permit.classList.add('bad'); if(t) t.textContent='\uc815\uc9c0'; }
+    else { permit.classList.add('ok'); if(t) t.textContent='\uc6b4\uc804 \ud5c8\uac00'; }
   }
   const setDot=(id, ok)=>{
     const e=document.getElementById(id); if(!e) return;
@@ -168,9 +184,9 @@ function updatePlcLive(live){
     e.classList.add(ok?'ok':'bad');
   };
   setDot('stAir',    st.AIR_OK===true);            // \uacf5\uc555 \uc815\uc0c1=\ucd08\ub85d
-  setDot('stSafe',   !(st.SAFETY_STOP===true));    // \uc548\uc804\uc815\uc9c0 \uc544\ub2d8=\ucd08\ub85d, \uc815\uc9c0=\ube68\uac15
   setDot('stAlmAir', !(st.ALM_AIR===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
   setDot('stAlmMfc', !(st.ALM_MFC===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
+  setDot('stComm',   connected);                   // \uc5f0\uacb0\uc774\uba74 \ud1b5\uc2e0(\ud558\ud2b8\ube44\ud2b8) \uc815\uc0c1=\ucd08\ub85d
 }
 // \uc11c\ubc84 state \uba54\uc2dc\uc9c0 \u2192 \ub0b4\ubd80 \uc0c1\ud0dc \ubc18\uc601 \ud6c4 \uc7ac\ub80c\ub354
 function applyState(s){
@@ -178,10 +194,13 @@ function applyState(s){
   if(s.channels){
     // 서버 state에 pv가 없을 수 있으므로 교체 시 이전 pv를 보존(없으면 sv 근처) — PV 깜빡임 방지.
     const prevPv = channels.map(c=>c.pv);
+    const live = s.plc_live || window.plcLive || {connected:false, pv:{}};
     channels.length=0;
     s.channels.forEach((c,i)=>{
       const merged = Object.assign({}, c);
       if(merged.pv==null) merged.pv = (prevPv[i]!=null ? prevPv[i] : (merged.sv||0));
+      // PLC 연결 시 매핑 채널(c.plc)의 PV는 실측값으로 덮는다(미연결이면 서버/시뮬 값 유지).
+      if(live.connected && merged.plc && live.pv && live.pv[merged.id]!=null) merged.pv = +live.pv[merged.id];
       channels.push(merged);
     });
     deriveDisplay();   // 정렬 없이 표시 필드만 derive (서버 인덱스 유지)
@@ -224,6 +243,7 @@ function applyState(s){
     setV('plcUnitId', p.unit_id);
     setV('plcTimeout', p.timeout_s); setV('plcGap', p.inter_cmd_gap_s);
     setV('plcHeartbeat', p.heartbeat_s); setV('plcReconnect', p.reconnect_delay_s);
+    updatePlcComm(p);   // PLC \uc0c1\ud0dc \ud328\ub110\uc758 \ud1b5\uc2e0 \uc694\uc57d(\ud3ec\ud2b8\u00b7baud\u00b7\ud504\ub808\uc784\u00b7\uad6d\ubc88)
   }
   if(s.plc_live) updatePlcLive(s.plc_live);   // PLC \uc2e4\uce21(\uc5f0\uacb0\u00b7PV\u00b7\uc0c1\ud0dc) \u2192 window.plcLive + \uc0c1\ud0dc \ud328\ub110
   renderLanes();   // \ubc30\uad00\ub3c4 \uc7ac\ub80c\ub354 (mapped \ucc44\ub110 PLC PV\ub294 window.plcLive\ub97c \uc77d\uc74c)
@@ -235,10 +255,14 @@ function applyState(s){
 function applyTelemetry(tl){
   if(!tl) return;
   if(Array.isArray(tl.pv)){
+    const live=window.plcLive||{connected:false,pv:{}};
     tl.pv.forEach((v,i)=>{
+      const c=channels[i];
+      // PLC 연결 + 매핑 채널이면 실측 PV 우선 — 시뮬 telemetry로 덮지 않는다.
+      if(live.connected && c && c.plc && live.pv && live.pv[c.id]!=null) return;
       const el=document.querySelector(`[data-pv="${i}"]`);
-      if(el) el.textContent=(+v).toFixed(dec(channels[i]||{max:2000}));
-      if(channels[i]) channels[i].pv=+v;
+      if(el) el.textContent=(+v).toFixed(dec(c||{max:2000}));
+      if(c) c.pv=+v;
     });
   }
   if(tl.rh!=null){

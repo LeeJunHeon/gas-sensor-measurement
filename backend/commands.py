@@ -182,6 +182,14 @@ async def handle_command(data: dict):
             except Exception as e:  # noqa: BLE001
                 await push_log(f"안전리셋 실패 — PLC 미연결/통신오류 ({e})", "err")
 
+        elif cmd == "plc_reconnect":
+            # PLC 연결 루프를 끊고 현재 설정으로 재시작(포트 비면 no-op).
+            try:
+                await plc.plc.reconnect()
+                await push_log("PLC 재연결 시도", "info")
+            except Exception as e:  # noqa: BLE001
+                await push_log(f"PLC 재연결 실패 ({e})", "err")
+
         elif cmd == "recipe_new":
             keep_params = dict(state.recipe.get("params", DEFAULT_PARAMS))
             state.recipe = default_recipe()

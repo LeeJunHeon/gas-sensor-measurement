@@ -28,7 +28,7 @@
       <div class="stat"><span class="k">Loop</span><span class="v mono" id="hdrLoop">0 / 7</span></div>
       <div class="divv"></div>
       <div class="runpill idle" id="runpill"><span class="dot"></span><span id="runtxt">IDLE</span></div>
-      <div class="runpill disc" id="connStatus" title="서버 연결 상태"><span class="dot"></span><span class="ctxt">연결 끊김</span></div>
+      <div class="runpill disc" id="connStatus" title="서버(WebSocket) 연결 상태"><span class="dot"></span><span class="ctxt">서버 끊김</span></div>
     </header>
 
     <div class="views">
@@ -43,18 +43,24 @@
             <div class="vc-control" id="vcControl">
               <button class="vctoggle" id="wayToggle"><span class="ar">⇄</span> 방향 전환</button>
               <div class="rhbox"><span class="num" id="rh">—</span><span class="u">RH %</span></div>
-              <div class="plcbox" id="plcBox">
-                <div class="plc-head">
-                  <span class="plc-title">PLC 실측</span>
-                  <span class="plc-conn discon" id="plcConn"><span class="pdot"></span><span class="ptxt">미연결</span></span>
-                </div>
-                <div class="plc-dots">
-                  <span class="plcstat" id="stAir"><span class="d"></span>공압</span>
-                  <span class="plcstat" id="stSafe"><span class="d"></span>안전정지</span>
-                  <span class="plcstat" id="stAlmAir"><span class="d"></span>Air알람</span>
-                  <span class="plcstat" id="stAlmMfc"><span class="d"></span>MFC알람</span>
-                </div>
+            </div>
+            <!-- PLC 상태 패널(스키매틱 하단, JS가 4-way 아래로 위치 지정) -->
+            <div class="plc-panel" id="plcPanel">
+              <div class="pp-head">
+                <span class="pp-title">PLC 상태</span>
+                <span class="plc-conn discon" id="plcConn"><span class="pdot"></span><span class="ptxt">미연결</span></span>
+              </div>
+              <div class="pp-comm mono" id="plcComm">— · 115200 8N1 · 국번 1</div>
+              <div class="pp-permit" id="plcPermit"><span class="pp-permit-dot"></span><span class="pp-permit-txt">미연결</span></div>
+              <div class="pp-dots">
+                <span class="plcstat" id="stAir"><span class="d"></span>공압</span>
+                <span class="plcstat" id="stAlmAir"><span class="d"></span>Air알람</span>
+                <span class="plcstat" id="stAlmMfc"><span class="d"></span>MFC알람</span>
+                <span class="plcstat" id="stComm"><span class="d"></span>통신</span>
+              </div>
+              <div class="pp-btns">
                 <button class="plcreset" id="plcReset" title="안전리셋(M112) 펄스 — 운전 준비">↺ 리셋(운전 준비)</button>
+                <button class="plcrecon" id="plcReconnect" title="PLC 재연결">⟳ PLC 재연결</button>
               </div>
             </div>
           </div>

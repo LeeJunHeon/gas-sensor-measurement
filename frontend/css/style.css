@@ -268,24 +268,32 @@
   .rhbox .num{font-size:24px;font-weight:700;color:#1a1a1a;line-height:1;font-family:'IBM Plex Mono',monospace}
   .rhbox .u{font-size:10px;color:var(--ink-faint)}
 
-  /* PLC 실측 패널(연결여부·상태 표시등·안전리셋) */
-  .plcbox{width:100%;display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:6px;background:#f3f6f4;border:1px solid var(--line);box-shadow:0 1px 3px rgba(20,28,40,.1)}
-  .plcbox .plc-head{display:flex;align-items:center;justify-content:space-between;gap:6px}
-  .plcbox .plc-title{font-size:10.5px;font-weight:700;color:#2a3645;letter-spacing:.2px}
-  .plc-conn{display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700}
-  .plc-conn .pdot{width:8px;height:8px;border-radius:50%;background:#b7c0cc;box-shadow:0 0 0 2px #fff}
+  /* PLC 상태 패널(스키매틱 하단-중앙, JS가 4-way 아래로 위치 지정) */
+  .plc-panel{position:absolute;z-index:4;width:280px;display:flex;flex-direction:column;gap:8px;padding:11px 12px;border-radius:8px;background:#f3f6f4;border:1px solid var(--line);box-shadow:0 2px 8px rgba(20,28,40,.14)}
+  .plc-panel .pp-head{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .plc-panel .pp-title{font-size:12.5px;font-weight:700;color:#1f2c3a;letter-spacing:.2px}
+  .plc-conn{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700}
+  .plc-conn .pdot{width:9px;height:9px;border-radius:50%;background:#b7c0cc;box-shadow:0 0 0 2px #fff}
   .plc-conn.discon{color:#8a94a3}
   .plc-conn.con{color:#1b8a44}.plc-conn.con .pdot{background:#28a745}
-  .plc-dots{display:grid;grid-template-columns:1fr 1fr;gap:4px 6px}
-  .plcstat{display:flex;align-items:center;gap:4px;font-size:10px;color:#5a6678;white-space:nowrap}
-  .plcstat .d{width:8px;height:8px;border-radius:50%;background:#b7c0cc;flex:0 0 8px}
+  .pp-comm{font-size:11px;color:var(--ink-faint)}
+  /* 운전 허가(헤드라인) — 연결+허가=초록, 연결+정지=빨강, 미연결=회색 */
+  .pp-permit{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;background:#eef1f4;border:1px solid var(--line)}
+  .pp-permit .pp-permit-dot{width:12px;height:12px;border-radius:50%;background:#b7c0cc;flex:0 0 12px}
+  .pp-permit .pp-permit-txt{font-size:15px;font-weight:700;color:#8a94a3}
+  .pp-permit.ok{background:#edf7f0;border-color:#bfe0cb}.pp-permit.ok .pp-permit-dot{background:#28a745}.pp-permit.ok .pp-permit-txt{color:#1b8a44}
+  .pp-permit.bad{background:#fdecec;border-color:#f2c9c9}.pp-permit.bad .pp-permit-dot{background:#c5343a}.pp-permit.bad .pp-permit-txt{color:#b22f35}
+  .pp-dots{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+  .plcstat{display:flex;align-items:center;gap:5px;font-size:11px;color:#5a6678;white-space:nowrap}
+  .plcstat .d{width:9px;height:9px;border-radius:50%;background:#b7c0cc;flex:0 0 9px}
   .plcstat.ok .d{background:#28a745}
   .plcstat.bad .d{background:#c5343a}
-  .plcreset{border:1px solid #c58f1f;background:#fff8e8;color:#8a6d1f;border-radius:5px;padding:6px 8px;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .pp-btns{display:flex;gap:8px}
+  .plc-panel .plcreset,.plc-panel .plcrecon{flex:1;border-radius:6px;padding:7px 6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .plcreset{border:1px solid #c58f1f;background:#fff8e8;color:#8a6d1f}
   .plcreset:hover{background:#fdf0cf;border-color:#a8791a}
-  /* PLC 실측 PV 행(레인 내, 시뮬 PV와 구분) */
-  .pvrow.plc .rlbl{color:#2a5bd0}
-  .pvb.plclive{color:#2a5bd0;background:#eef2fb;border-color:#c5d3f0}
+  .plcrecon{border:1px solid var(--line2);background:#fff;color:#2a3645}
+  .plcrecon:hover{background:#eef2f7;border-color:var(--primary)}
 
   /* 4-way valve glyph inside rail */
   .vcsym{display:flex;justify-content:center;margin-bottom:6px}

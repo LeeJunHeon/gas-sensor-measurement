@@ -94,7 +94,7 @@
       pill.classList.toggle('conn', c);
       pill.classList.toggle('disc', !c);
       const txt = pill.querySelector('.ctxt');
-      if (txt) txt.textContent = c ? '연결됨' : '연결 끊김';
+      if (txt) txt.textContent = c ? '서버 연결됨' : '서버 끊김';
     }
     if (connState !== c) {
       connState = c;
@@ -256,6 +256,11 @@
     if (send({ cmd: 'plc_reset' })) return;
     window.logMsg('오프라인 — 서버에 연결되어야 안전리셋을 보낼 수 있습니다', 'warn');
   };
+  // PLC 재연결 — 서버가 PLC 연결 루프를 끊고 새 설정으로 재시작. 오프라인이면 안내만.
+  window.cmdPlcReconnect = function () {
+    if (send({ cmd: 'plc_reconnect' })) return;
+    window.logMsg('오프라인 — 서버에 연결되어야 PLC 재연결을 보낼 수 있습니다', 'warn');
+  };
   window.cmdRecipeNew = function () {
     if (send({ cmd: 'recipe_new' })) return;
     localApply(m => { m.recipe = Object.assign({}, m.recipe, { name: '', procs: [] }); }, true);
@@ -416,6 +421,8 @@
   document.getElementById('btnEstop')?.addEventListener('click', () => send({ cmd: 'emergency' }));
   // 안전리셋(운전 준비) — M112 순간 펄스 요청.
   document.getElementById('plcReset')?.addEventListener('click', () => window.cmdPlcReset());
+  // PLC 재연결 요청.
+  document.getElementById('plcReconnect')?.addEventListener('click', () => window.cmdPlcReconnect());
 
   // ===================== 시작 =====================
   bindPicker();
