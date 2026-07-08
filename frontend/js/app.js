@@ -94,7 +94,7 @@
       pill.classList.toggle('conn', c);
       pill.classList.toggle('disc', !c);
       const txt = pill.querySelector('.ctxt');
-      if (txt) txt.textContent = c ? '서버 연결됨' : '서버 끊김';
+      if (txt) txt.textContent = c ? 'Server Connected' : 'Server Disconnected';
     }
     if (connState !== c) {
       connState = c;

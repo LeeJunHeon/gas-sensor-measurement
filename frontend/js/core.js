@@ -69,7 +69,7 @@ function uiSetRunning(on){
   running=on;
   const pill=document.getElementById('runpill');
   if(pill) pill.classList.toggle('idle',!on);
-  const rt=document.getElementById('runtxt'); if(rt) rt.textContent=on?'AUTO RUN':'IDLE';
+  const rt=document.getElementById('runtxt'); if(rt) rt.textContent=on?'RUNNING':'IDLE';
   if(on){ _hdrTransient=false; clearTimeout(_hdrTimer); }  // 실행 시작은 즉시 반영
   // 실행 중에는 레시피 편집 영역을 잠근다(엔진은 시작 시점 레시피로 동작 — 실행 중 값 변경은 무시됨).
   // 툴바(New/Open/Save·이름·Humidity)·표(봄베·단계행)·＋Add Process만 잠그고,
@@ -87,11 +87,13 @@ function applyRunLock(run){
   lock('.n-valve'); lock('[data-max]'); lock('[data-sv]');
   document.getElementById('openSetup')?.classList.toggle('locked',run);
   document.querySelectorAll('.hbtn.purge').forEach(b=>b.classList.toggle('locked',run));
-  document.querySelectorAll('.hbtn.run, .pbtn.runbig').forEach(b=>{b.disabled=run; b.classList.toggle('locked',run);});
+  // SMU 패널의 .pbtn.runbig는 비활성(미구현)이라 제외 — 헤더 .hbtn.run만 잠금 토글.
+  document.querySelectorAll('.hbtn.run').forEach(b=>{b.disabled=run; b.classList.toggle('locked',run);});
 }
-document.querySelectorAll('.hbtn.run, .pbtn.runbig').forEach(b=>b.addEventListener('click',()=>window.cmdRun()));
+// 레시피 AUTO RUN/STOP은 헤더 버튼(.hbtn)만 — SMU 패널 .pbtn.runbig/.stopbig는 비활성이라 미연결.
+document.querySelectorAll('.hbtn.run').forEach(b=>b.addEventListener('click',()=>window.cmdRun()));
 // AUTO STOP(푸터 신설) + 도크 AUTO STOP → 시퀀스 정지
-document.querySelectorAll('.hbtn.stop, .pbtn.stopbig').forEach(b=>b.addEventListener('click',()=>window.cmdStop()));
+document.querySelectorAll('.hbtn.stop').forEach(b=>b.addEventListener('click',()=>window.cmdStop()));
 document.querySelector('.hbtn.purge')?.addEventListener('click',()=>window.cmdPurge());
 // PROGRAM END → 프로그램 실제 종료
 document.querySelector('.hbtn.end')?.addEventListener('click',()=>window.cmdExit());

@@ -28,7 +28,7 @@
       <div class="stat"><span class="k">Loop</span><span class="v mono" id="hdrLoop">0 / 7</span></div>
       <div class="divv"></div>
       <div class="runpill idle" id="runpill"><span class="dot"></span><span id="runtxt">IDLE</span></div>
-      <div class="runpill disc" id="connStatus" title="서버(WebSocket) 연결 상태"><span class="dot"></span><span class="ctxt">서버 끊김</span></div>
+      <div class="runpill disc" id="connStatus" title="Server (WebSocket) connection status"><span class="dot"></span><span class="ctxt">Server Disconnected</span></div>
     </header>
 
     <div class="views">
@@ -159,11 +159,11 @@
               <div class="frow uidis"><label style="font-weight:700">Measure Value</label></div>
               <div class="measbox uidis" id="measVal">—</div>
               <div class="runrow">
-                <button class="pbtn runbig">AUTO RUN</button>
-                <button class="pbtn stopbig">AUTO STOP</button>
+                <button class="pbtn runbig uidis" disabled>AUTO RUN</button>
+                <button class="pbtn stopbig uidis" disabled>AUTO STOP</button>
               </div>
               <div class="runrow">
-                <button class="pbtn exit">EXIT</button>
+                <button class="pbtn exit uidis" disabled>EXIT</button>
                 <button class="pbtn graf uidis" disabled>Graph View</button>
               </div>
             </div>

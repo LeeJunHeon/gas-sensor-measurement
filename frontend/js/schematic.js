@@ -299,14 +299,21 @@ function drawBuses(){
     vcEl.style.top=((cCy+r+14*sc)/sc)+'px';     // Sensor 출력선 아래
     vcEl.style.transform='none';                // 좌상단 기준
   }
-  // PLC 상태 패널: 4-way/Vent 아래 빈 공간에 배치(밸브 중심 기준 가로 중앙, 아래쪽).
-  // 버스(bx) 오른쪽 영역이라 MFC 박스와 겹치지 않는다.
+  // PLC 상태 패널: 스키매틱 '바닥 기준'으로 앵커(하단-우측 빈 영역).
+  // 버스(bx) 오른쪽 영역이라 MFC 박스와 겹치지 않는다. S/sc는 screen→layout px 변환.
   const ppEl=document.getElementById('plcPanel');
   if(ppEl){
-    const pw=280;
+    const pw=360;
+    const schemW=S.width/sc, schemH=S.height/sc;      // 스키매틱 크기(layout px)
     ppEl.style.right='auto';
-    ppEl.style.left=(((cCx)/sc)-pw/2)+'px';      // 4-way 밸브 중심 기준 가로 중앙
-    ppEl.style.top=(((cCy+r)/sc)+96)+'px';        // Vent/Sensor 출력선 아래로 충분히
     ppEl.style.transform='none';
+    ppEl.style.width=pw+'px';
+    // 가로: 4-way 밸브 중심 기준(우측 영역), 스키매틱 밖으로 안 나가게 클램프
+    let left=(cCx/sc)-pw/2;
+    left=Math.max(8, Math.min(left, schemW-pw-8));
+    ppEl.style.left=left+'px';
+    // 세로: 패널 하단이 스키매틱 바닥에서 ~40px 위에 오도록(고정 오프셋 대신 바닥 앵커)
+    const ph=(ppEl.getBoundingClientRect().height/sc)||200;
+    ppEl.style.top=Math.max(8, schemH-40-ph)+'px';
   }
 }

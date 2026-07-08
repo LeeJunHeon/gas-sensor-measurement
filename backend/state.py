@@ -211,7 +211,7 @@ class State:
         self.plc_system = {**DEFAULT_PLC_SYSTEM, **(data.get("plc_system") or {})}
         # 사용 채널은 시작 시 밸브 열림으로 둔다(데모 일관성).
         for c in self.channels:
-            c.setdefault("valveIn", bool(c["en"]))
+            c.setdefault("valveIn", False)   # 시작 시 모든 밸브 닫힘(흐름 표시도 꺼진 상태)
             c.setdefault("pv", 0)
 
     def save_config(self):
