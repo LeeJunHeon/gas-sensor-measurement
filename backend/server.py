@@ -35,6 +35,7 @@ from commands import handle_command
 # ===================== 설정 =====================
 TELEMETRY_HZ = 5            # 측정값 전송 빈도(초당 횟수). 숫자만 바꾸면 조절된다.
 PLC_POLL_INTERVAL_S = 0.7  # PLC 읽기(PV/상태) 폴링 주기(초).
+PLC_WRITE_INTERVAL_S = 0.25  # PLC 쓰기(밸브/SV 반영) 동기화 주기(초).
 HOST = "127.0.0.1"
 PORT = 8000
 
@@ -122,11 +123,44 @@ async def lifespan(_app: FastAPI):
                         await push_state()
     poll_task = asyncio.create_task(plc_poll_loop())
 
+    # PLC 쓰기 동기화: 앱의 '원하는 상태'(밸브 개폐 + 목표유량 SV)를 주기적으로 PLC에 반영.
+    # 변경분만 쓰고(last 캐시), 안전정지·미연결이면 절대 열림 명령을 내리지 않는다(fail-safe).
+    # 미연결/예외 시 캐시를 비워 재연결·복구 후 전량 재기입한다.
+    async def plc_write_loop():
+        last = {}   # {채널id: (want_valve, want_sv)} + {"V4W": bool}
+        while True:
+            await asyncio.sleep(PLC_WRITE_INTERVAL_S)
+            try:
+                if not plc.plc.is_connected():
+                    last.clear()
+                    continue
+                # 안전정지면 무조건 닫기(열림·유량 명령 금지). status는 읽기 폴링이 채운다.
+                safe = (state.plc_live.get("status") or {}).get("SAFETY_STOP") is True
+                for ch in state.channels:
+                    if not ch.get("plc"):
+                        continue                          # 매핑 없는 채널(VA2/VA4/VA7/VA8) 스킵
+                    cid = ch["id"]
+                    want_valve = (not safe) and bool(ch.get("valveIn"))
+                    want_sv = 0 if safe else int(ch.get("sv") or 0)
+                    if last.get(cid) != (want_valve, want_sv):
+                        await plc.plc.set_valve(cid, want_valve)
+                        await plc.plc.write_sv(cid, want_sv)
+                        last[cid] = (want_valve, want_sv)
+                # 4-way: 앱의 측정 방향(routeOut=='sensor')을 반영. 안전정지면 닫기(False).
+                # TODO(하드웨어 확인): V4W 코일 ON=측정(sensor) 방향으로 가정 — 폴러리티는 실기로 검증.
+                want_4w = (not safe) and (state.system.get("routeOut") == "sensor")
+                if last.get("V4W") != want_4w:
+                    await plc.plc.set_valve("V4W", want_4w)
+                    last["V4W"] = want_4w
+            except Exception:  # noqa: BLE001 — 쓰기 실패(연결문제 등)는 캐시 비우고 다음 주기 재시도
+                last.clear()
+    write_task = asyncio.create_task(plc_write_loop())
+
     try:
         yield
     finally:
         # shutdown: 태스크 정리 + PLC 연결 종료
-        for t in (task, poll_task):
+        for t in (task, poll_task, write_task):
             t.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await t
