@@ -88,10 +88,39 @@ class PlcClient:
         self._task = None                 # 연결 유지 루프 태스크
         self._connected = False
         self._hb_value = False            # 하트비트 토글 상태(매 주기 반전 → PLC가 엣지로 생존 판단)
+        # config 주도 주소맵(load_addresses로 채움). 비어있으면 하드코딩 fallback 사용.
+        self._valve_coil = {}             # {채널id: cmd_coil}
+        self._sv_reg = {}                 # {채널id: sv_reg}
+        self._pv_reg = {}                 # {채널id: pv_reg}
+        self._sys = {}                    # 시스템 공통 주소(plc_system)
 
     # ---- 설정 ----
     def set_config(self, cfg: PlcConfig):
         self.cfg = cfg
+
+    def load_addresses(self, channels: list, plc_system: dict):
+        """config(state.channels/state.plc_system)에서 주소맵을 로드한다.
+        매핑 있는 채널(plc != None)만 담고, 시스템 주소는 통째로 사본으로 보관."""
+        chans = channels or []
+        self._valve_coil = {ch["id"]: ch["plc"]["cmd_coil"] for ch in chans if ch.get("plc")}
+        self._sv_reg = {ch["id"]: ch["plc"]["sv_reg"] for ch in chans if ch.get("plc")}
+        self._pv_reg = {ch["id"]: ch["plc"]["pv_reg"] for ch in chans if ch.get("plc")}
+        self._sys = dict(plc_system or {})
+
+    # ---- 주소 resolver(내부 맵 우선, 없으면 하드코딩 fallback) ----
+    def _sys_addr(self, key: str) -> int:
+        return self._sys[key] if self._sys else _FALLBACK_SYS[key]
+
+    def _valve_coil_of(self, name: str) -> int:
+        return self._valve_coil[name] if self._valve_coil else PLC_COIL_MAP[f"{name}_CMD"]
+
+    def _sv_reg_of(self, name: str) -> int:
+        return self._sv_reg[name] if self._sv_reg else PLC_REG_MAP[f"SV_{name}"]
+
+    def _pv_reg_items(self):
+        if self._pv_reg:
+            return list(self._pv_reg.items())
+        return [(n, PLC_REG_MAP[f"PV_{n}"]) for n in ("VA1", "VA3", "VA5", "VA6")]
 
     def is_connected(self) -> bool:
         return bool(self._connected)
@@ -212,14 +241,14 @@ class PlcClient:
         PLC는 이 코일의 '변화(엣지)'로 통신 생존을 판단하므로 값이 바뀌는 것이 핵심.
         실패 시 예외를 그대로 올려 _run_loop가 끊고 재연결하도록 한다(주기=cfg.heartbeat_s)."""
         self._hb_value = not self._hb_value
-        await self.write_coil(PLC_COIL_MAP["HEARTBEAT"], self._hb_value)
+        await self.write_coil(self._sys_addr("heartbeat"), self._hb_value)
         return True
 
     async def safety_reset(self, pulse_s: float = 0.25):
         """안전리셋(M112) 순간 펄스. ON → pulse_s 대기 → OFF.
         ★ M112는 레벨접점이라 계속 켜두면 고장 해제 시 자동 재가동됨 → 반드시 펄스로만 친다.
         중간에 실패해도 OFF는 최대한 보장(finally)."""
-        addr = PLC_COIL_MAP["SAFETY_RESET"]
+        addr = self._sys_addr("safety_reset")
         try:
             await self.write_coil(addr, True)
             await asyncio.sleep(pulse_s)
@@ -229,30 +258,32 @@ class PlcClient:
 
     # ---- 명명된 헬퍼(주소맵 키 사용). 미연결/실패 시 하위 read/write처럼 예외를 올림 ----
     async def set_valve(self, name: str, on: bool):
-        """밸브/4-way 지령 코일 write. name ∈ {VA1,VA3,VA5,VA6,V4W} → *_CMD."""
-        addr = PLC_COIL_MAP[f"{name}_CMD"]
+        """밸브/4-way 지령 코일 write. name ∈ {VA1,VA3,VA5,VA6}이면 해당 cmd_coil,
+        name=='V4W'이면 시스템 v4w_cmd. 매핑 없는 이름은 KeyError(명확한 에러)."""
+        addr = self._sys_addr("v4w_cmd") if name == "V4W" else self._valve_coil_of(name)
         await self.write_coil(addr, bool(on))
         return True
 
     async def write_sv(self, name: str, raw: int):
         """MFC 목표유량(SV) 레지스터 write. name ∈ {VA1,VA3,VA5,VA6}. 값은 0~2000 clamp."""
-        addr = PLC_REG_MAP[f"SV_{name}"]
+        addr = self._sv_reg_of(name)
         val = int(min(2000, max(0, int(raw))))
         await self.write_register(addr, val)
         return True
 
     async def read_pv_all(self) -> dict:
-        """MFC 현재유량(PV) 일괄 읽기 → {"VA1":..,"VA3":..,"VA5":..,"VA6":..}."""
+        """PLC 매핑된 채널의 현재유량(PV) 일괄 읽기 → {채널id: 값}."""
         out = {}
-        for name in ("VA1", "VA3", "VA5", "VA6"):
-            out[name] = await self.read_register(PLC_REG_MAP[f"PV_{name}"])
+        for name, addr in self._pv_reg_items():
+            out[name] = await self.read_register(addr)
         return out
 
     async def read_status(self) -> dict:
         """상태 코일 읽기 → {"AIR_OK","SAFETY_STOP","ALM_AIR","ALM_MFC"} (bool)."""
         out = {}
-        for name in ("AIR_OK", "SAFETY_STOP", "ALM_AIR", "ALM_MFC"):
-            out[name] = bool(await self.read_coil(PLC_COIL_MAP[name]))
+        for out_key, sys_key in (("AIR_OK", "air_ok"), ("SAFETY_STOP", "safety_stop"),
+                                 ("ALM_AIR", "alm_air"), ("ALM_MFC", "alm_mfc")):
+            out[out_key] = bool(await self.read_coil(self._sys_addr(sys_key)))
         return out
 
     async def poll(self) -> dict:
@@ -283,7 +314,9 @@ class PlcClient:
         await self.start()
 
 
-# ===================== 주소맵(LS XGB Modbus base=0 확정) =====================
+# ===================== 주소맵 fallback(LS XGB Modbus base=0 확정) =====================
+# ★ 실제 사용 주소는 config(state.channels[].plc / state.plc_system)에서 load_addresses로 로드한다.
+#   아래 하드코딩 맵은 주소맵이 아직 안 실렸을 때만 쓰는 fallback 기본값이다.
 # 코일(M 비트) = 워드번호×16 + 비트번호. LS 표기 M00abc는 워드=ab, 비트=c 로 읽는다.
 #   예) M00100 → 워드10·비트0 = 10×16+0 = 160,  M00112 → 워드11·비트2 = 11×16+2 = 178,
 #       M00211 → 워드21·비트1 = 21×16+1 = 337.
@@ -306,6 +339,16 @@ PLC_REG_MAP = {
     "SV_VA1": 100, "SV_VA3": 101, "SV_VA5": 102, "SV_VA6": 103,   # D00100~103 (쓰기) 목표유량
     "PV_VA1": 200, "PV_VA3": 201, "PV_VA5": 202, "PV_VA6": 203,   # D00200~203 (읽기) 현재유량
 }
+# 시스템 공통 주소 fallback(내부 맵 _sys 미로딩 시). PlcClient._sys_addr가 참조.
+_FALLBACK_SYS = {
+    "heartbeat": PLC_COIL_MAP["HEARTBEAT"],
+    "safety_reset": PLC_COIL_MAP["SAFETY_RESET"],
+    "v4w_cmd": PLC_COIL_MAP["V4W_CMD"],
+    "air_ok": PLC_COIL_MAP["AIR_OK"],
+    "safety_stop": PLC_COIL_MAP["SAFETY_STOP"],
+    "alm_air": PLC_COIL_MAP["ALM_AIR"],
+    "alm_mfc": PLC_COIL_MAP["ALM_MFC"],
+}
 
 
 # ===================== 모듈 싱글턴 + 설정 반영 =====================
@@ -316,6 +359,12 @@ def configure(plc_settings: dict):
     """state.plc(dict)로 클라이언트 설정을 갱신한다(로거 configure와 동일한 사용법).
     실제 연결 반영은 재연결 시점에 이뤄진다(server 시작 시 start(), apply 시 reconnect())."""
     plc.set_config(config_from_dict(plc_settings))
+
+
+def load_addresses(channels: list, plc_system: dict):
+    """state.channels/state.plc_system로 내부 주소맵을 로드(모듈 싱글턴에 위임).
+    server 시작 시, 그리고 설정 저장/변경 시 호출한다."""
+    plc.load_addresses(channels, plc_system)
 
 
 # ---- commands.py 등에서 부르기 쉬운 얇은 래퍼(모듈 싱글턴에 위임) ----

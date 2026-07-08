@@ -88,6 +88,7 @@ async def lifespan(_app: FastAPI):
     #          + 시뮬레이션 telemetry 백그라운드 태스크 시작
     logger.configure(state.settings)
     plc.configure(state.plc)
+    plc.load_addresses(state.channels, state.plc_system)   # config 주도 주소맵 로드
     await plc.plc.start()   # port 비어있으면 no-op(설정 전 무해)
     async def telemetry_loop():
         dt = 1.0 / TELEMETRY_HZ

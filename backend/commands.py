@@ -162,6 +162,7 @@ async def handle_command(data: dict):
                 incoming["unit_id"] = min(247, max(1, int(to_num(incoming.get("unit_id"), 1)) or 1))
                 state.plc = incoming
                 plc.configure(state.plc)           # 설정 반영(실제 연결은 재연결로)
+            plc.load_addresses(state.channels, state.plc_system)   # 채널 plc 변경분 즉시 반영
             state.save_config()
             await push_log("System Setup 적용 — 채널 설정 저장됨", "ok")
             if plc_changed:

@@ -9,15 +9,58 @@ import json
 from storage import atomic_write_json, safe_read_json, CONFIG_PATH
 
 # ===================== 기본값 =====================
+# 채널별 PLC 주소(레벨1: 코드 수정 없이 config로 추가·변경). 매핑 있으면 dict, 없으면 None.
+# HMI VA1·VA3·VA5·VA6 ↔ PLC VA1·VA3·VA5·VA6 (1:1). VA2·VA4·VA7·VA8은 PLC 대응 없음.
+DEFAULT_CHANNEL_PLC = {
+    "VA1": {"cmd_coil": 160, "sv_reg": 100, "pv_reg": 200},
+    "VA2": None,
+    "VA3": {"cmd_coil": 161, "sv_reg": 101, "pv_reg": 201},
+    "VA4": None,
+    "VA5": {"cmd_coil": 162, "sv_reg": 102, "pv_reg": 202},
+    "VA6": {"cmd_coil": 163, "sv_reg": 103, "pv_reg": 203},
+    "VA7": None,
+    "VA8": None,
+}
+
+# 채널 무관 시스템 공통 주소(하트비트/안전리셋/4-way/상태·알람).
+DEFAULT_PLC_SYSTEM = {
+    "heartbeat": 176,     # M00110 (쓰기) 통신 생존 토글
+    "safety_reset": 178,  # M00112 (쓰기, 펄스) 안전리셋
+    "v4w_cmd": 164,       # M00104 (쓰기) 4-way 지령
+    "air_ok": 320,        # M00200 (읽기) 공기압 정상
+    "safety_stop": 321,   # M00201 (읽기) 안전정지 상태
+    "alm_air": 336,       # M00210 (읽기) 공기 알람
+    "alm_mfc": 337,       # M00211 (읽기) MFC 알람
+}
+
+
+def _default_channel_plc(cid: str):
+    """채널 id의 기본 PLC 주소(사본). 매핑 없으면 None."""
+    m = DEFAULT_CHANNEL_PLC.get(cid)
+    return dict(m) if isinstance(m, dict) else None
+
+
+def _norm_channel_plc(v):
+    """채널 plc 값 정규화: dict면 사본, 그 외(None 등)면 None."""
+    return dict(v) if isinstance(v, dict) else None
+
+
+def _copy_channel(c: dict) -> dict:
+    """채널 dict 사본(중첩 plc까지 분리 — 기본값과 상태가 참조 공유하지 않도록)."""
+    out = dict(c)
+    out["plc"] = _norm_channel_plc(c.get("plc"))
+    return out
+
+
 DEFAULT_CHANNELS = [
-    {"id": "VA1", "grp": "air", "route": "pure", "en": True,  "max": 2000, "sv": 0},
-    {"id": "VA2", "grp": "air", "route": "pure", "en": False, "max": 2000, "sv": 0},
-    {"id": "VA3", "grp": "air", "route": "mix",  "en": True,  "max": 2000, "sv": 0},
-    {"id": "VA4", "grp": "air", "route": "mix",  "en": False, "max": 2000, "sv": 0},
-    {"id": "VA5", "grp": "gas", "route": "mix",  "en": True,  "max": 2000, "sv": 0},
-    {"id": "VA6", "grp": "gas", "route": "mix",  "en": True,  "max": 200,  "sv": 0},
-    {"id": "VA7", "grp": "gas", "route": "mix",  "en": False, "max": 200,  "sv": 0},
-    {"id": "VA8", "grp": "gas", "route": "mix",  "en": False, "max": 100,  "sv": 0},
+    {"id": "VA1", "grp": "air", "route": "pure", "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA1")},
+    {"id": "VA2", "grp": "air", "route": "pure", "en": False, "max": 2000, "sv": 0, "plc": _default_channel_plc("VA2")},
+    {"id": "VA3", "grp": "air", "route": "mix",  "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA3")},
+    {"id": "VA4", "grp": "air", "route": "mix",  "en": False, "max": 2000, "sv": 0, "plc": _default_channel_plc("VA4")},
+    {"id": "VA5", "grp": "gas", "route": "mix",  "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA5")},
+    {"id": "VA6", "grp": "gas", "route": "mix",  "en": True,  "max": 200,  "sv": 0, "plc": _default_channel_plc("VA6")},
+    {"id": "VA7", "grp": "gas", "route": "mix",  "en": False, "max": 200,  "sv": 0, "plc": _default_channel_plc("VA7")},
+    {"id": "VA8", "grp": "gas", "route": "mix",  "en": False, "max": 100,  "sv": 0, "plc": _default_channel_plc("VA8")},
 ]
 
 DEFAULT_PARAMS = {
@@ -109,10 +152,11 @@ def normalize_recipe(r: dict) -> dict:
 # ===================== 상태 (서버가 주인) =====================
 class State:
     def __init__(self):
-        self.channels = [dict(c) for c in DEFAULT_CHANNELS]
+        self.channels = [_copy_channel(c) for c in DEFAULT_CHANNELS]
         self.params = dict(DEFAULT_PARAMS)
         self.settings = dict(DEFAULT_SETTINGS)
         self.plc = dict(DEFAULT_PLC)
+        self.plc_system = dict(DEFAULT_PLC_SYSTEM)
         self.system = {
             "running": False,
             "routeOut": "sensor",
@@ -141,14 +185,19 @@ class State:
         if isinstance(chans, list) and chans:
             normalized = []
             for i, c in enumerate(chans):
-                base = dict(DEFAULT_CHANNELS[i]) if i < len(DEFAULT_CHANNELS) else {}
+                base = _copy_channel(DEFAULT_CHANNELS[i]) if i < len(DEFAULT_CHANNELS) else {}
+                cid = c.get("id", f"VA{i + 1}")
+                # plc: 옛 config엔 없을 수 있음 → 있으면 그 값(null 포함), 없으면 id별 기본값.
+                default_plc = base.get("plc", _default_channel_plc(cid))
+                plc_val = _norm_channel_plc(c["plc"]) if "plc" in c else default_plc
                 base.update({
-                    "id": c.get("id", f"VA{i + 1}"),
+                    "id": cid,
                     "grp": c.get("grp", base.get("grp", "air")),
                     "route": c.get("route", base.get("route", "pure")),
                     "en": bool(c.get("en", base.get("en", False))),
                     "max": c.get("max", base.get("max", 2000)),
                     "sv": c.get("sv", base.get("sv", 0)),
+                    "plc": plc_val,
                 })
                 normalized.append(base)
             self.channels = normalized
@@ -157,6 +206,7 @@ class State:
             self.recipe["params"] = dict(self.params)
         self.settings = {**DEFAULT_SETTINGS, **(data.get("settings") or {})}
         self.plc = {**DEFAULT_PLC, **(data.get("plc") or {})}
+        self.plc_system = {**DEFAULT_PLC_SYSTEM, **(data.get("plc_system") or {})}
         # 사용 채널은 시작 시 밸브 열림으로 둔다(데모 일관성).
         for c in self.channels:
             c.setdefault("valveIn", bool(c["en"]))
@@ -166,12 +216,14 @@ class State:
         payload = {
             "channels": [
                 {"id": c["id"], "grp": c["grp"], "route": c["route"],
-                 "en": bool(c["en"]), "max": c["max"], "sv": c["sv"]}
+                 "en": bool(c["en"]), "max": c["max"], "sv": c["sv"],
+                 "plc": _norm_channel_plc(c.get("plc"))}
                 for c in self.channels
             ],
             "params": self.params,
             "settings": self.settings,
             "plc": self.plc,
+            "plc_system": self.plc_system,
         }
         try:
             atomic_write_json(CONFIG_PATH, payload)
@@ -188,6 +240,7 @@ class State:
             "system": dict(self.system),
             "settings": dict(self.settings),
             "plc": dict(self.plc),
+            "plc_system": dict(self.plc_system),
         }
         if include_recipe:
             snap["recipe"] = json.loads(json.dumps(self.recipe))
