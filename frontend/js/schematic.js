@@ -32,7 +32,11 @@ function relabel(){
 }
 relabel();
 channels.forEach(c=>{c.valveIn=c.en;});
-const flowing=c=>c.en&&c.valveIn;
+// PLC 안전정지 여부(연결 + SAFETY_STOP). PLC 래더의 RUN_PERMIT=!SAFETY_STOP와 대응.
+function plcSafeStop(){ const L=window.plcLive; return !!(L&&L.connected&&L.status&&L.status.SAFETY_STOP===true); }
+// 유효 열림 = 명령(valveIn) ON 이고 안전정지 아님 → 래더의 'valve = CMD AND RUN_PERMIT'와 동일.
+const eff=c=>c.en&&c.valveIn&&!plcSafeStop();
+const flowing=c=>eff(c);
 
 const valveSvg = `<svg width="34" height="22" viewBox="0 0 34 22">
   <line class="vstem" x1="17" y1="11" x2="17" y2="4"/><rect class="vact" x="12" y="0" width="10" height="5" rx="1"/>
@@ -69,12 +73,12 @@ function renderLanes(){
         <span class="srclbl">${showLabel}</span><span class="tap"></span>
       </div>
       <i class="pipe ${c.en?'on':''}" data-seg="pre" style="--c:${c.color}"></i>
-      <div class="n-valve ${c.valveIn?'open':'closed'}${c.en?'':' dis'}" data-v="${idx}-in" title="MFC 밸브 (VA)">${valveSvg}<span class="vlbl">${c.id}</span></div>
+      <div class="n-valve ${eff(c)?'open':'closed'}${c.en?'':' dis'}" data-v="${idx}-in" title="MFC 밸브 (VA)">${valveSvg}<span class="vlbl">${c.id}</span></div>
       <div class="midpipe">
-        <i class="pipe ${c.en&&c.valveIn?'on':''}" data-seg="mid" style="--c:${c.color}"></i>
+        <i class="pipe ${eff(c)?'on':''}" data-seg="mid" style="--c:${c.color}"></i>
         ${hasTank?`<div class="tank-ov" title="물탱크 (가습기)">${tankSvg('#3a9fe0')}</div>`:''}
       </div>
-      <div class="n-mfc ${c.en&&c.valveIn?'on':''}${c.en?'':' dis'}">
+      <div class="n-mfc ${eff(c)?'on':''}${c.en?'':' dis'}">
         <div class="mfc-read">
           <span class="vid">${c.id} · MFC</span>
           <div class="pvrow"><span class="rlbl">PV</span><span class="pvb" data-pv="${idx}">${c.pv.toFixed(d)}</span><span class="un" style="visibility:hidden">sccm</span></div>
@@ -82,7 +86,7 @@ function renderLanes(){
           <div class="svrow"><span class="rlbl">SV</span><input class="svi" size="4" value="${c.sv.toFixed(d)}" data-sv="${idx}" ${c.en?'':'disabled'}><span class="un">sccm</span></div>
         </div>
       </div>
-      <i class="pipe grow ${c.en&&c.valveIn?'on':''}" data-seg="post" style="--c:${c.color}"></i>
+      <i class="pipe grow ${eff(c)?'on':''}" data-seg="post" style="--c:${c.color}"></i>
       <span class="endcap"></span>`;
     lanesEl.appendChild(lane);
   });
@@ -98,7 +102,7 @@ function lanesStructKey(){
   return channels.map(c=>`${c.id}|${c.en?1:0}|${c.grp}|${c.route}|${c.max<=100?1:0}`).join(',');
 }
 function lanesFlowKey(){
-  return routeOut+';'+channels.map(c=>(c.en&&c.valveIn)?1:0).join('');
+  return (plcSafeStop()?'S':'-')+';'+routeOut+';'+channels.map(c=>eff(c)?1:0).join('');
 }
 function updateLaneValues(){
   channels.forEach((c,idx)=>{
@@ -194,7 +198,7 @@ function drawBuses(){
   /* ── Gas inlets: each lane = ONE continuous line from inlet cap to VA valve ── */
   const gasTaps=[...document.querySelectorAll('.lane[data-grp="gas"] .tap')];
   const gasChs=channels.filter(c=>c.grp==='gas');
-  const flowC=c=>c.en&&c.valveIn;
+  const flowC=c=>eff(c);   // 유효 열림(안전정지면 닫힘)
   const glayer=document.getElementById('gaslabels'); if(glayer) glayer.innerHTML='';
   const scG=(typeof lastScale==='number'&&lastScale>0)?lastScale:1;
   gasTaps.forEach((t,i)=>{
@@ -221,7 +225,7 @@ function drawBuses(){
   const caps=[...document.querySelectorAll('.lane .endcap')];
   if(!caps.length){svg.innerHTML=p;return;}
   const bx=cx(caps[0]); const bys=caps.map(cy);
-  const flow=c=>c.en&&c.valveIn;
+  const flow=c=>eff(c);   // 유효 열림(안전정지면 닫힘) — 수집 버스 흐름도 함께 정지
   const pureRows=channels.map((c,i)=>c.route==='pure'?bys[i]:null).filter(v=>v!=null);
   const mixRows=channels.map((c,i)=>c.route==='mix'?bys[i]:null).filter(v=>v!=null);
   const pureF=channels.map((c,i)=>c.route==='pure'&&flow(c)?bys[i]:null).filter(v=>v!=null);
