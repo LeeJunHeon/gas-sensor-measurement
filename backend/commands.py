@@ -183,12 +183,15 @@ async def handle_command(data: dict):
                 await push_log(f"안전리셋 실패 — PLC 미연결/통신오류 ({e})", "err")
 
         elif cmd == "plc_reconnect":
-            # PLC 연결 루프를 끊고 현재 설정으로 재시작(포트 비면 no-op).
+            # PLC 연결 루프를 끊고 현재 설정으로 재시작 → 즉시 연결 결과를 로그로 돌려준다.
             try:
-                await plc.plc.reconnect()
-                await push_log("PLC 재연결 시도", "info")
+                ok = await plc.plc.reconnect()
+                if ok:
+                    await push_log("PLC 재연결 성공", "ok")
+                else:
+                    await push_log("PLC 재연결 실패 — 대상 확인", "warn")
             except Exception as e:  # noqa: BLE001
-                await push_log(f"PLC 재연결 실패 ({e})", "err")
+                await push_log(f"PLC 재연결 실패 — 대상 확인 ({e})", "warn")
 
         elif cmd == "recipe_new":
             keep_params = dict(state.recipe.get("params", DEFAULT_PARAMS))

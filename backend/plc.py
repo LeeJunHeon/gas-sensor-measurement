@@ -249,18 +249,22 @@ class PlcClient:
 
     # ---- 연결 유지 루프(연결→하트비트→끊김 시 재연결) ----
     async def _run_loop(self):
+        backoff = 0.0                          # 연속 실패 시 재시도 간격(지수 백오프)
         while True:
             if not self._connected:
                 ok = await self.connect()
                 if not ok:
-                    await asyncio.sleep(max(0.2, self.cfg.reconnect_delay_s))
+                    # 연속 실패 시 간격을 늘려 timeout 로그 도배 방지. 최소 3초, 최대 30초.
+                    base = max(3.0, self.cfg.reconnect_delay_s)
+                    backoff = min(30.0, backoff * 2 if backoff else base)
+                    await asyncio.sleep(backoff)
                     continue
-            # 하트비트: 살아있는지 가벼운 확인. 실패하면 끊고 재연결.
+                backoff = 0.0                  # 연결 성공 → 백오프 리셋
+            # 하트비트: 살아있는지 가벼운 확인. 실패하면 끊고 즉시 1회 재연결(이후 실패는 백오프).
             try:
                 await self.heartbeat()
             except Exception:  # noqa: BLE001
                 await self.close()
-                await asyncio.sleep(max(0.2, self.cfg.reconnect_delay_s))
                 continue
             await asyncio.sleep(max(0.1, self.cfg.heartbeat_s))
 
@@ -336,10 +340,13 @@ class PlcClient:
             self._task = None
         await self.close()
 
-    async def reconnect(self):
-        """설정 변경 후 재적용: 기존 연결/루프를 끊고 새 설정으로 다시 시작."""
+    async def reconnect(self) -> bool:
+        """설정 변경 후 재적용: 기존 연결/루프를 끊고 새 설정으로 다시 시작.
+        즉시 한 번 연결을 시도해 그 결과(성공/실패)를 반환하고, 유지 루프도 다시 띄운다."""
         await self.stop()
-        await self.start()
+        ok = await self.connect()   # 버튼 피드백용: 즉시 결과 확인
+        await self.start()          # 유지 루프 시작(연결됐으면 그대로, 아니면 백오프 재시도)
+        return ok
 
 
 # ===================== 주소맵 fallback(LS XGB Modbus base=0 확정) =====================

@@ -186,6 +186,9 @@ function updatePlcLive(live){
 // \uc11c\ubc84 state \uba54\uc2dc\uc9c0 \u2192 \ub0b4\ubd80 \uc0c1\ud0dc \ubc18\uc601 \ud6c4 \uc7ac\ub80c\ub354
 function applyState(s){
   if(!s) return;
+  // 렌더 방식 판단용: 반영 전 레인 구조/흐름 키를 스냅샷(반영 후와 비교).
+  const _prevStruct = lanesStructKey();
+  const _prevFlow = lanesFlowKey();
   if(s.channels){
     // 서버 state에 pv가 없을 수 있으므로 교체 시 이전 pv를 보존(없으면 sv 근처) — PV 깜빡임 방지.
     const prevPv = channels.map(c=>c.pv);
@@ -242,7 +245,11 @@ function applyState(s){
     if(window.plcSyncModeFields) window.plcSyncModeFields();   // 방식에 맞는 필드만 표시
   }
   if(s.plc_live) updatePlcLive(s.plc_live);   // PLC \uc2e4\uce21(\uc5f0\uacb0\u00b7PV\u00b7\uc0c1\ud0dc) \u2192 window.plcLive + \uc0c1\ud0dc \ud328\ub110
-  renderLanes();   // \ubc30\uad00\ub3c4 \uc7ac\ub80c\ub354 (mapped \ucc44\ub110 PLC PV\ub294 window.plcLive\ub97c \uc77d\uc74c)
+  // \uad6c\uc870/\ud750\ub984(\ubc38\ube0c\u00b74way) \ubcc0\uacbd \u2192 \uc804\uccb4 \uc7ac\ub80c\ub354 / \uac12(PV\u00b7SV\u00b7MAX)\ub9cc \ubcc0\uacbd \u2192 \ubd80\ubd84 \uac31\uc2e0(\ud750\ub984 \uc560\ub2c8\uba54\uc774\uc158 \uc720\uc9c0).
+  if(!lanesEl.querySelector('.lane') || lanesStructKey()!==_prevStruct || lanesFlowKey()!==_prevFlow)
+    renderLanes();   // \ubc30\uad00\ub3c4 \uc804\uccb4 \uc7ac\ub80c\ub354 (mapped \ucc44\ub110 PLC PV\ub294 window.plcLive\ub97c \uc77d\uc74c)
+  else
+    updateLaneValues();   // \uac12\ub9cc in-place \uac31\uc2e0 \u2192 .pipe.on \uc560\ub2c8\uba54\uc774\uc158 \ub9ac\uc14b \uc548 \ub428
   renderRecipe();  // \ub808\uc2dc\ud53c \ud45c \uc7ac\ub80c\ub354
   updateSystem();  // \uc0c1\ub2e8 \ud1b5\uacc4
   applyRunLock(running);   // \uc7ac\ub80c\ub354\ub41c \ubc30\uad00\ub3c4\uc5d0 \uc2e4\ud589\uc911 \uc7a0\uae08 \uc7ac\uc801\uc6a9

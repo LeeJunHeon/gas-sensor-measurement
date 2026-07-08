@@ -91,6 +91,27 @@ function renderLanes(){
   updateSystem();
 }
 
+/* 폴링처럼 '값만' 바뀔 때 레인을 통째로 재생성하지 않고 값만 in-place 갱신한다.
+   → .pipe.on 흐름 애니메이션이 리셋되지 않는다. 구조/흐름 변경은 renderLanes()로 전체 렌더.
+   구조키: DOM 구조에 영향(채널 수/구성/소수자리). 흐름키: 흐름 클래스에 영향(밸브 개폐·4way). */
+function lanesStructKey(){
+  return channels.map(c=>`${c.id}|${c.en?1:0}|${c.grp}|${c.route}|${c.max<=100?1:0}`).join(',');
+}
+function lanesFlowKey(){
+  return routeOut+';'+channels.map(c=>(c.en&&c.valveIn)?1:0).join('');
+}
+function updateLaneValues(){
+  channels.forEach((c,idx)=>{
+    const lane=lanesEl.querySelector(`.lane[data-idx="${idx}"]`);
+    if(!lane) return;
+    const d=dec(c);
+    lane.classList.toggle('lit', flowing(c)&&c.pv>0);   // 발광(글로우)은 파이프 애니메이션과 무관
+    const pv=lane.querySelector(`[data-pv="${idx}"]`); if(pv) pv.textContent=c.pv.toFixed(d);
+    const sv=lane.querySelector(`[data-sv="${idx}"]`); if(sv&&document.activeElement!==sv) sv.value=c.sv.toFixed(d);
+    const mx=lane.querySelector(`[data-max="${idx}"]`); if(mx&&document.activeElement!==mx) mx.value=c.max;
+  });
+}
+
 function bindLaneEvents(){
   // \uc0ac\uc6a9\uc790 \ub3d9\uc791 = \uc694\uccad. \uc9c1\uc811 \uc0c1\ud0dc\ub97c \ubc14\uafb8\uc9c0 \uc54a\uace0 app.js \uba85\ub839 \ud568\uc218\ub85c \ubcf4\ub0b8\ub2e4.
   // \ud654\uba74\uc740 \uc11c\ubc84 state(\ub610\ub294 \ub04a\uae40 \uc2dc \uc2dc\ubbac\ub808\uc774\uc158 \ub300\uccb4)\uac00 \uc640\uc57c \uac31\uc2e0\ub41c\ub2e4.

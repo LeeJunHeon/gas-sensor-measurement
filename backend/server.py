@@ -15,8 +15,12 @@ import os
 import time
 import json
 import asyncio
+import logging
 import threading
 import contextlib
+
+# pymodbus 연결 실패("Connection ... failed: timed out") 반복 출력 소음 낮추기.
+logging.getLogger("pymodbus").setLevel(logging.WARNING)
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -28,7 +32,7 @@ import plc
 from storage import PROJECT_ROOT
 from state import state
 from simulation import sim_tick
-from connection import manager, push_state
+from connection import manager, push_state, push_log
 import commands
 from commands import handle_command
 
@@ -104,23 +108,33 @@ async def lifespan(_app: FastAPI):
     task = asyncio.create_task(telemetry_loop())
 
     # PLC 읽기 폴링: 연결돼 있으면 주기적으로 PV/상태를 읽어 state.plc_live 갱신 후 브로드캐스트.
-    # 미연결/예외면 connected=False로만 두고 조용히 넘어간다(죽지 않게, 로그·push 과하지 않게).
+    # 연결/끊김 '전이'만 UI 로그에 한 번씩 남긴다(반복 도배 금지).
     async def plc_poll_loop():
+        was_connected = False
+        async def _mark_disconnected():
+            nonlocal was_connected
+            if was_connected:
+                await push_log("PLC 연결 끊김", "warn")
+            was_connected = False
+            if state.plc_live.get("connected") or state.plc_live.get("pv"):
+                state.plc_live = {"connected": False, "pv": {}, "status": {}}
+                with contextlib.suppress(Exception):
+                    await push_state()
         while True:
             await asyncio.sleep(PLC_POLL_INTERVAL_S)
             try:
                 if plc.plc.is_connected():
                     res = await plc.plc.poll()
                     state.plc_live = {"connected": True, "pv": res["pv"], "status": res["status"]}
+                    if not was_connected:
+                        await push_log("PLC 연결됨", "ok")   # 끊김→연결 전이 1회
+                        was_connected = True
                     await push_state()
-                elif state.plc_live.get("connected"):
-                    state.plc_live = {"connected": False, "pv": {}, "status": {}}
-                    await push_state()   # 연결→끊김 전이에서만 한 번 알림
+                else:
+                    await _mark_disconnected()
             except Exception:  # noqa: BLE001 — 읽기 실패는 연결표시만 내리고 계속
-                if state.plc_live.get("connected"):
-                    state.plc_live = {"connected": False, "pv": {}, "status": {}}
-                    with contextlib.suppress(Exception):
-                        await push_state()
+                with contextlib.suppress(Exception):
+                    await _mark_disconnected()
     poll_task = asyncio.create_task(plc_poll_loop())
 
     # PLC 쓰기 동기화: 앱의 '원하는 상태'(밸브 개폐 + 목표유량 SV)를 주기적으로 PLC에 반영.
