@@ -151,13 +151,6 @@ function applyParams(p){
   set('chFrom',p.chFrom); set('chTo',p.chTo);
   const sm=document.getElementById('smuMode'); if(sm&&p.smuMode) sm.value=p.smuMode;
 }
-// PLC \ud1b5\uc2e0 \uc694\uc57d(\ud3ec\ud2b8 \u00b7 baud \ud504\ub808\uc784 \u00b7 \uad6d\ubc88) \u2014 \uc124\uc815(state.plc)\uc5d0\uc11c \uc77d\uc5b4 \uc0c1\ud0dc \ud328\ub110 \ud5e4\ub354 \uc544\ub798 \ud45c\uc2dc.
-function updatePlcComm(p){
-  const el=document.getElementById('plcComm'); if(!el||!p) return;
-  const parity=({N:'N',E:'E',O:'O'})[p.parity]||'N';
-  const frame=`${p.bytesize||8}${parity}${p.stopbits||1}`;   // \uc608: 8N1
-  el.textContent=`${p.port||'\u2014'} \u00b7 ${p.baudrate||115200} ${frame} \u00b7 \uad6d\ubc88 ${p.unit_id||1}`;
-}
 // PLC \uc2e4\uce21(plc_live) \u2192 window.plcLive \uc800\uc7a5 + \uc5f0\uacb0\ubc30\uc9c0\u00b7\uc6b4\uc804\ud5c8\uac00\u00b7\uc0c1\ud0dc \ud45c\uc2dc\ub4f1 \uac31\uc2e0.
 // \ud45c\uc2dc\ub4f1: ok=\ucd08\ub85d, bad=\ube68\uac15, \ubbf8\uc5f0\uacb0=\ud68c\uc0c9(\ud074\ub798\uc2a4 \uc5c6\uc74c).
 function updatePlcLive(live){
@@ -175,7 +168,7 @@ function updatePlcLive(live){
   if(permit){
     permit.classList.remove('ok','bad');
     const t=permit.querySelector('.pp-permit-txt');
-    if(!connected){ if(t) t.textContent='\ubbf8\uc5f0\uacb0'; }
+    if(!connected){ if(t) t.textContent='\u2014'; }   // \ubbf8\uc5f0\uacb0\uc740 \uc6b0\uc0c1\ub2e8 \ubc30\uc9c0\uac00 \ud45c\uc2dc \u2014 \uc5ec\uae30\uc120 \uc911\ubcf5 \ud53c\ud574 '\u2014'
     else if(st.SAFETY_STOP===true){ permit.classList.add('bad'); if(t) t.textContent='\uc815\uc9c0'; }
     else { permit.classList.add('ok'); if(t) t.textContent='\uc6b4\uc804 \ud5c8\uac00'; }
   }
@@ -245,7 +238,6 @@ function applyState(s){
     setV('plcUnitId', p.unit_id);
     setV('plcTimeout', p.timeout_s); setV('plcGap', p.inter_cmd_gap_s);
     setV('plcHeartbeat', p.heartbeat_s); setV('plcReconnect', p.reconnect_delay_s);
-    updatePlcComm(p);   // PLC \uc0c1\ud0dc \ud328\ub110\uc758 \ud1b5\uc2e0 \uc694\uc57d(\ud3ec\ud2b8\u00b7baud\u00b7\ud504\ub808\uc784\u00b7\uad6d\ubc88)
   }
   if(s.plc_live) updatePlcLive(s.plc_live);   // PLC \uc2e4\uce21(\uc5f0\uacb0\u00b7PV\u00b7\uc0c1\ud0dc) \u2192 window.plcLive + \uc0c1\ud0dc \ud328\ub110
   renderLanes();   // \ubc30\uad00\ub3c4 \uc7ac\ub80c\ub354 (mapped \ucc44\ub110 PLC PV\ub294 window.plcLive\ub97c \uc77d\uc74c)
