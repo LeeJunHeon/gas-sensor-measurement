@@ -87,6 +87,7 @@ class PlcClient:
         self._unit_key = None             # 'device_id' | 'slave' | 'unit' (버전별 자동판별)
         self._task = None                 # 연결 유지 루프 태스크
         self._connected = False
+        self._hb_value = False            # 하트비트 토글 상태(매 주기 반전 → PLC가 엣지로 생존 판단)
 
     # ---- 설정 ----
     def set_config(self, cfg: PlcConfig):
@@ -207,12 +208,56 @@ class PlcClient:
             await asyncio.sleep(max(0.1, self.cfg.heartbeat_s))
 
     async def heartbeat(self):
-        """살아있음 확인용 가벼운 읽기.
-        TODO: 실제 하트비트 주소(예: 특정 M/D)를 아래 read로 지정한다.
-              지금은 주소맵 미확정이라 no-op(연결 여부만으로 판단)."""
-        # 예시(주소 확정 후 활성화):
-        # await self.read_coil(PLC_COIL_MAP["heartbeat"])
+        """하트비트 '토글 쓰기'. 매 호출마다 HEARTBEAT 코일 값을 반전시켜 쓴다.
+        PLC는 이 코일의 '변화(엣지)'로 통신 생존을 판단하므로 값이 바뀌는 것이 핵심.
+        실패 시 예외를 그대로 올려 _run_loop가 끊고 재연결하도록 한다(주기=cfg.heartbeat_s)."""
+        self._hb_value = not self._hb_value
+        await self.write_coil(PLC_COIL_MAP["HEARTBEAT"], self._hb_value)
         return True
+
+    async def safety_reset(self, pulse_s: float = 0.25):
+        """안전리셋(M112) 순간 펄스. ON → pulse_s 대기 → OFF.
+        ★ M112는 레벨접점이라 계속 켜두면 고장 해제 시 자동 재가동됨 → 반드시 펄스로만 친다.
+        중간에 실패해도 OFF는 최대한 보장(finally)."""
+        addr = PLC_COIL_MAP["SAFETY_RESET"]
+        try:
+            await self.write_coil(addr, True)
+            await asyncio.sleep(pulse_s)
+        finally:
+            await self.write_coil(addr, False)
+        return True
+
+    # ---- 명명된 헬퍼(주소맵 키 사용). 미연결/실패 시 하위 read/write처럼 예외를 올림 ----
+    async def set_valve(self, name: str, on: bool):
+        """밸브/4-way 지령 코일 write. name ∈ {VA1,VA3,VA5,VA6,V4W} → *_CMD."""
+        addr = PLC_COIL_MAP[f"{name}_CMD"]
+        await self.write_coil(addr, bool(on))
+        return True
+
+    async def write_sv(self, name: str, raw: int):
+        """MFC 목표유량(SV) 레지스터 write. name ∈ {VA1,VA3,VA5,VA6}. 값은 0~2000 clamp."""
+        addr = PLC_REG_MAP[f"SV_{name}"]
+        val = int(min(2000, max(0, int(raw))))
+        await self.write_register(addr, val)
+        return True
+
+    async def read_pv_all(self) -> dict:
+        """MFC 현재유량(PV) 일괄 읽기 → {"VA1":..,"VA3":..,"VA5":..,"VA6":..}."""
+        out = {}
+        for name in ("VA1", "VA3", "VA5", "VA6"):
+            out[name] = await self.read_register(PLC_REG_MAP[f"PV_{name}"])
+        return out
+
+    async def read_status(self) -> dict:
+        """상태 코일 읽기 → {"AIR_OK","SAFETY_STOP","ALM_AIR","ALM_MFC"} (bool)."""
+        out = {}
+        for name in ("AIR_OK", "SAFETY_STOP", "ALM_AIR", "ALM_MFC"):
+            out[name] = bool(await self.read_coil(PLC_COIL_MAP[name]))
+        return out
+
+    async def poll(self) -> dict:
+        """PV + 상태를 한 번에 읽어 반환(state/UI로 밀지 않음 — 호출자 몫)."""
+        return {"pv": await self.read_pv_all(), "status": await self.read_status()}
 
     async def start(self):
         """port가 설정돼 있으면 연결 유지 루프 시작(중복 시작 방지)."""
@@ -238,21 +283,28 @@ class PlcClient:
         await self.start()
 
 
-# ===================== 주소맵(TODO — 하드웨어 확정 후 채움) =====================
-# LS XGB Modbus base = M0000/D0000. 코일=M 비트, 레지스터=D 워드.
-# 각 기능이 어떤 주소를 쓰는지 확정되면 아래에 채운다.
-# TODO: PLC_COIL_MAP — 비트 신호(밸브 개폐, RUN/STOP, 비상정지, 상태 플래그 등)
+# ===================== 주소맵(LS XGB Modbus base=0 확정) =====================
+# 코일(M 비트) = 워드번호×16 + 비트번호. LS 표기 M00abc는 워드=ab, 비트=c 로 읽는다.
+#   예) M00100 → 워드10·비트0 = 10×16+0 = 160,  M00112 → 워드11·비트2 = 11×16+2 = 178,
+#       M00211 → 워드21·비트1 = 21×16+1 = 337.
+# 레지스터(D 워드) = D 워드번호 그대로.  예) D00100 → 100,  D00200 → 200.
+# 접근은 코일(read_coil/write_coil) + 홀딩 레지스터(read_register/write_register)만 사용.
 PLC_COIL_MAP = {
-    # "va1_open": 0,          # 예) M0000
-    # "auto_run": 16,         # 예) M0016
-    # "emergency": 31,
-    # "heartbeat": 100,
+    "VA1_CMD": 160,       # M00100 (쓰기) 밸브/MFC 지령
+    "VA3_CMD": 161,       # M00101
+    "VA5_CMD": 162,       # M00102
+    "VA6_CMD": 163,       # M00103
+    "V4W_CMD": 164,       # M00104 4-way 지령
+    "HEARTBEAT": 176,     # M00110 (쓰기) 통신 생존 토글
+    "SAFETY_RESET": 178,  # M00112 (쓰기, 펄스) 안전리셋
+    "AIR_OK": 320,        # M00200 (읽기) 공기압 정상
+    "SAFETY_STOP": 321,   # M00201 (읽기) 안전정지 상태
+    "ALM_AIR": 336,       # M00210 (읽기) 공기 알람
+    "ALM_MFC": 337,       # M00211 (읽기) MFC 알람
 }
-# TODO: PLC_REG_MAP — 워드 값(MFC SV/PV, RH, 카운터 등)
 PLC_REG_MAP = {
-    # "va1_sv": 0,            # 예) D0000
-    # "va1_pv": 1,
-    # "rh_pv": 40,
+    "SV_VA1": 100, "SV_VA3": 101, "SV_VA5": 102, "SV_VA6": 103,   # D00100~103 (쓰기) 목표유량
+    "PV_VA1": 200, "PV_VA3": 201, "PV_VA5": 202, "PV_VA6": 203,   # D00200~203 (읽기) 현재유량
 }
 
 
@@ -264,6 +316,15 @@ def configure(plc_settings: dict):
     """state.plc(dict)로 클라이언트 설정을 갱신한다(로거 configure와 동일한 사용법).
     실제 연결 반영은 재연결 시점에 이뤄진다(server 시작 시 start(), apply 시 reconnect())."""
     plc.set_config(config_from_dict(plc_settings))
+
+
+# ---- commands.py 등에서 부르기 쉬운 얇은 래퍼(모듈 싱글턴에 위임) ----
+async def safety_reset(pulse_s: float = 0.25):
+    return await plc.safety_reset(pulse_s)
+
+
+async def poll() -> dict:
+    return await plc.poll()
 
 
 def list_serial_ports() -> list:
