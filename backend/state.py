@@ -35,6 +35,20 @@ DEFAULT_SETTINGS = {
     "logKeepDays": 30,            # 보관 일수(이보다 오래된 로그 파일 삭제)
 }
 
+# PLC 통신(LS XGB 내장 Cnet Modbus RTU). port 비면 연결 안 함(설정 전 무해).
+DEFAULT_PLC = {
+    "port": "",                   # 예: COM3(Windows) / /dev/ttyUSB0(Linux). 필수.
+    "baudrate": 115200,
+    "bytesize": 8,
+    "stopbits": 1,
+    "parity": "N",               # N | E | O
+    "unit_id": 1,                # 국번(1~247). 0 금지.
+    "timeout_s": 1.5,
+    "inter_cmd_gap_s": 0.1,
+    "heartbeat_s": 1.0,          # PLC COMM_TMR(3초) 미만이어야 통신두절 트립 방지
+    "reconnect_delay_s": 1.0,
+}
+
 
 def default_recipe() -> dict:
     return {
@@ -98,6 +112,7 @@ class State:
         self.channels = [dict(c) for c in DEFAULT_CHANNELS]
         self.params = dict(DEFAULT_PARAMS)
         self.settings = dict(DEFAULT_SETTINGS)
+        self.plc = dict(DEFAULT_PLC)
         self.system = {
             "running": False,
             "routeOut": "sensor",
@@ -141,6 +156,7 @@ class State:
             self.params = {**DEFAULT_PARAMS, **data["params"]}
             self.recipe["params"] = dict(self.params)
         self.settings = {**DEFAULT_SETTINGS, **(data.get("settings") or {})}
+        self.plc = {**DEFAULT_PLC, **(data.get("plc") or {})}
         # 사용 채널은 시작 시 밸브 열림으로 둔다(데모 일관성).
         for c in self.channels:
             c.setdefault("valveIn", bool(c["en"]))
@@ -155,6 +171,7 @@ class State:
             ],
             "params": self.params,
             "settings": self.settings,
+            "plc": self.plc,
         }
         try:
             atomic_write_json(CONFIG_PATH, payload)
@@ -170,6 +187,7 @@ class State:
             "channels": [dict(c) for c in self.channels],
             "system": dict(self.system),
             "settings": dict(self.settings),
+            "plc": dict(self.plc),
         }
         if include_recipe:
             snap["recipe"] = json.loads(json.dumps(self.recipe))

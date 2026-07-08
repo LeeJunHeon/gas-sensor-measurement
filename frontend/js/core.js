@@ -191,6 +191,17 @@ function applyState(s){
     const ll=document.getElementById('logLevel'); if(ll&&st.logLevel) ll.value=st.logLevel;
     setV('logKeepDays', st.logKeepDays);
   }
+  if(s.plc){   // PLC 통신 설정 → System Setup 모달 입력에 반영
+    const p=s.plc;
+    const setV=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null) e.value=v;};
+    const setSel=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null) e.value=String(v);};
+    setV('plcPort', p.port);
+    setSel('plcBaud', p.baudrate); setSel('plcBytesize', p.bytesize);
+    setSel('plcStopbits', p.stopbits); setSel('plcParity', p.parity);
+    setV('plcUnitId', p.unit_id);
+    setV('plcTimeout', p.timeout_s); setV('plcGap', p.inter_cmd_gap_s);
+    setV('plcHeartbeat', p.heartbeat_s); setV('plcReconnect', p.reconnect_delay_s);
+  }
   renderLanes();   // \ubc30\uad00\ub3c4 \uc7ac\ub80c\ub354
   renderRecipe();  // \ub808\uc2dc\ud53c \ud45c \uc7ac\ub80c\ub354
   updateSystem();  // \uc0c1\ub2e8 \ud1b5\uacc4

@@ -9,6 +9,7 @@ import os
 
 import engine
 import logger
+import plc
 from state import state, default_recipe, DEFAULT_PARAMS, normalize_recipe, to_num
 from connection import manager, push_state, push_log
 from storage import (
@@ -154,9 +155,23 @@ async def handle_command(data: dict):
             if isinstance(data.get("settings"), dict):
                 state.settings = {**state.settings, **data["settings"]}
                 logger.configure(state.settings)   # 변경 즉시 로거 재설정
+            plc_changed = isinstance(data.get("plc"), dict)
+            if plc_changed:
+                incoming = {**state.plc, **data["plc"]}
+                # 방어적 보정: unit_id 1~247, heartbeat는 PLC COMM_TMR(3초) 미만이어야 안전
+                incoming["unit_id"] = min(247, max(1, int(to_num(incoming.get("unit_id"), 1)) or 1))
+                state.plc = incoming
+                plc.configure(state.plc)           # 설정 반영(실제 연결은 재연결로)
             state.save_config()
             await push_log("System Setup 적용 — 채널 설정 저장됨", "ok")
+            if plc_changed:
+                await push_log("PLC 통신 설정 저장됨 — 재연결해야 적용됩니다", "info")
+                await plc.plc.reconnect()          # 새 설정으로 재연결(port 비면 no-op)
             await push_state()
+
+        elif cmd == "plc_ports":
+            # System Setup 모달의 포트 드롭다운 채우기용(pyserial 없으면 빈 목록)
+            await manager.broadcast({"type": "plc_ports", "ports": plc.list_serial_ports()})
 
         elif cmd == "recipe_new":
             keep_params = dict(state.recipe.get("params", DEFAULT_PARAMS))

@@ -208,6 +208,49 @@
               <input class="recname mono" id="logKeepDays" style="width:70px" placeholder="30">
             </div>
           </div>
+
+          <div class="setup-section">
+            <div class="setup-sec-title">PLC 통신 (Modbus RTU)</div>
+            <div class="setup-row">
+              <span class="setup-lbl">PLC 연결 포트</span>
+              <input class="recname mono" id="plcPort" list="plcPortList" style="flex:1" placeholder="COM3 (또는 /dev/ttyUSB0)">
+              <datalist id="plcPortList"></datalist>
+              <button type="button" class="cancel" id="plcPortsRefresh" style="padding:4px 10px">↻ 포트</button>
+            </div>
+            <div class="setup-row">
+              <span class="setup-lbl">Baud</span>
+              <select id="plcBaud">
+                <option>9600</option><option>19200</option><option>38400</option>
+                <option>57600</option><option selected>115200</option>
+              </select>
+              <span class="setup-lbl" style="margin-left:12px">Data</span>
+              <select id="plcBytesize"><option>7</option><option selected>8</option></select>
+              <span class="setup-lbl" style="margin-left:12px">Stop</span>
+              <select id="plcStopbits"><option selected>1</option><option>2</option></select>
+              <span class="setup-lbl" style="margin-left:12px">Parity</span>
+              <select id="plcParity">
+                <option value="N" selected>None</option>
+                <option value="E">Even</option>
+                <option value="O">Odd</option>
+              </select>
+              <span class="setup-lbl" style="margin-left:12px">국번(Unit ID)</span>
+              <input class="recname mono" id="plcUnitId" style="width:60px" placeholder="1">
+            </div>
+            <div class="setup-row">
+              <span class="setup-lbl">고급</span>
+              <span class="setup-lbl">Timeout(s)</span>
+              <input class="recname mono" id="plcTimeout" style="width:66px" placeholder="1.5">
+              <span class="setup-lbl" style="margin-left:8px">Cmd Gap(s)</span>
+              <input class="recname mono" id="plcGap" style="width:66px" placeholder="0.1">
+              <span class="setup-lbl" style="margin-left:8px">Heartbeat(s)</span>
+              <input class="recname mono" id="plcHeartbeat" style="width:66px" placeholder="1.0">
+              <span class="setup-lbl" style="margin-left:8px">Reconnect(s)</span>
+              <input class="recname mono" id="plcReconnect" style="width:66px" placeholder="1.0">
+            </div>
+            <div class="setup-row">
+              <span class="setup-note" id="plcNote">설정 변경은 저장 후 재연결해야 적용됩니다.</span>
+            </div>
+          </div>
         </div>
         <div class="modal-foot">
           <button class="cancel" id="cancelSetup">취소</button>

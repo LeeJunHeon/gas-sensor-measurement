@@ -41,6 +41,10 @@
         },
       },
       settings: { logEnabled: true, logDir: 'logs', logLevel: 'info', logKeepDays: 30 },
+      plc: {
+        port: '', baudrate: 115200, bytesize: 8, stopbits: 1, parity: 'N',
+        unit_id: 1, timeout_s: 1.5, inter_cmd_gap_s: 0.1, heartbeat_s: 1.0, reconnect_delay_s: 1.0,
+      },
     };
   }
 
@@ -113,7 +117,8 @@
         mirror = { channels: deepCopy(msg.channels || []),
                    system: deepCopy(msg.system || mirror.system),
                    recipe: deepCopy(msg.recipe || mirror.recipe),
-                   settings: deepCopy(msg.settings || mirror.settings) };
+                   settings: deepCopy(msg.settings || mirror.settings),
+                   plc: deepCopy(msg.plc || mirror.plc) };
         window.applyState(msg);
         break;
       case 'telemetry':
@@ -127,6 +132,9 @@
         break;
       case 'recipe_list':
         showRecipePicker(msg.names || []);
+        break;
+      case 'plc_ports':
+        if (window.applyPlcPorts) window.applyPlcPorts(msg.ports || []);
         break;
       case 'ack':
         handleAck(msg);
@@ -218,8 +226,8 @@
   };
   // 창 우상단 X → 서버(_on_closing)가 호출. PROGRAM END와 동일한 종료확인 모달을 띄운다.
   window.requestExitConfirm = function () { window.cmdExit(); };
-  window.cmdApplySetup = function (channels, params, settings) {
-    if (send({ cmd: 'apply_setup', channels: channels, params: params, settings: settings })) return;
+  window.cmdApplySetup = function (channels, params, settings, plc) {
+    if (send({ cmd: 'apply_setup', channels: channels, params: params, settings: settings, plc: plc })) return;
     localApply(m => {
       (channels || []).forEach(item => {
         const c = m.channels[item.ch];
@@ -232,8 +240,14 @@
       });
       if (params) m.recipe.params = Object.assign({}, m.recipe.params, params);
       if (settings) m.settings = Object.assign({}, m.settings, settings);
+      if (plc) m.plc = Object.assign({}, m.plc, plc);
     });
     window.logMsg('System Setup 적용 (시뮬레이션 — 서버 연결 시 config.json 저장)', 'warn');
+  };
+  // System Setup 모달의 포트 드롭다운 채우기 — 서버에 목록 요청(오프라인이면 빈 목록=텍스트 입력).
+  window.cmdPlcPorts = function () {
+    if (send({ cmd: 'plc_ports' })) return;
+    if (window.applyPlcPorts) window.applyPlcPorts([]);
   };
   window.cmdRecipeNew = function () {
     if (send({ cmd: 'recipe_new' })) return;

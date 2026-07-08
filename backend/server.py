@@ -24,6 +24,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import logger
+import plc
 from storage import PROJECT_ROOT
 from state import state
 from simulation import sim_tick
@@ -83,8 +84,11 @@ commands.set_shutdown_handler(request_shutdown)
 # ===================== FastAPI =====================
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # startup: 파일 로거 구성(config의 settings 기준) + 시뮬레이션 telemetry 백그라운드 태스크 시작
+    # startup: 파일 로거 구성(config의 settings 기준) + PLC 통신 설정 반영(포트가 있으면 연결 유지 루프 시작)
+    #          + 시뮬레이션 telemetry 백그라운드 태스크 시작
     logger.configure(state.settings)
+    plc.configure(state.plc)
+    await plc.plc.start()   # port 비어있으면 no-op(설정 전 무해)
     async def telemetry_loop():
         dt = 1.0 / TELEMETRY_HZ
         while True:
@@ -98,10 +102,12 @@ async def lifespan(_app: FastAPI):
     try:
         yield
     finally:
-        # shutdown: 태스크 정리
+        # shutdown: 태스크 정리 + PLC 연결 종료
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
+        with contextlib.suppress(Exception):
+            await plc.plc.stop()
 
 
 app = FastAPI(lifespan=lifespan)

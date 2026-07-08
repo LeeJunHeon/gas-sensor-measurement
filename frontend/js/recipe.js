@@ -25,8 +25,30 @@ function buildSetupRows(){
     e.target.closest('tr').classList.toggle('dis',!e.target.checked);
   }));
 }
-function openSetup(){ buildSetupRows(); setupOverlay.classList.add('on'); }
+function openSetup(){
+  buildSetupRows();
+  if(window.cmdPlcPorts) window.cmdPlcPorts();   // 사용 가능한 시리얼 포트 목록 요청(드롭다운 채우기)
+  setupOverlay.classList.add('on');
+}
 function closeSetup(){ setupOverlay.classList.remove('on'); }
+// 서버가 보낸 포트 목록으로 datalist를 채운다(app.js가 plc_ports 메시지 수신 시 호출).
+window.applyPlcPorts=function(ports){
+  const dl=document.getElementById('plcPortList'); if(!dl) return;
+  dl.innerHTML='';
+  (ports||[]).forEach(p=>{
+    const o=document.createElement('option');
+    o.value=p.device||''; if(p.desc) o.label=p.desc;
+    dl.appendChild(o);
+  });
+};
+// PLC 통신 설정 검증(저장 전). 문제 있으면 {ok:false, msg}.
+function validatePlc(plc){
+  if(!(plc.heartbeat_s < 3.0))
+    return {ok:false, msg:'Heartbeat는 3초 미만이어야 합니다 — PLC COMM_TMR(3초) 때문에 통신두절로 트립됩니다.'};
+  if(!(plc.unit_id>=1 && plc.unit_id<=247))
+    return {ok:false, msg:'국번(Unit ID)은 1~247 사이여야 합니다 (0 금지).'};
+  return {ok:true};
+}
 // 설정 모달의 입력을 읽어 명령 페이로드로 변환(서버 INTERFACE 4.2 apply_setup 형식).
 function collectSetup(){
   const chans=[];
@@ -53,11 +75,33 @@ function collectSetup(){
     logLevel: document.getElementById('logLevel')?.value || 'info',
     logKeepDays: parseInt(document.getElementById('logKeepDays')?.value, 10) || 30,
   };
-  return {channels:chans, params, settings};
+  const pnum=(id,d)=>{const v=parseFloat(document.getElementById(id)?.value); return isNaN(v)?d:v;};
+  const pint=(id,d)=>{const v=parseInt(document.getElementById(id)?.value,10); return isNaN(v)?d:v;};
+  const plc={
+    port: (document.getElementById('plcPort')?.value || '').trim(),
+    baudrate: pint('plcBaud', 115200),
+    bytesize: pint('plcBytesize', 8),
+    stopbits: pint('plcStopbits', 1),
+    parity: document.getElementById('plcParity')?.value || 'N',
+    unit_id: pint('plcUnitId', 1),
+    timeout_s: pnum('plcTimeout', 1.5),
+    inter_cmd_gap_s: pnum('plcGap', 0.1),
+    heartbeat_s: pnum('plcHeartbeat', 1.0),
+    reconnect_delay_s: pnum('plcReconnect', 1.0),
+  };
+  return {channels:chans, params, settings, plc};
 }
 function applySetup(){
-  const {channels:chans, params, settings}=collectSetup();
-  window.cmdApplySetup(chans, params, settings);
+  const {channels:chans, params, settings, plc}=collectSetup();
+  // PLC 검증 실패 시 저장 막고 경고 표시(모달 유지)
+  const v=validatePlc(plc);
+  const note=document.getElementById('plcNote');
+  if(!v.ok){
+    if(note){ note.textContent=v.msg; note.classList.add('warn'); }
+    return;
+  }
+  if(note){ note.textContent='설정 변경은 저장 후 재연결해야 적용됩니다.'; note.classList.remove('warn'); }
+  window.cmdApplySetup(chans, params, settings, plc);
   // sync a few process params into the Auto Process panel inputs for immediate feedback
   const set=(id,el)=>{const a=document.getElementById(id),b=document.getElementById(el);if(a&&b)b.value=a.value;};
   set('setVStart','vStart'); set('setVEnd','vEnd'); set('setGraf','grafInt'); set('setLoop','loopCount'); set('setComp','smuComp');
@@ -67,6 +111,7 @@ document.getElementById('openSetup').addEventListener('click',openSetup);
 document.getElementById('closeSetup').addEventListener('click',closeSetup);
 document.getElementById('cancelSetup').addEventListener('click',closeSetup);
 document.getElementById('applySetup').addEventListener('click',applySetup);
+document.getElementById('plcPortsRefresh')?.addEventListener('click',()=>{ if(window.cmdPlcPorts) window.cmdPlcPorts(); });
 setupOverlay.addEventListener('click',e=>{if(e.target===setupOverlay)closeSetup();});
 
 /* ===================== recipe data ===================== */
