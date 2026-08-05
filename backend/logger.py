@@ -8,7 +8,7 @@ import time
 import glob
 import datetime
 
-from storage import PROJECT_ROOT
+from paths import data_path
 
 _LEVELS = {"info": 0, "ok": 0, "warn": 1, "err": 2}   # ok/info 동급, 그 이상만 필터
 
@@ -19,7 +19,7 @@ _abs_dir = None
 def _resolve_dir(d: str) -> str:
     if not d:
         d = "logs"
-    return d if os.path.isabs(d) else os.path.join(PROJECT_ROOT, d)
+    return d if os.path.isabs(d) else data_path(d)
 
 
 def configure(settings: dict):

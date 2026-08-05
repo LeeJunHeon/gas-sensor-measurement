@@ -5,20 +5,18 @@ storage.py — 파일 I/O (레시피/설정).
 - safe_read_json: 읽기 실패 시 예외로 죽지 않고 None.
 - valid_recipe_name / list_recipes: 레시피 이름 검증 + 목록.
 
-경로는 스크립트 위치 기준으로 프로젝트 루트를 계산한다(현재 작업 디렉터리에 비의존).
+경로 해석은 paths.py가 담당한다(개발/exe 환경 차이 흡수). 여기선 재노출만 한다 —
+다른 모듈이 `from storage import CONFIG_PATH` 형태로 쓰고 있어 그대로 유지한다.
 """
 
 import os
 import json
 from typing import Any
 
-# backend/ 의 상위 = 프로젝트 루트. config.json·recipes/ 는 루트에 있다.
-BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
-CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.json")
-RECIPES_DIR = os.path.join(PROJECT_ROOT, "recipes")
+from paths import CONFIG_PATH, RECIPES_DIR, ensure_data_dirs  # noqa: F401 — 재노출
 
-os.makedirs(RECIPES_DIR, exist_ok=True)
+# 쓰기 폴더 준비. 권한이 없어도 여기서 죽지 않는다(파일 저장 시점에 개별 실패로 처리).
+ensure_data_dirs()
 
 
 def atomic_write_json(path: str, obj: Any) -> None:

@@ -29,7 +29,7 @@ from fastapi.staticfiles import StaticFiles
 
 import logger
 import plc
-from storage import PROJECT_ROOT
+from paths import FRONTEND_DIR, INDEX_PATH
 from state import state
 from simulation import sim_tick
 from connection import manager, push_state, push_log
@@ -43,9 +43,7 @@ PLC_WRITE_INTERVAL_S = 0.25  # PLC 쓰기(밸브/SV 반영) 동기화 주기(초
 HOST = "127.0.0.1"
 PORT = 8000
 
-# 경로는 스크립트 위치 기준(프로젝트 루트)으로 계산 — CWD 비의존.
-FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
-INDEX_PATH = os.path.join(FRONTEND_DIR, "index.html")
+# 화면 자원 경로는 paths.py가 해석한다(개발=프로젝트 루트, exe=번들 폴더).
 
 # ===================== 종료 =====================
 WINDOW = None         # main()에서 생성한 pywebview 창 객체를 보관
@@ -219,8 +217,17 @@ async def ws_endpoint(ws: WebSocket):
 
 
 # 정적 파일: frontend/css, frontend/js. (라우트(/ /health /ws) 등록 뒤에 마운트)
-app.mount("/css", StaticFiles(directory=os.path.join(FRONTEND_DIR, "css")), name="css")
-app.mount("/js", StaticFiles(directory=os.path.join(FRONTEND_DIR, "js")), name="js")
+# 폴더가 없으면(빌드 시 frontend 누락 등) import 단계에서 죽지 않도록 존재 검사 후 마운트.
+_css = os.path.join(FRONTEND_DIR, "css")
+_js = os.path.join(FRONTEND_DIR, "js")
+if os.path.isdir(_css):
+    app.mount("/css", StaticFiles(directory=_css), name="css")
+else:
+    print(f"[error] 정적 폴더 없음: {_css} — 빌드 시 frontend가 누락됐을 수 있습니다")
+if os.path.isdir(_js):
+    app.mount("/js", StaticFiles(directory=_js), name="js")
+else:
+    print(f"[error] 정적 폴더 없음: {_js} — 빌드 시 frontend가 누락됐을 수 있습니다")
 
 
 # ===================== 실행 (서버 스레드 + 창) =====================
