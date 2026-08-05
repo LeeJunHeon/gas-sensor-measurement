@@ -1,5 +1,5 @@
 """
-plc_test.py — 가스센서 PLC 하드웨어 테스트 (터미널 메뉴, 단일 파일)
+test_plc.py — 가스센서 PLC 하드웨어 테스트 (터미널 메뉴, 단일 파일)
 
 실제 PLC의 I/O를 하나씩 확인한다:
   · 코일(디지털) : 밸브 출력 ON/OFF, 상태 코일 읽기
@@ -9,10 +9,10 @@ plc_test.py — 가스센서 PLC 하드웨어 테스트 (터미널 메뉴, 단�
 
 설치:
     pip install "pymodbus==3.6.9" pyserial
-실행(실제 PLC — 시리얼):
-    python plc_test.py --port COM3            (PLC가 연결된 COM 포트, 115200 8N1, 국번 1)
+실행(저장소 루트에서. 실제 PLC — 시리얼):
+    python test/test_plc.py --port COM3       (PLC가 연결된 COM 포트, 115200 8N1, 국번 1)
 실행(가짜 PLC 검증 — TCP):
-    python plc_test.py --tcp 127.0.0.1:502
+    python test/test_plc.py --tcp 127.0.0.1:502
 
 주의:
   ⚠️ 이 도구는 실제 PLC 출력을 구동합니다. 밸브/DAC 출력은 '운전허가(arm)'가 켜져야 실제로 동작합니다

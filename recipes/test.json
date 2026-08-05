@@ -1,0 +1,63 @@
+{
+  "name": "test",
+  "useHumidity": true,
+  "loopCount": 1,
+  "bottle": [
+    100,
+    0,
+    0,
+    0
+  ],
+  "procs": [
+    {
+      "flow": 1000,
+      "rh": 40,
+      "g": [
+        5,
+        0,
+        0,
+        0
+      ],
+      "prep": 10,
+      "meas": 5,
+      "rep": false
+    },
+    {
+      "flow": 1000,
+      "rh": 40,
+      "g": [
+        5,
+        0,
+        0,
+        0
+      ],
+      "prep": 10,
+      "meas": 5,
+      "rep": false
+    },
+    {
+      "flow": 1000,
+      "rh": 40,
+      "g": [
+        5,
+        0,
+        0,
+        0
+      ],
+      "prep": 10,
+      "meas": 5,
+      "rep": false
+    }
+  ],
+  "params": {
+    "vStart": 0,
+    "vEnd": 0,
+    "vStep": 0,
+    "grafInterval": 1,
+    "smuMode": "Source V, Measure I",
+    "smuSource": 0,
+    "smuCompliance": 1,
+    "chFrom": 1,
+    "chTo": 1
+  }
+}

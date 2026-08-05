@@ -75,6 +75,26 @@ function validatePlc(plc){
     return {ok:false, msg:'국번(Unit ID)은 1~247 사이여야 합니다 (0 금지).'};
   return {ok:true};
 }
+// 채널 아날로그 스케일 검증(저장 전). 0으로 나누기·스케일 무효화·SV 포화를 막는다.
+// collectSetup()이 만든 채널 배열을 그대로 받는다(scale은 plc 매핑 있는 채널에만 있다).
+function validateScales(chans){
+  for(const ch of chans){
+    const sc=ch.scale; if(!sc) continue;
+    const id=channels[ch.ch]?.id || ('CH'+(ch.ch+1));
+    if(!(sc.fs_sccm>0))
+      return {ok:false, msg:`${id}: 풀스케일(sccm)은 0보다 커야 합니다.`};
+    if(!(sc.sv_full>0))
+      return {ok:false, msg:`${id}: SV 풀카운트는 0보다 커야 합니다.`};
+    if(!(sc.pv_full>0))
+      return {ok:false, msg:`${id}: PV 풀카운트는 0보다 커야 합니다.`};
+    if(!(sc.pv_full>sc.pv_zero))
+      return {ok:false, msg:`${id}: PV 풀카운트(${sc.pv_full})는 영점카운트(${sc.pv_zero})보다 커야 합니다.`};
+    if(ch.max>sc.fs_sccm)
+      return {ok:false, msg:`${id}: MAX ${ch.max}이 풀스케일 ${sc.fs_sccm}을 초과합니다. `
+        +'SV가 풀스케일에서 포화되어 화면 값과 실제 유량이 달라집니다.'};
+  }
+  return {ok:true};
+}
 // 설정 모달의 입력을 읽어 명령 페이로드로 변환(서버 INTERFACE 4.2 apply_setup 형식).
 function collectSetup(){
   const chans=[];
@@ -132,8 +152,9 @@ function collectSetup(){
 }
 function applySetup(){
   const {channels:chans, params, settings, plc}=collectSetup();
-  // PLC 검증 실패 시 저장 막고 경고 표시(모달 유지)
-  const v=validatePlc(plc);
+  // PLC 통신·채널 스케일 검증 실패 시 저장 막고 경고 표시(모달 유지)
+  const pv=validatePlc(plc);
+  const v=pv.ok ? validateScales(chans) : pv;
   const note=document.getElementById('plcNote');
   if(!v.ok){
     if(note){ note.textContent=v.msg; note.classList.add('warn'); }
