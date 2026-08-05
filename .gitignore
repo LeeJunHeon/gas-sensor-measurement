@@ -8,6 +8,13 @@ venv/
 # Atomic-write temp files
 *.tmp
 
+# PyInstaller 빌드 산출물 (build.spec은 추적 대상)
+build/
+dist/
+
+# 런타임 생성 폴더
+logs/
+
 # Editors / OS
 .vscode/
 .idea/
