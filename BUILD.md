@@ -65,6 +65,7 @@ C:\VANAM\GasSensor\
 
 - [ ] `config.json` 의 `plc.port` 에 현장 COM 포트 입력
 - [ ] `plc.mode` 가 `serial` 인지 확인
+- [ ] `config.json` 의 `sv_out`/`pv_in` 이 실배선과 일치하는지 확인 (→ `CONFIG.md`)
 - [ ] 채널별 스케일(`fs_sccm`/`sv_full`/`pv_zero`/`pv_full`)이 MFC 명판과 일치
 - [ ] exe 실행 → 설정 변경 → 종료 후 재실행 → 설정 유지 확인  ★핵심
 - [ ] `logs/` 폴더에 로그 파일이 생기는지 확인
