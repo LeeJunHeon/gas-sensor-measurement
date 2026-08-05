@@ -88,6 +88,15 @@
   "system":   { /* 3.2 */ },
   "recipe":   { /* 3.3 */ } }
 ```
+plc_live — PLC 실측(읽기 폴링 결과). state 메시지에 항상 포함된다.
+```
+{ "plc_live": {
+    "connected": true,
+    "pv":     { "VA1": 1000.0 },     // 유량(sccm) — 채널 스케일로 환산한 값
+    "pv_raw": { "VA1": 2000 },       // ADC 원시 카운트(스케일 진단용)
+    "status": { "AIR_OK": true, "SAFETY_STOP": false, "RUN_PERMIT": true,
+                "ALM_AIR": false, "ALM_MFC": false, "ALM_IDD": false, "ALM_DAC": false } } }
+```
 
 (2) telemetry — 실시간 측정값 (초당 5회)
 ```
@@ -124,7 +133,9 @@
 { "cmd": "run" }
 { "cmd": "stop" }
 { "cmd": "purge" }
-{ "cmd": "apply_setup",  "channels": [ /* {ch,en,grp,route,max,sv} ... */ ], "params": { } }
+{ "cmd": "apply_setup",  "channels": [ /* {ch,en,grp,route,max,sv,scale?} ... */ ], "params": { } }
+// scale = {fs_sccm, sv_full, pv_zero, pv_full} — 아날로그 스케일만 반영.
+// PLC 주소(cmd_coil/sv_reg/pv_reg)는 화면에서 바꿀 수 없다(서버가 무시).
 { "cmd": "recipe_new" }
 { "cmd": "recipe_save",  "name": "recipe_NO2", "overwrite": false, "recipe": { /* 3.3 */ } }
 { "cmd": "recipe_load",  "name": "recipe_NO2" }

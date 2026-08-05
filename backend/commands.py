@@ -145,6 +145,13 @@ async def handle_command(data: dict):
                 c["route"] = item.get("route", c["route"])
                 c["max"] = max(0.0, to_num(item.get("max"), c["max"]))
                 c["sv"] = min(max(0.0, to_num(item.get("sv"), c["sv"])), c["max"])
+                # 아날로그 스케일만 화면에서 수정 가능. 주소 키(cmd_coil/sv_reg/pv_reg)는
+                # 클라이언트 값으로 절대 덮어쓰지 않는다(PLC 래더와 1:1 고정).
+                sc = item.get("scale")
+                if isinstance(sc, dict) and isinstance(c.get("plc"), dict):
+                    for k in ("fs_sccm", "sv_full", "pv_zero", "pv_full"):
+                        if k in sc:
+                            c["plc"][k] = max(0, to_num(sc[k], c["plc"].get(k, 0)))
                 if en and not was_en:
                     c["valveIn"] = True
                 elif not en:

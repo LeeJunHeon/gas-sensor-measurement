@@ -10,28 +10,48 @@ from storage import atomic_write_json, safe_read_json, CONFIG_PATH
 
 # ===================== 기본값 =====================
 # 채널별 PLC 주소(레벨1: 코드 수정 없이 config로 추가·변경). 매핑 있으면 dict, 없으면 None.
-# HMI VA1·VA3·VA5·VA6 ↔ PLC VA1·VA3·VA5·VA6 (1:1). VA2·VA4·VA7·VA8은 PLC 대응 없음.
+# 채널별 PLC 주소 + 아날로그 스케일.
+# 주소: PLC 래더와 1:1 대응(변경 금지). 스케일: 장비마다 다르므로 System Setup에서 수정 가능.
+#   fs_sccm  = MFC 하드웨어 풀스케일(sccm). ★현장 명판 확인 필요 — 아래 값은 잠정치.
+#   sv_full  = 풀스케일에 해당하는 DAC 카운트. DV04A 0~10V/0~4000 기준,
+#              MFC 설정신호가 0~5V면 2000, 0~10V면 4000. ★명판 확인 필요.
+#   pv_zero  = 유량 0일 때의 ADC 카운트(4~20mA 장비를 0~20mA 범위로 읽으면 800).
+#   pv_full  = 풀스케일일 때의 ADC 카운트(AD08A 출력데이터타입 0~4000 기준 4000).
 DEFAULT_CHANNEL_PLC = {
-    "VA1": {"cmd_coil": 160, "sv_reg": 100, "pv_reg": 200},
-    "VA2": None,
-    "VA3": {"cmd_coil": 161, "sv_reg": 101, "pv_reg": 201},
-    "VA4": None,
-    "VA5": {"cmd_coil": 162, "sv_reg": 102, "pv_reg": 202},
-    "VA6": {"cmd_coil": 163, "sv_reg": 103, "pv_reg": 203},
-    "VA7": None,
-    "VA8": None,
+    "VA1": {"cmd_coil": 160, "sv_reg": 100, "pv_reg": 200,
+            "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+    "VA2": {"cmd_coil": 161, "sv_reg": 101, "pv_reg": 201,
+            "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+    "VA3": {"cmd_coil": 162, "sv_reg": 102, "pv_reg": 202,
+            "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+    "VA4": {"cmd_coil": 163, "sv_reg": 103, "pv_reg": 203,
+            "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+    "VA5": {"cmd_coil": 164, "sv_reg": 104, "pv_reg": 204,
+            "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+    "VA6": {"cmd_coil": 165, "sv_reg": 105, "pv_reg": 205,
+            "fs_sccm": 200,  "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+    "VA7": {"cmd_coil": 166, "sv_reg": 106, "pv_reg": 206,
+            "fs_sccm": 200,  "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+    "VA8": {"cmd_coil": 167, "sv_reg": 107, "pv_reg": 207,
+            "fs_sccm": 100,  "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
 }
 
 # 채널 무관 시스템 공통 주소(하트비트/안전리셋/4-way/상태·알람).
 DEFAULT_PLC_SYSTEM = {
-    "heartbeat": 176,     # M00110 (쓰기) 통신 생존 토글
-    "safety_reset": 178,  # M00112 (쓰기, 펄스) 안전리셋
-    "v4w_cmd": 164,       # M00104 (쓰기) 4-way 지령
-    "air_ok": 320,        # M00200 (읽기) 공기압 정상
-    "safety_stop": 321,   # M00201 (읽기) 안전정지 상태
-    "alm_air": 336,       # M00210 (읽기) 공기 알람
-    "alm_mfc": 337,       # M00211 (읽기) MFC 알람
+    "heartbeat":    176,   # M00110 (쓰기) 통신 생존 토글
+    "safety_reset": 178,   # M00112 (쓰기, 펄스) 안전리셋
+    "v4w_cmd":      168,   # M00108 (쓰기) 4-way 지령   ★164에서 이동
+    "air_ok":       320,   # M00200 (읽기) 공압 정상
+    "safety_stop":  321,   # M00201 (읽기) 안전정지 상태
+    "run_permit":   323,   # M00203 (읽기) 운전 허가 래치
+    "alm_air":      336,   # M00210 (읽기) 공압 알람
+    "alm_mfc":      337,   # M00211 (읽기) MFC 입력 이상 알람
+    "alm_idd":      338,   # M00212 (읽기) MFC 입력 단선검출 알람
+    "alm_dac":      339,   # M00213 (읽기) 아날로그 출력 모듈 이상 알람
 }
+
+# 스케일 키 기본값(채널 기본값에도 없을 때의 최후 방어값).
+PLC_SCALE_DEFAULTS = {"fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000}
 
 
 def _default_channel_plc(cid: str):
@@ -40,15 +60,23 @@ def _default_channel_plc(cid: str):
     return dict(m) if isinstance(m, dict) else None
 
 
-def _norm_channel_plc(v):
-    """채널 plc 값 정규화: dict면 사본, 그 외(None 등)면 None."""
-    return dict(v) if isinstance(v, dict) else None
+def _norm_channel_plc(v, cid: str = ""):
+    """채널 plc 값 정규화: dict면 사본(+스케일 키 보강), 그 외는 None.
+    주소 키(cmd_coil/sv_reg/pv_reg)는 채우지 않는다 — 없으면 그대로 두고 사용처에서 걸러진다."""
+    if not isinstance(v, dict):
+        return None
+    out = dict(v)
+    base = DEFAULT_CHANNEL_PLC.get(cid) or {}
+    for k, dflt in PLC_SCALE_DEFAULTS.items():
+        if k not in out:
+            out[k] = base.get(k, dflt)
+    return out
 
 
 def _copy_channel(c: dict) -> dict:
     """채널 dict 사본(중첩 plc까지 분리 — 기본값과 상태가 참조 공유하지 않도록)."""
     out = dict(c)
-    out["plc"] = _norm_channel_plc(c.get("plc"))
+    out["plc"] = _norm_channel_plc(c.get("plc"), c.get("id", ""))
     return out
 
 
@@ -161,7 +189,7 @@ class State:
         self.plc = dict(DEFAULT_PLC)
         self.plc_system = dict(DEFAULT_PLC_SYSTEM)
         # PLC 실측 라이브(읽기 경로): 폴링 태스크가 갱신, snapshot으로 프론트에 전송.
-        self.plc_live = {"connected": False, "pv": {}, "status": {}}
+        self.plc_live = {"connected": False, "pv": {}, "pv_raw": {}, "status": {}}
         self.system = {
             "running": False,
             "routeOut": "sensor",
@@ -194,7 +222,7 @@ class State:
                 cid = c.get("id", f"VA{i + 1}")
                 # plc: 옛 config엔 없을 수 있음 → 있으면 그 값(null 포함), 없으면 id별 기본값.
                 default_plc = base.get("plc", _default_channel_plc(cid))
-                plc_val = _norm_channel_plc(c["plc"]) if "plc" in c else default_plc
+                plc_val = _norm_channel_plc(c["plc"], cid) if "plc" in c else default_plc
                 base.update({
                     "id": cid,
                     "grp": c.get("grp", base.get("grp", "air")),
@@ -222,7 +250,7 @@ class State:
             "channels": [
                 {"id": c["id"], "grp": c["grp"], "route": c["route"],
                  "en": bool(c["en"]), "max": c["max"], "sv": c["sv"],
-                 "plc": _norm_channel_plc(c.get("plc"))}
+                 "plc": _norm_channel_plc(c.get("plc"), c["id"])}
                 for c in self.channels
             ],
             "params": self.params,
@@ -249,6 +277,7 @@ class State:
             "plc_live": {
                 "connected": bool(self.plc_live.get("connected")),
                 "pv": dict(self.plc_live.get("pv") or {}),
+                "pv_raw": dict(self.plc_live.get("pv_raw") or {}),
                 "status": dict(self.plc_live.get("status") or {}),
             },
         }
@@ -258,6 +287,8 @@ class State:
 
 
 # 채널 역할(엔진/계산용). 물탱크(가습기)가 달린 채널 = 젖은 공기.
+# ⚠️ VA2·VA4가 이제 PLC에 실제로 연결된다(이전엔 매핑 없어 계산만 됐음).
+#    실제 배관에서 물탱크(가습기)가 VA2·VA4에 달려 있는지 현장 확인 필요.
 HUMID_CHANNEL_IDS = {"VA2", "VA4"}   # 물탱크 장착 채널(습한 공기)
 
 

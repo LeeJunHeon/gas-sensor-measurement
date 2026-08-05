@@ -117,7 +117,7 @@ async def lifespan(_app: FastAPI):
                 await push_log("PLC 연결 끊김", "warn")
             was_connected = False
             if state.plc_live.get("connected") or state.plc_live.get("pv"):
-                state.plc_live = {"connected": False, "pv": {}, "status": {}}
+                state.plc_live = {"connected": False, "pv": {}, "pv_raw": {}, "status": {}}
                 with contextlib.suppress(Exception):
                     await push_state()
         while True:
@@ -125,7 +125,8 @@ async def lifespan(_app: FastAPI):
             try:
                 if plc.plc.is_connected():
                     res = await plc.plc.poll()
-                    state.plc_live = {"connected": True, "pv": res["pv"], "status": res["status"]}
+                    state.plc_live = {"connected": True, "pv": res["pv"],
+                                      "pv_raw": res.get("pv_raw", {}), "status": res["status"]}
                     if not was_connected:
                         await push_log("PLC 연결됨", "ok")   # 끊김→연결 전이 1회
                         was_connected = True
@@ -141,33 +142,37 @@ async def lifespan(_app: FastAPI):
     # 변경분만 쓰고(last 캐시), 안전정지·미연결이면 절대 열림 명령을 내리지 않는다(fail-safe).
     # 미연결/예외 시 캐시를 비워 재연결·복구 후 전량 재기입한다.
     async def plc_write_loop():
-        last = {}   # {채널id: (want_valve, want_sv)} + {"V4W": bool}
+        last = None   # (밸브 튜플, SV 튜플, 4way) — 통째로 비교해 바뀔 때만 전송
         while True:
             await asyncio.sleep(PLC_WRITE_INTERVAL_S)
             try:
                 if not plc.plc.is_connected():
-                    last.clear()
+                    last = None
                     continue
                 # 안전정지면 무조건 닫기(열림·유량 명령 금지). status는 읽기 폴링이 채운다.
                 safe = (state.plc_live.get("status") or {}).get("SAFETY_STOP") is True
+                valve_map, sv_map = {}, {}
                 for ch in state.channels:
                     if not ch.get("plc"):
-                        continue                          # 매핑 없는 채널(VA2/VA4/VA7/VA8) 스킵
+                        continue                          # 매핑 없는 채널은 제외
                     cid = ch["id"]
-                    want_valve = (not safe) and bool(ch.get("valveIn"))
-                    want_sv = 0 if safe else int(ch.get("sv") or 0)
-                    if last.get(cid) != (want_valve, want_sv):
-                        await plc.plc.set_valve(cid, want_valve)
-                        await plc.plc.write_sv(cid, want_sv)
-                        last[cid] = (want_valve, want_sv)
+                    if safe or not ch.get("en"):
+                        valve_map[cid], sv_map[cid] = False, 0.0
+                    else:
+                        valve_map[cid] = bool(ch.get("valveIn"))
+                        sv_map[cid] = float(ch.get("sv") or 0)
                 # 4-way: 앱의 측정 방향(routeOut=='sensor')을 반영. 안전정지면 닫기(False).
                 # TODO(하드웨어 확인): V4W 코일 ON=측정(sensor) 방향으로 가정 — 폴러리티는 실기로 검증.
                 want_4w = (not safe) and (state.system.get("routeOut") == "sensor")
-                if last.get("V4W") != want_4w:
-                    await plc.plc.set_valve("V4W", want_4w)
-                    last["V4W"] = want_4w
+                want = (tuple(valve_map.items()), tuple(sv_map.items()), want_4w)
+                if last != want:
+                    # 순서 중요: SV 먼저 → 밸브 나중.
+                    #   열 때는 유량이 먼저 서서 순간 과유량이 없고, 닫을 때는 SV가 먼저 0으로 떨어진다.
+                    await plc.plc.write_sv_block(sv_map)
+                    await plc.plc.write_valves_block(valve_map, want_4w)
+                    last = want
             except Exception:  # noqa: BLE001 — 쓰기 실패(연결문제 등)는 캐시 비우고 다음 주기 재시도
-                last.clear()
+                last = None
     write_task = asyncio.create_task(plc_write_loop())
 
     try:

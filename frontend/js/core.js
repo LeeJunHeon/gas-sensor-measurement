@@ -181,6 +181,8 @@ function updatePlcLive(live){
   setDot('stAir',    st.AIR_OK===true);            // \uacf5\uc555 \uc815\uc0c1=\ucd08\ub85d
   setDot('stAlmAir', !(st.ALM_AIR===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
   setDot('stAlmMfc', !(st.ALM_MFC===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
+  setDot('stAlmIdd', !(st.ALM_IDD===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
+  setDot('stAlmDac', !(st.ALM_DAC===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
   setDot('stComm',   connected);                   // \uc5f0\uacb0\uc774\uba74 \ud1b5\uc2e0(\ud558\ud2b8\ube44\ud2b8) \uc815\uc0c1=\ucd08\ub85d
 }
 // \uc11c\ubc84 state \uba54\uc2dc\uc9c0 \u2192 \ub0b4\ubd80 \uc0c1\ud0dc \ubc18\uc601 \ud6c4 \uc7ac\ub80c\ub354

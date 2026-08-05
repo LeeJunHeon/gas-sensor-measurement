@@ -105,6 +105,8 @@ class PlcClient:
         self._valve_coil = {}             # {채널id: cmd_coil}
         self._sv_reg = {}                 # {채널id: sv_reg}
         self._pv_reg = {}                 # {채널id: pv_reg}
+        self._scale = {}                  # {채널id: plc dict 전체(스케일 포함)}
+        self._enabled = {}                # {채널id: 사용여부(en)} — 폴링 대상 선별용
         self._sys = {}                    # 시스템 공통 주소(plc_system)
 
     # ---- 설정 ----
@@ -116,13 +118,21 @@ class PlcClient:
         매핑 있는 채널(plc != None)만 담고, 시스템 주소는 통째로 사본으로 보관."""
         chans = channels or []
         self._valve_coil = {ch["id"]: ch["plc"]["cmd_coil"] for ch in chans if ch.get("plc")}
-        self._sv_reg = {ch["id"]: ch["plc"]["sv_reg"] for ch in chans if ch.get("plc")}
-        self._pv_reg = {ch["id"]: ch["plc"]["pv_reg"] for ch in chans if ch.get("plc")}
+        self._sv_reg     = {ch["id"]: ch["plc"]["sv_reg"]   for ch in chans if ch.get("plc")}
+        self._pv_reg     = {ch["id"]: ch["plc"]["pv_reg"]   for ch in chans if ch.get("plc")}
+        self._scale      = {ch["id"]: dict(ch["plc"])       for ch in chans if ch.get("plc")}
+        self._enabled    = {ch["id"]: bool(ch.get("en"))    for ch in chans if ch.get("plc")}
         self._sys = dict(plc_system or {})
 
     # ---- 주소 resolver(내부 맵 우선, 없으면 하드코딩 fallback) ----
     def _sys_addr(self, key: str) -> int:
-        return self._sys[key] if self._sys else _FALLBACK_SYS[key]
+        # 키 단위로 판단한다. _sys가 실려 있어도 새로 추가된 키가 없을 수 있고,
+        # 그때 KeyError가 나면 read_status가 통째로 실패해 '미연결'로 오표시된다.
+        if self._sys and key in self._sys:
+            return self._sys[key]
+        if key in _FALLBACK_SYS:
+            return _FALLBACK_SYS[key]
+        raise KeyError(f"PLC 시스템 주소 '{key}' 미정의 — config.json의 plc_system 확인 필요")
 
     def _valve_coil_of(self, name: str) -> int:
         return self._valve_coil[name] if self._valve_coil else PLC_COIL_MAP[f"{name}_CMD"]
@@ -133,7 +143,8 @@ class PlcClient:
     def _pv_reg_items(self):
         if self._pv_reg:
             return list(self._pv_reg.items())
-        return [(n, PLC_REG_MAP[f"PV_{n}"]) for n in ("VA1", "VA3", "VA5", "VA6")]
+        return [(n, PLC_REG_MAP[f"PV_{n}"])
+                for n in ("VA1", "VA2", "VA3", "VA4", "VA5", "VA6", "VA7", "VA8")]
 
     def is_connected(self) -> bool:
         return bool(self._connected)
@@ -288,39 +299,131 @@ class PlcClient:
             await self.write_coil(addr, False)
         return True
 
+    # ---- 아날로그 스케일 변환(sccm ↔ DAC/ADC 카운트) ----
+    def _sv_to_raw(self, name: str, sccm: float) -> int:
+        """유량(sccm) → DAC 카운트. 스케일 정보 없으면 값 그대로(옛 동작) 사용."""
+        s = self._scale.get(name) or {}
+        fs   = float(s.get("fs_sccm") or 0)
+        full = int(s.get("sv_full") or 0)
+        if fs <= 0 or full <= 0:
+            raw = int(round(float(sccm)))
+        else:
+            raw = int(round(float(sccm) / fs * full))
+        return max(0, min(full or 4000, raw))
+
+    def _pv_to_sccm(self, name: str, raw: int) -> float:
+        """ADC 카운트 → 유량(sccm). 스케일 정보 없으면 카운트 그대로."""
+        s = self._scale.get(name) or {}
+        fs   = float(s.get("fs_sccm") or 0)
+        zero = int(s.get("pv_zero") or 0)
+        full = int(s.get("pv_full") or 0)
+        if fs <= 0 or full <= zero:
+            return float(raw)
+        val = (float(raw) - zero) / float(full - zero) * fs
+        return round(max(0.0, val), 2)
+
     # ---- 명명된 헬퍼(주소맵 키 사용). 미연결/실패 시 하위 read/write처럼 예외를 올림 ----
     async def set_valve(self, name: str, on: bool):
-        """밸브/4-way 지령 코일 write. name ∈ {VA1,VA3,VA5,VA6}이면 해당 cmd_coil,
+        """밸브/4-way 지령 코일 write. name ∈ {VA1~VA8}이면 해당 cmd_coil,
         name=='V4W'이면 시스템 v4w_cmd. 매핑 없는 이름은 KeyError(명확한 에러)."""
         addr = self._sys_addr("v4w_cmd") if name == "V4W" else self._valve_coil_of(name)
         await self.write_coil(addr, bool(on))
         return True
 
-    async def write_sv(self, name: str, raw: int):
-        """MFC 목표유량(SV) 레지스터 write. name ∈ {VA1,VA3,VA5,VA6}. 값은 0~2000 clamp."""
+    async def write_sv(self, name: str, sccm: float):
+        """MFC 목표유량(SV) 레지스터 write. name ∈ {VA1~VA8}.
+        인자는 유량(sccm) — 내부에서 채널 스케일로 DAC 카운트 변환·clamp 한다."""
         addr = self._sv_reg_of(name)
-        val = int(min(2000, max(0, int(raw))))
-        await self.write_register(addr, val)
+        await self.write_register(addr, self._sv_to_raw(name, sccm))
+        return True
+
+    async def write_valves_block(self, valve_map: dict, v4w: bool) -> bool:
+        """밸브 지령 + 4-way를 한 프레임(FC15)으로 쓴다.
+        valve_map: {채널id: bool}. 주소가 연속이 아니면 개별 쓰기로 폴백.
+        ★ 블록 쓰기는 주소 사이 빈 칸까지 덮어쓰므로 연속성 검사가 필수다."""
+        items = [(self._valve_coil_of(cid), bool(on)) for cid, on in valve_map.items()]
+        items.append((self._sys_addr("v4w_cmd"), bool(v4w)))
+        addrs = [a for a, _ in items]
+        if not addrs:
+            return True
+        base, top = min(addrs), max(addrs)
+        if top - base + 1 == len(set(addrs)) == len(addrs):
+            values = [False] * (top - base + 1)
+            for a, v in items:
+                values[a - base] = v
+            await self.write_coils(base, values)
+            return True
+        for a, v in items:                       # 폴백: 개별 쓰기
+            await self.write_coil(a, v)
+        return True
+
+    async def write_sv_block(self, sv_map: dict) -> bool:
+        """SV 레지스터를 한 프레임(FC16)으로 쓴다.
+        sv_map: {채널id: sccm(float)}. 내부에서 _sv_to_raw로 변환.
+        주소가 연속이 아니면 개별 쓰기로 폴백."""
+        items = [(self._sv_reg_of(cid), self._sv_to_raw(cid, sccm))
+                 for cid, sccm in sv_map.items()]
+        addrs = [a for a, _ in items]
+        if not addrs:
+            return True
+        base, top = min(addrs), max(addrs)
+        if top - base + 1 == len(set(addrs)) == len(addrs):
+            values = [0] * (top - base + 1)
+            for a, v in items:
+                values[a - base] = v
+            await self.write_registers(base, values)
+            return True
+        for a, v in items:                       # 폴백: 개별 쓰기
+            await self.write_register(a, v)
         return True
 
     async def read_pv_all(self) -> dict:
-        """PLC 매핑된 채널의 현재유량(PV) 일괄 읽기 → {채널id: 값}."""
-        out = {}
-        for name, addr in self._pv_reg_items():
-            out[name] = await self.read_register(addr)
-        return out
+        """켜진 매핑 채널의 PV를 블록 1회 읽기 → {"pv": {id: sccm}, "pv_raw": {id: 카운트}}.
+        주소 범위가 32워드를 넘으면 안전하게 개별 읽기로 폴백한다.
+        원시 카운트를 함께 돌려주는 이유: 현장에서 MFC 스케일을 진단하려면 카운트가 필요."""
+        items = [(n, a) for n, a in self._pv_reg_items()
+                 if not self._enabled or self._enabled.get(n)]
+        if not items:
+            return {"pv": {}, "pv_raw": {}}
+        addrs = [a for _, a in items]
+        base, count = min(addrs), max(addrs) - min(addrs) + 1
+        raw = {}
+        if count <= 32:
+            regs = await self.read_register(base, count=count)
+            regs = regs if isinstance(regs, list) else [regs]
+            for n, a in items:
+                i = a - base
+                raw[n] = int(regs[i]) if 0 <= i < len(regs) else 0
+        else:
+            for n, a in items:                   # 폴백: 개별 읽기
+                raw[n] = int(await self.read_register(a))
+        return {"pv": {n: self._pv_to_sccm(n, v) for n, v in raw.items()}, "pv_raw": raw}
 
     async def read_status(self) -> dict:
-        """상태 코일 읽기 → {"AIR_OK","SAFETY_STOP","ALM_AIR","ALM_MFC"} (bool)."""
+        """상태 코일을 블록 1회 읽기 →
+        {"AIR_OK","SAFETY_STOP","RUN_PERMIT","ALM_AIR","ALM_MFC","ALM_IDD","ALM_DAC"} (bool)."""
+        keys = (("AIR_OK", "air_ok"), ("SAFETY_STOP", "safety_stop"),
+                ("RUN_PERMIT", "run_permit"), ("ALM_AIR", "alm_air"),
+                ("ALM_MFC", "alm_mfc"), ("ALM_IDD", "alm_idd"), ("ALM_DAC", "alm_dac"))
+        pairs = [(out_key, self._sys_addr(sys_key)) for out_key, sys_key in keys]
+        addrs = [a for _, a in pairs]
+        base, count = min(addrs), max(addrs) - min(addrs) + 1
+        if count > 64:
+            return {k: bool(await self.read_coil(a)) for k, a in pairs}
+        bits = await self._exec("read_coils", base, count=count)
+        bits = getattr(bits, "bits", []) or []
+        # ★ pymodbus는 비트를 바이트 단위로 패딩해 돌려준다(요청 20개 → 24비트).
+        #   길이를 확인하고 모자라면 False로 처리한다.
         out = {}
-        for out_key, sys_key in (("AIR_OK", "air_ok"), ("SAFETY_STOP", "safety_stop"),
-                                 ("ALM_AIR", "alm_air"), ("ALM_MFC", "alm_mfc")):
-            out[out_key] = bool(await self.read_coil(self._sys_addr(sys_key)))
+        for k, a in pairs:
+            i = a - base
+            out[k] = bool(bits[i]) if 0 <= i < len(bits) else False
         return out
 
     async def poll(self) -> dict:
-        """PV + 상태를 한 번에 읽어 반환(state/UI로 밀지 않음 — 호출자 몫)."""
-        return {"pv": await self.read_pv_all(), "status": await self.read_status()}
+        """PV + 상태를 한 번에 읽어 반환(state/UI로 밀지 않음 — 호출자 몫). 요청 2회."""
+        pv = await self.read_pv_all()          # {"pv": {...}, "pv_raw": {...}}
+        return {"pv": pv["pv"], "pv_raw": pv["pv_raw"], "status": await self.read_status()}
 
     async def start(self):
         """연결 대상이 있으면(tcp=host / serial=port) 연결 유지 루프 시작(중복 시작 방지)."""
@@ -359,20 +462,31 @@ class PlcClient:
 # 접근은 코일(read_coil/write_coil) + 홀딩 레지스터(read_register/write_register)만 사용.
 PLC_COIL_MAP = {
     "VA1_CMD": 160,       # M00100 (쓰기) 밸브/MFC 지령
-    "VA3_CMD": 161,       # M00101
-    "VA5_CMD": 162,       # M00102
-    "VA6_CMD": 163,       # M00103
-    "V4W_CMD": 164,       # M00104 4-way 지령
+    "VA2_CMD": 161,       # M00101
+    "VA3_CMD": 162,       # M00102
+    "VA4_CMD": 163,       # M00103
+    "VA5_CMD": 164,       # M00104
+    "VA6_CMD": 165,       # M00105
+    "VA7_CMD": 166,       # M00106
+    "VA8_CMD": 167,       # M00107
+    "V4W_CMD": 168,       # M00108 4-way 지령
     "HEARTBEAT": 176,     # M00110 (쓰기) 통신 생존 토글
     "SAFETY_RESET": 178,  # M00112 (쓰기, 펄스) 안전리셋
-    "AIR_OK": 320,        # M00200 (읽기) 공기압 정상
+    "AIR_OK": 320,        # M00200 (읽기) 공압 정상
     "SAFETY_STOP": 321,   # M00201 (읽기) 안전정지 상태
-    "ALM_AIR": 336,       # M00210 (읽기) 공기 알람
-    "ALM_MFC": 337,       # M00211 (읽기) MFC 알람
+    "RUN_PERMIT": 323,    # M00203 (읽기) 운전 허가 래치
+    "ALM_AIR": 336,       # M00210 (읽기) 공압 알람
+    "ALM_MFC": 337,       # M00211 (읽기) MFC 입력 이상 알람
+    "ALM_IDD": 338,       # M00212 (읽기) MFC 입력 단선검출 알람
+    "ALM_DAC": 339,       # M00213 (읽기) 아날로그 출력 모듈 이상 알람
 }
 PLC_REG_MAP = {
-    "SV_VA1": 100, "SV_VA3": 101, "SV_VA5": 102, "SV_VA6": 103,   # D00100~103 (쓰기) 목표유량
-    "PV_VA1": 200, "PV_VA3": 201, "PV_VA5": 202, "PV_VA6": 203,   # D00200~203 (읽기) 현재유량
+    # D00100~107 (쓰기) 목표유량
+    "SV_VA1": 100, "SV_VA2": 101, "SV_VA3": 102, "SV_VA4": 103,
+    "SV_VA5": 104, "SV_VA6": 105, "SV_VA7": 106, "SV_VA8": 107,
+    # D00200~207 (읽기) 현재유량
+    "PV_VA1": 200, "PV_VA2": 201, "PV_VA3": 202, "PV_VA4": 203,
+    "PV_VA5": 204, "PV_VA6": 205, "PV_VA7": 206, "PV_VA8": 207,
 }
 # 시스템 공통 주소 fallback(내부 맵 _sys 미로딩 시). PlcClient._sys_addr가 참조.
 _FALLBACK_SYS = {
@@ -381,8 +495,11 @@ _FALLBACK_SYS = {
     "v4w_cmd": PLC_COIL_MAP["V4W_CMD"],
     "air_ok": PLC_COIL_MAP["AIR_OK"],
     "safety_stop": PLC_COIL_MAP["SAFETY_STOP"],
+    "run_permit": PLC_COIL_MAP["RUN_PERMIT"],
     "alm_air": PLC_COIL_MAP["ALM_AIR"],
     "alm_mfc": PLC_COIL_MAP["ALM_MFC"],
+    "alm_idd": PLC_COIL_MAP["ALM_IDD"],
+    "alm_dac": PLC_COIL_MAP["ALM_DAC"],
 }
 
 

@@ -25,8 +25,26 @@ function buildSetupRows(){
     e.target.closest('tr').classList.toggle('dis',!e.target.checked);
   }));
 }
+/* 아날로그 스케일 표(MFC ↔ PLC). plc 매핑 없는 채널은 행을 만들지 않는다. */
+function buildScaleRows(){
+  const tb=document.getElementById('setupScaleRows'); if(!tb) return;
+  tb.innerHTML='';
+  channels.forEach((c,i)=>{
+    const p=c.plc; if(!p) return;
+    const tr=document.createElement('tr');
+    tr.className=c.en?'':'dis';
+    tr.innerHTML=`
+      <td class="chid">${c.id}</td>
+      <td><input type="text" value="${p.fs_sccm??''}" data-sfs="${i}"></td>
+      <td><input type="text" value="${p.sv_full??''}" data-svfull="${i}"></td>
+      <td><input type="text" value="${p.pv_zero??''}" data-pvzero="${i}"></td>
+      <td><input type="text" value="${p.pv_full??''}" data-pvfull="${i}"></td>`;
+    tb.appendChild(tr);
+  });
+}
 function openSetup(){
   buildSetupRows();
+  buildScaleRows();
   if(window.cmdPlcPorts) window.cmdPlcPorts();   // 사용 가능한 시리얼 포트 목록 요청(드롭다운 채우기)
   window.plcSyncModeFields();                     // 연결 방식에 맞는 필드만 표시
   setupOverlay.classList.add('on');
@@ -71,8 +89,18 @@ function collectSetup(){
     if(gv==='gas'){grp='gas';route='mix';}
     else if(gv==='mix-air'){grp='air';route='mix';}
     else {grp='air';route='pure';}
-    chans.push({ch:i, en:enEl.checked, grp, route,
-      max:parseFloat(mxEl.value)||0, sv:parseFloat(svEl.value)||0});
+    const row={ch:i, en:enEl.checked, grp, route,
+      max:parseFloat(mxEl.value)||0, sv:parseFloat(svEl.value)||0};
+    // 스케일은 plc 매핑이 있는 채널만(주소는 서버가 고정 — 여기선 스케일만 보낸다)
+    if(c.plc){
+      row.scale={
+        fs_sccm: parseFloat(document.querySelector(`[data-sfs="${i}"]`)?.value) || 0,
+        sv_full: parseInt(document.querySelector(`[data-svfull="${i}"]`)?.value) || 0,
+        pv_zero: parseInt(document.querySelector(`[data-pvzero="${i}"]`)?.value) || 0,
+        pv_full: parseInt(document.querySelector(`[data-pvfull="${i}"]`)?.value) || 0,
+      };
+    }
+    chans.push(row);
   });
   const num=id=>parseFloat(document.getElementById(id)?.value)||0;
   const params={vStart:num('setVStart'), vEnd:num('setVEnd'),
