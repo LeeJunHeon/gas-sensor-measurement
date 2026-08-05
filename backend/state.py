@@ -17,22 +17,27 @@ from storage import atomic_write_json, safe_read_json, CONFIG_PATH
 #              MFC 설정신호가 0~5V면 2000, 0~10V면 4000. ★명판 확인 필요.
 #   pv_zero  = 유량 0일 때의 ADC 카운트(4~20mA 장비를 0~20mA 범위로 읽으면 800).
 #   pv_full  = 풀스케일일 때의 ADC 카운트(AD08A 출력데이터타입 0~4000 기준 4000).
+# 주소가 아니라 plc_catalog의 '채널 이름'으로 배정한다(오타·종류혼동·오배정 차단).
+#   sv_out = DAC 채널 이름(DAC1_CH0 …) 또는 None(미배정)
+#   pv_in  = ADC 채널 이름(ADC_CH0 …) 또는 None(미배정)
+# 밸브 지령 코일은 채널 id로 카탈로그가 결정하므로 여기에 없다.
 DEFAULT_CHANNEL_PLC = {
-    "VA1": {"cmd_coil": 160, "sv_reg": 100, "pv_reg": 200,
+    "VA1": {"sv_out": "DAC1_CH0", "pv_in": "ADC_CH0",
             "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA2": {"cmd_coil": 161, "sv_reg": 101, "pv_reg": 201,
+    "VA2": {"sv_out": "DAC1_CH1", "pv_in": "ADC_CH1",
             "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA3": {"cmd_coil": 162, "sv_reg": 102, "pv_reg": 202,
+    "VA3": {"sv_out": "DAC1_CH2", "pv_in": "ADC_CH2",
             "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA4": {"cmd_coil": 163, "sv_reg": 103, "pv_reg": 203,
+    "VA4": {"sv_out": "DAC1_CH3", "pv_in": "ADC_CH3",
             "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA5": {"cmd_coil": 164, "sv_reg": 104, "pv_reg": 204,
+    # ★ VA5~VA8은 DV04A #2(증설)가 없어 SV가 실제로 나갈 곳이 없다. 배선 확인 후 배정한다.
+    "VA5": {"sv_out": None, "pv_in": "ADC_CH4",
             "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA6": {"cmd_coil": 165, "sv_reg": 105, "pv_reg": 205,
+    "VA6": {"sv_out": None, "pv_in": "ADC_CH5",
             "fs_sccm": 200,  "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA7": {"cmd_coil": 166, "sv_reg": 106, "pv_reg": 206,
+    "VA7": {"sv_out": None, "pv_in": "ADC_CH6",
             "fs_sccm": 200,  "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA8": {"cmd_coil": 167, "sv_reg": 107, "pv_reg": 207,
+    "VA8": {"sv_out": None, "pv_in": "ADC_CH7",
             "fs_sccm": 100,  "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
 }
 
@@ -48,6 +53,7 @@ DEFAULT_PLC_SYSTEM = {
     "alm_mfc":      337,   # M00211 (읽기) MFC 입력 이상 알람
     "alm_idd":      338,   # M00212 (읽기) MFC 입력 단선검출 알람
     "alm_dac":      339,   # M00213 (읽기) 아날로그 출력 모듈 이상 알람
+    "dac_modules":  1,     # DV04A 장착 수. 증설하면 2로 올린다(주소 아님 — 하드웨어 구성)
 }
 
 # 스케일 키 기본값(채널 기본값에도 없을 때의 최후 방어값).
@@ -61,16 +67,81 @@ def _default_channel_plc(cid: str):
 
 
 def _norm_channel_plc(v, cid: str = ""):
-    """채널 plc 값 정규화: dict면 사본(+스케일 키 보강), 그 외는 None.
-    주소 키(cmd_coil/sv_reg/pv_reg)는 채우지 않는다 — 없으면 그대로 두고 사용처에서 걸러진다."""
+    """채널 plc 값 정규화: dict면 사본, 그 외는 None.
+    - sv_out / pv_in : 문자열이면 그대로, 없거나 null이면 None(기본값으로 채우지 않는다 —
+      배정은 현장 배선 문제라 임의로 추측하면 안 된다)
+    - 옛 주소 키(cmd_coil/sv_reg/pv_reg)는 버린다(이제 plc_catalog가 결정한다)
+    - 스케일 4키는 채널 기본값으로 보강"""
     if not isinstance(v, dict):
         return None
     out = dict(v)
+    for legacy in ("cmd_coil", "sv_reg", "pv_reg"):
+        out.pop(legacy, None)
+    for k in ("sv_out", "pv_in"):
+        out[k] = out[k] if isinstance(out.get(k), str) else None
     base = DEFAULT_CHANNEL_PLC.get(cid) or {}
     for k, dflt in PLC_SCALE_DEFAULTS.items():
         if k not in out:
             out[k] = base.get(k, dflt)
     return out
+
+
+def validate_channel_map(channels, plc_system) -> list:
+    """채널 배정(sv_out/pv_in)을 검사해 문제 목록을 돌려준다.
+    ★ 예외를 던지지 않는다 — 배정이 이상해도 프로그램은 떠야 진단이 가능하다."""
+    import plc_catalog as cat
+
+    problems = []
+    try:
+        max_mod = int((plc_system or {}).get("dac_modules", 1))
+    except (TypeError, ValueError):
+        max_mod = 1
+    sv_used, pv_used = {}, {}
+    dac_all = ", ".join(("DAC1_CH0~CH3", "DAC2_CH0~CH3"))
+    adc_all = "ADC_CH0~CH7"
+
+    for ch in channels or []:
+        p = ch.get("plc")
+        if not p:
+            continue
+        cid = ch.get("id", "?")
+        if cat.valve_coil(cid) is None:      # 6) 알 수 없는 채널 id
+            problems.append(f"{cid}: 알 수 없는 채널 id — 밸브 코일을 결정할 수 없습니다")
+
+        sv, pv = p.get("sv_out"), p.get("pv_in")
+        if sv is not None:
+            if sv in cat.ADC_CHANNELS:       # 2) 종류 혼동
+                problems.append(f"{cid}: '{sv}'는 입력 채널입니다. SV에는 DAC 채널을 지정하세요")
+            elif sv not in cat.DAC_CHANNELS:  # 1) 알 수 없는 이름
+                problems.append(f"{cid}: 알 수 없는 SV 채널 '{sv}' — 사용 가능: {dac_all}")
+            else:
+                if cat.DAC_CHANNELS[sv]["module"] > max_mod:   # 3) 증설 모듈 미장착
+                    problems.append(
+                        f"{cid}: '{sv}'은 증설 모듈(DV04A #2)이 필요합니다. "
+                        f"plc_system.dac_modules를 2로 올리거나 DAC1_CH0~CH3 중에서 고르세요")
+                sv_used.setdefault(sv, []).append(cid)
+        elif ch.get("en"):                   # 5) 사용 중인데 미배정
+            problems.append(
+                f"{cid}: 사용(en) 상태인데 SV 출력이 배정되지 않았습니다. "
+                f"밸브는 열리지만 유량 지령이 나가지 않습니다")
+
+        if pv is not None:
+            if pv in cat.DAC_CHANNELS:       # 2) 종류 혼동
+                problems.append(f"{cid}: '{pv}'는 출력 채널입니다. PV에는 ADC 채널을 지정하세요")
+            elif pv not in cat.ADC_CHANNELS:  # 1) 알 수 없는 이름
+                problems.append(f"{cid}: 알 수 없는 PV 채널 '{pv}' — 사용 가능: {adc_all}")
+            else:
+                pv_used.setdefault(pv, []).append(cid)
+
+    for name, ids in sv_used.items():        # 4) 중복 배정
+        if len(ids) > 1:
+            problems.append(
+                f"{', '.join(ids)}가 SV 채널 '{name}'을 함께 씁니다. 한쪽 유량이 무시됩니다")
+    for name, ids in pv_used.items():
+        if len(ids) > 1:
+            problems.append(
+                f"{', '.join(ids)}가 PV 채널 '{name}'을 함께 씁니다. 한쪽 측정값이 무시됩니다")
+    return problems
 
 
 def _copy_channel(c: dict) -> dict:

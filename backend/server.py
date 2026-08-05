@@ -28,8 +28,8 @@ import plc
 import loops
 import window
 from paths import FRONTEND_DIR, INDEX_PATH
-from state import state
-from connection import manager
+from state import state, validate_channel_map
+from connection import manager, push_log
 import commands
 from commands import handle_command
 
@@ -52,6 +52,11 @@ async def lifespan(_app: FastAPI):
     logger.configure(state.settings)
     plc.configure(state.plc)
     plc.load_addresses(state.channels, state.plc_system)   # config 주도 주소맵 로드
+    # 채널 배정 검사: 문제가 있어도 중단하지 않고 콘솔·UI 로그로 알린다(진단 우선).
+    for msg in validate_channel_map(state.channels, state.plc_system):
+        print(f"[warn] 채널 배정 — {msg}")
+        with contextlib.suppress(Exception):
+            await push_log(f"채널 배정 확인 필요 — {msg}", "warn")
     await plc.plc.start()   # port 비어있으면 no-op(설정 전 무해)
     tasks = loops.start_all()
 

@@ -6,6 +6,7 @@ P1→P2→… 순서로: 계산→SV적용→준비(prep)대기→측정(meas)�
 
 import asyncio
 
+import plc_catalog
 from state import state
 from recipe_calc import compute_step_setpoints
 from connection import push_state, push_log
@@ -29,6 +30,18 @@ def precheck(recipe) -> list:
         res = compute_step_setpoints(state.channels, proc, bottle, use_h)
         for e in res["errors"]:
             problems.append(f"P{n + 1} — {e}")
+        # 유량을 배분받은 채널에 SV 출력이 배정돼 있는지 확인.
+        # 미배정이면 레시피는 정상으로 도는데 가스가 안 나가 측정이 통째로 무효가 된다.
+        for i, v in (res.get("sv") or {}).items():
+            if not v or v <= 0:
+                continue
+            c = state.channels[i] if 0 <= i < len(state.channels) else None
+            p = (c or {}).get("plc") or {}
+            if plc_catalog.dac_reg(p.get("sv_out")) is None:
+                problems.append(
+                    f"P{n + 1} — {(c or {}).get('id', '?')}: 유량 {v:g} sccm이 배정됐으나 "
+                    f"SV 출력 채널이 없어 실행할 수 없습니다"
+                    f" (config.json의 channels[].plc.sv_out 확인)")
     return problems
 
 

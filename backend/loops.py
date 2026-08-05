@@ -13,6 +13,7 @@ import asyncio
 import contextlib
 
 import plc
+import plc_catalog as cat
 from state import state
 from simulation import sim_tick
 from connection import manager, push_state, push_log
@@ -80,14 +81,18 @@ async def plc_write_loop():
             safe = (state.plc_live.get("status") or {}).get("SAFETY_STOP") is True
             valve_map, sv_map = {}, {}
             for ch in state.channels:
-                if not ch.get("plc"):
+                p = ch.get("plc")
+                if not p:
                     continue                          # 매핑 없는 채널은 제외
                 cid = ch["id"]
-                if safe or not ch.get("en"):
-                    valve_map[cid], sv_map[cid] = False, 0.0
-                else:
-                    valve_map[cid] = bool(ch.get("valveIn"))
-                    sv_map[cid] = float(ch.get("sv") or 0)
+                closed = safe or not ch.get("en")
+                # 밸브: 카탈로그에 코일이 있으면 항상 포함.
+                #   ★ en=False여도 반드시 넣어야 한다. 빼면 False가 안 써져서 열린 채로 남는다.
+                if cat.valve_coil(cid) is not None:
+                    valve_map[cid] = False if closed else bool(ch.get("valveIn"))
+                # SV: sv_out이 배정된 채널만. 미배정이면 쓸 곳이 없다.
+                if cat.dac_reg(p.get("sv_out")) is not None:
+                    sv_map[cid] = 0.0 if closed else float(ch.get("sv") or 0)
             # 4-way: 앱의 측정 방향(routeOut=='sensor')을 반영. 안전정지면 닫기(False).
             # TODO(하드웨어 확인): V4W 코일 ON=측정(sensor) 방향으로 가정 — 폴러리티는 실기로 검증.
             want_4w = (not safe) and (state.system.get("routeOut") == "sensor")

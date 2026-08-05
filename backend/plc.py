@@ -23,6 +23,8 @@ import asyncio
 import inspect
 from dataclasses import dataclass, asdict, fields
 
+import plc_catalog as cat
+
 try:
     from pymodbus.client import ModbusSerialClient
 except Exception:  # noqa: BLE001 — pymodbus 미설치 환경에서도 앱은 떠야 함
@@ -115,13 +117,17 @@ class PlcClient:
 
     def load_addresses(self, channels: list, plc_system: dict):
         """config(state.channels/state.plc_system)에서 주소맵을 로드한다.
-        매핑 있는 채널(plc != None)만 담고, 시스템 주소는 통째로 사본으로 보관."""
+        주소는 plc_catalog가 결정한다 — 밸브는 채널 id로, SV/PV는 배정된 채널 '이름'으로.
+        배정이 없거나(None) 이름을 모르면 그 채널은 해당 맵에서 빠진다(쓸 곳이 없으므로)."""
         chans = channels or []
-        self._valve_coil = {ch["id"]: ch["plc"]["cmd_coil"] for ch in chans if ch.get("plc")}
-        self._sv_reg     = {ch["id"]: ch["plc"]["sv_reg"]   for ch in chans if ch.get("plc")}
-        self._pv_reg     = {ch["id"]: ch["plc"]["pv_reg"]   for ch in chans if ch.get("plc")}
-        self._scale      = {ch["id"]: dict(ch["plc"])       for ch in chans if ch.get("plc")}
-        self._enabled    = {ch["id"]: bool(ch.get("en"))    for ch in chans if ch.get("plc")}
+        self._valve_coil = {ch["id"]: cat.valve_coil(ch["id"]) for ch in chans
+                            if ch.get("plc") and cat.valve_coil(ch["id"]) is not None}
+        self._sv_reg = {ch["id"]: cat.dac_reg(ch["plc"].get("sv_out")) for ch in chans
+                        if ch.get("plc") and cat.dac_reg(ch["plc"].get("sv_out")) is not None}
+        self._pv_reg = {ch["id"]: cat.adc_reg(ch["plc"].get("pv_in")) for ch in chans
+                        if ch.get("plc") and cat.adc_reg(ch["plc"].get("pv_in")) is not None}
+        self._scale      = {ch["id"]: dict(ch["plc"])    for ch in chans if ch.get("plc")}
+        self._enabled    = {ch["id"]: bool(ch.get("en")) for ch in chans if ch.get("plc")}
         self._sys = dict(plc_system or {})
 
     # ---- 주소 resolver(내부 맵 우선, 없으면 하드코딩 fallback) ----

@@ -145,8 +145,11 @@ async def handle_command(data: dict):
                 c["route"] = item.get("route", c["route"])
                 c["max"] = max(0.0, to_num(item.get("max"), c["max"]))
                 c["sv"] = min(max(0.0, to_num(item.get("sv"), c["sv"])), c["max"])
-                # 아날로그 스케일만 화면에서 수정 가능. 주소 키(cmd_coil/sv_reg/pv_reg)는
-                # 클라이언트 값으로 절대 덮어쓰지 않는다(PLC 래더와 1:1 고정).
+                # 아날로그 스케일만 화면에서 수정 가능.
+                # ★ 주소 배정(sv_out/pv_in)과 하드웨어 구성(dac_modules)은 UI에서 변경할 수 없다.
+                #   config.json을 직접 편집해야 한다. 여기서 클라이언트 값을 받아 쓰면
+                #   잘못된 배정이 조용히 들어간다. 밸브 코일은 plc_catalog가 결정하므로 config에 없다.
+                #   item에 sv_out/pv_in/cmd_coil이 섞여 와도 아래 루프가 scale 4키만 보므로 무시된다.
                 sc = item.get("scale")
                 if isinstance(sc, dict) and isinstance(c.get("plc"), dict):
                     for k in ("fs_sccm", "sv_full", "pv_zero", "pv_full"):
