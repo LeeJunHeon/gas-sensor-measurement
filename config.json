@@ -8,9 +8,8 @@
       "max": 2000,
       "sv": 0.0,
       "plc": {
-        "cmd_coil": 160,
-        "sv_reg": 100,
-        "pv_reg": 200,
+        "sv_out": "DAC1_CH0",
+        "pv_in": "ADC_CH0",
         "fs_sccm": 2000,
         "sv_full": 2000,
         "pv_zero": 0,
@@ -25,9 +24,8 @@
       "max": 2000,
       "sv": 0.0,
       "plc": {
-        "cmd_coil": 161,
-        "sv_reg": 101,
-        "pv_reg": 201,
+        "sv_out": "DAC1_CH1",
+        "pv_in": "ADC_CH1",
         "fs_sccm": 2000,
         "sv_full": 2000,
         "pv_zero": 0,
@@ -42,9 +40,8 @@
       "max": 2000,
       "sv": 0.0,
       "plc": {
-        "cmd_coil": 162,
-        "sv_reg": 102,
-        "pv_reg": 202,
+        "sv_out": "DAC1_CH2",
+        "pv_in": "ADC_CH2",
         "fs_sccm": 2000,
         "sv_full": 2000,
         "pv_zero": 0,
@@ -59,9 +56,8 @@
       "max": 2000,
       "sv": 0.0,
       "plc": {
-        "cmd_coil": 163,
-        "sv_reg": 103,
-        "pv_reg": 203,
+        "sv_out": "DAC1_CH3",
+        "pv_in": "ADC_CH3",
         "fs_sccm": 2000,
         "sv_full": 2000,
         "pv_zero": 0,
@@ -76,9 +72,8 @@
       "max": 2000,
       "sv": 0.0,
       "plc": {
-        "cmd_coil": 164,
-        "sv_reg": 104,
-        "pv_reg": 204,
+        "sv_out": null,
+        "pv_in": "ADC_CH4",
         "fs_sccm": 2000,
         "sv_full": 2000,
         "pv_zero": 0,
@@ -93,9 +88,8 @@
       "max": 200,
       "sv": 0.0,
       "plc": {
-        "cmd_coil": 165,
-        "sv_reg": 105,
-        "pv_reg": 205,
+        "sv_out": null,
+        "pv_in": "ADC_CH5",
         "fs_sccm": 200,
         "sv_full": 2000,
         "pv_zero": 0,
@@ -110,9 +104,8 @@
       "max": 200,
       "sv": 0.0,
       "plc": {
-        "cmd_coil": 166,
-        "sv_reg": 106,
-        "pv_reg": 206,
+        "sv_out": null,
+        "pv_in": "ADC_CH6",
         "fs_sccm": 200,
         "sv_full": 2000,
         "pv_zero": 0,
@@ -127,9 +120,8 @@
       "max": 100,
       "sv": 0.0,
       "plc": {
-        "cmd_coil": 167,
-        "sv_reg": 107,
-        "pv_reg": 207,
+        "sv_out": null,
+        "pv_in": "ADC_CH7",
         "fs_sccm": 100,
         "sv_full": 2000,
         "pv_zero": 0,
@@ -179,6 +171,7 @@
     "alm_air": 336,
     "alm_mfc": 337,
     "alm_idd": 338,
-    "alm_dac": 339
+    "alm_dac": 339,
+    "dac_modules": 1
   }
 }
