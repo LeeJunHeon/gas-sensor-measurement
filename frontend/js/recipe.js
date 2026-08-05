@@ -25,6 +25,38 @@ function buildSetupRows(){
     e.target.closest('tr').classList.toggle('dis',!e.target.checked);
   }));
 }
+/* 하드웨어 배정 표(읽기 전용). 배정은 config.json에서만 바꾼다 — 여기선 확인용으로만 보여준다.
+   레지스터 번호를 함께 표시하려면 카탈로그가 필요해 서버에서 한 번 받아 캐시한다. */
+let _plcCatalog=null;
+function loadPlcCatalog(){
+  if(_plcCatalog) return Promise.resolve(_plcCatalog);
+  return fetch('/plc_catalog').then(r=>r.json()).then(j=>{_plcCatalog=j; return j;})
+    .catch(()=>{_plcCatalog={valve:{},dac:{},adc:{}}; return _plcCatalog;});
+}
+function buildMapRows(){
+  const tb=document.getElementById('setupMapRows'); if(!tb) return;
+  const cat=_plcCatalog||{valve:{},dac:{},adc:{}};
+  const desc=(map,name)=>{
+    if(!name) return '— 미배정 —';
+    const m=(map||{})[name];
+    return m ? `${name} (D${m.reg})` : `${name} (알 수 없음)`;
+  };
+  tb.innerHTML='';
+  channels.forEach(c=>{
+    const p=c.plc; if(!p) return;
+    const coil=(cat.valve||{})[c.id];
+    const noSv=!p.sv_out;
+    const tr=document.createElement('tr');
+    tr.className=noSv?'dis':'';
+    tr.innerHTML=`
+      <td class="chid">${c.id}</td>
+      <td>${coil!=null?('코일 '+coil):'—'}</td>
+      <td>${desc(cat.dac,p.sv_out)}</td>
+      <td>${desc(cat.adc,p.pv_in)}</td>
+      <td>${noSv?'⚠ SV 출력 없음':'정상'}</td>`;
+    tb.appendChild(tr);
+  });
+}
 /* 아날로그 스케일 표(MFC ↔ PLC). plc 매핑 없는 채널은 행을 만들지 않는다. */
 function buildScaleRows(){
   const tb=document.getElementById('setupScaleRows'); if(!tb) return;
@@ -44,6 +76,7 @@ function buildScaleRows(){
 }
 function openSetup(){
   buildSetupRows();
+  loadPlcCatalog().then(buildMapRows);   // 카탈로그 도착 후 배정 표 렌더(읽기 전용)
   buildScaleRows();
   if(window.cmdPlcPorts) window.cmdPlcPorts();   // 사용 가능한 시리얼 포트 목록 요청(드롭다운 채우기)
   window.plcSyncModeFields();                     // 연결 방식에 맞는 필드만 표시

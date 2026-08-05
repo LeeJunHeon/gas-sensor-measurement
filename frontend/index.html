@@ -201,6 +201,15 @@
             <thead><tr><th>CH</th><th>사용</th><th>그룹</th><th>MAX (sccm)</th><th>SV (sccm)</th></tr></thead>
             <tbody id="setupRows"></tbody>
           </table>
+          <div class="setup-sec">
+            하드웨어 배정 (읽기 전용) — config.json에서만 변경 가능
+          </div>
+          <table class="setup">
+            <thead><tr>
+              <th>CH</th><th>밸브</th><th>SV 출력</th><th>PV 입력</th><th>상태</th>
+            </tr></thead>
+            <tbody id="setupMapRows"></tbody>
+          </table>
           <div class="setup-sec">아날로그 스케일 (MFC ↔ PLC) — 장비 명판 확인 후 입력</div>
           <table class="setup">
             <thead><tr>

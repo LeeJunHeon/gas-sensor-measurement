@@ -68,12 +68,19 @@ function renderLanes(){
     const showLabel = '';
     // 물탱크(가습기): VA2·VA4 레인에만 그리고, 나머지는 같은 폭의 빈 자리로 둬 MFC 정렬을 맞춘다.
     const hasTank = (c.id==='VA2'||c.id==='VA4');
+    // SV 출력 미배정 경고 배지: 밸브는 열려도 유량 지령이 나갈 곳이 없다(config.json의 sv_out).
+    const noSv = !!(c.plc && !c.plc.sv_out && c.en);
+    const noSvBadge = noSv
+      ? `<span title="config.json의 sv_out 미배정 — 유량 지령이 나가지 않습니다"
+              style="font-size:9px;color:#8b8b8b;border:1px solid #8b8b8b;border-radius:3px;
+                     padding:0 3px;margin-left:3px;white-space:nowrap;">SV 없음</span>`
+      : '';
     lane.innerHTML=`
       <div class="n-src">
         <span class="srclbl">${showLabel}</span><span class="tap"></span>
       </div>
       <i class="pipe ${c.en?'on':''}" data-seg="pre" style="--c:${c.color}"></i>
-      <div class="n-valve ${eff(c)?'open':'closed'}${c.en?'':' dis'}" data-v="${idx}-in" title="MFC 밸브 (VA)">${valveSvg}<span class="vlbl">${c.id}</span></div>
+      <div class="n-valve ${eff(c)?'open':'closed'}${c.en?'':' dis'}" data-v="${idx}-in" title="MFC 밸브 (VA)">${valveSvg}<span class="vlbl">${c.id}${noSvBadge}</span></div>
       <div class="midpipe">
         <i class="pipe ${eff(c)?'on':''}" data-seg="mid" style="--c:${c.color}"></i>
         ${hasTank?`<div class="tank-ov" title="물탱크 (가습기)">${tankSvg('#3a9fe0')}</div>`:''}

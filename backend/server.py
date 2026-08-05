@@ -27,6 +27,7 @@ import logger
 import plc
 import loops
 import window
+import plc_catalog
 from paths import FRONTEND_DIR, INDEX_PATH
 from state import state, validate_channel_map
 from connection import manager, push_log
@@ -80,6 +81,18 @@ async def root():
 @app.get("/health")
 async def health():
     return JSONResponse({"ok": True})
+
+
+@app.get("/plc_catalog")
+async def plc_catalog_route():
+    """래더가 제공하는 채널 목록(고정값). 화면의 '하드웨어 배정' 표가 이름+레지스터를
+    함께 보여주기 위해 쓴다. 값이 변하지 않으므로 state 스냅샷에 매번 싣지 않고 여기서 준다."""
+    return JSONResponse({
+        "valve": plc_catalog.VALVE_COILS,
+        "dac": plc_catalog.DAC_CHANNELS,
+        "adc": plc_catalog.ADC_CHANNELS,
+        "dac_modules": state.plc_system.get("dac_modules", 1),
+    })
 
 
 @app.websocket("/ws")
