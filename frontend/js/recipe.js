@@ -30,8 +30,19 @@ function buildSetupRows(){
 let _plcCatalog=null;
 function loadPlcCatalog(){
   if(_plcCatalog) return Promise.resolve(_plcCatalog);
-  return fetch('/plc_catalog').then(r=>r.json()).then(j=>{_plcCatalog=j; return j;})
-    .catch(()=>{_plcCatalog={valve:{},dac:{},adc:{}}; return _plcCatalog;});
+  return fetch('/plc_catalog').then(r=>{
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(j=>{_plcCatalog=j; return j;});
+  // ★ 실패를 여기서 삼키지 않는다 — 빈 카탈로그로 폴백하면 통신 문제가
+  //   '배정 오류'처럼 보여 현장에서 원인을 구분할 수 없다. buildMapRows가 안내를 띄운다.
+}
+// 카탈로그를 못 받았을 때: 배정이 잘못된 것으로 오인하지 않도록 분명히 알린다.
+function showMapRowsError(){
+  const tb=document.getElementById('setupMapRows'); if(!tb) return;
+  tb.innerHTML='<tr class="dis"><td colspan="5">'
+    +'채널 정보를 불러오지 못했습니다 — 서버 연결을 확인하세요'
+    +' (배정이 잘못된 것이 아닙니다)</td></tr>';
 }
 function buildMapRows(){
   const tb=document.getElementById('setupMapRows'); if(!tb) return;
@@ -76,7 +87,11 @@ function buildScaleRows(){
 }
 function openSetup(){
   buildSetupRows();
-  loadPlcCatalog().then(buildMapRows);   // 카탈로그 도착 후 배정 표 렌더(읽기 전용)
+  // 카탈로그 도착 후 배정 표 렌더(읽기 전용). 실패는 표에 명시한다(조용히 넘기지 않는다).
+  loadPlcCatalog().then(buildMapRows).catch(e=>{
+    console.error('[plc_catalog] 조회 실패 — 배정 표를 표시할 수 없습니다', e);
+    showMapRowsError();
+  });
   buildScaleRows();
   if(window.cmdPlcPorts) window.cmdPlcPorts();   // 사용 가능한 시리얼 포트 목록 요청(드롭다운 채우기)
   window.plcSyncModeFields();                     // 연결 방식에 맞는 필드만 표시
