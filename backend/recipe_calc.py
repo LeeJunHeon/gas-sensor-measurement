@@ -4,7 +4,8 @@ recipe_calc.py — 한 프로세스 단계 → 각 채널 목표 SV 계산 + MAX
 표준 동적 희석:
   가스 SV = 전체유량 × (목표ppm / 봄베ppm)
   공기 = 전체유량 − 가스합  → 습도 비율로 젖은/마른 공기 분배(물탱크 통과=100%RH 가정)
-역할별 담당 채널(en=True)에 균등 분배. MAX 초과/구성 불가 시 위반 목록 반환.
+공기는 역할별 담당 채널(en=True)에 균등 분배. MAX 초과/구성 불가 시 위반 목록 반환.
+가스는 봄베가 물리 배관에 고정돼 있어 G1~G4 ↔ 가스 채널 순서로 고정 대응한다(대체 없음).
 """
 
 from state import channel_role
@@ -37,18 +38,30 @@ def compute_step_setpoints(channels, proc, bottle, use_humidity=True):
         errors.append("목표 가스 농도(G1~G4)와 습도가 모두 0 (흘릴 가스가 없음)")
 
     # 역할별 채널 인덱스(사용 중인 것만)
-    gas_idx = [i for i, c in enumerate(channels) if channel_role(c) == "gas" and c.get("en")]
     wet_idx = [i for i, c in enumerate(channels) if channel_role(c) == "wet_air" and c.get("en")]
     dry_idx = [i for i, c in enumerate(channels) if channel_role(c) == "dry_air" and c.get("en")]
+    # ★ 가스는 en을 보지 않는다 — 봄베가 물리적으로 특정 밸브에 연결돼 있으므로
+    #   G(k)는 가스 역할 채널의 k번째에 고정 대응한다. 꺼져 있다고 다음 채널로
+    #   밀면 다른 농도의 봄베가 열려 계산과 실제가 어긋난다(조용한 오측정).
+    gas_all = [i for i, c in enumerate(channels) if channel_role(c) == "gas"]
 
     sv = {i: 0.0 for i, _ in enumerate(channels)}
 
-    # 1) 가스: 목표 농도별 필요 유량. 가스 채널에 순서대로 1:1 배정(G1→첫 가스채널 ...).
+    # 1) 가스: 목표 농도별 필요 유량. G(k) → gas_all[k] 고정 배정.
     gas_flows = []
     for k in range(4):
         tgt = float(g[k] or 0)
         bot = float(b[k] or 0)
         if tgt <= 0:
+            continue
+        if k >= len(gas_all):
+            errors.append(f"G{k+1} 목표 {tgt}ppm 인데 대응할 가스 채널이 없습니다")
+            continue
+        gi = gas_all[k]
+        gid = channels[gi].get("id")
+        if not channels[gi].get("en"):
+            errors.append(f"G{k+1}({gid}) 목표 {tgt}ppm 인데 해당 채널이 꺼져 있습니다. "
+                          f"봄베 {k+1}은 {gid}에 연결돼 있어 다른 채널로 대체할 수 없습니다")
             continue
         if bot <= 0:
             errors.append(f"G{k+1} 목표 {tgt}ppm 인데 봄베 농도가 0 또는 비어있음")
@@ -56,12 +69,9 @@ def compute_step_setpoints(channels, proc, bottle, use_humidity=True):
         if tgt > bot:
             errors.append(f"G{k+1} 목표 {tgt}ppm 이 봄베 {bot}ppm 보다 큼(불가능)")
             continue
-        gas_flows.append(total * (tgt / bot))
-    if len(gas_flows) > len(gas_idx):
-        errors.append(f"가스 {len(gas_flows)}종 필요한데 사용 중인 가스 채널은 {len(gas_idx)}개")
-    for n, flow in enumerate(gas_flows):
-        if n < len(gas_idx):
-            sv[gas_idx[n]] = flow
+        flow = total * (tgt / bot)
+        sv[gi] = flow
+        gas_flows.append(flow)
 
     gas_sum = sum(gas_flows)
     air_total = total - gas_sum
