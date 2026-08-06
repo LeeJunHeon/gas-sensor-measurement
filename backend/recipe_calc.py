@@ -95,9 +95,14 @@ def compute_step_setpoints(channels, proc, bottle, use_humidity=True):
         for i in dry_idx:
             sv[i] = per
 
-    # 3) MAX 초과 검증
+    # 3) MAX 초과 검증 + 풀스케일 초과 검증
+    #    MAX는 운전 상한, fs_sccm은 MFC 하드웨어 한계라 별개다. 풀스케일을 넘으면
+    #    DAC 카운트가 포화돼 화면 값과 실제 유량이 달라지므로 함께 막는다.
     for i, c in enumerate(channels):
         if sv[i] > float(c.get("max") or 0) + 1e-6:
             errors.append(f"{c.get('id')} 필요 {sv[i]:.1f} sccm 이 MAX {c.get('max')} 초과")
+        fs = float((c.get("plc") or {}).get("fs_sccm") or 0)
+        if fs > 0 and sv[i] > fs + 1e-6:
+            errors.append(f"{c.get('id')} 필요 {sv[i]:.1f} sccm 이 풀스케일 {fs:g} 초과")
 
     return {"sv": sv, "errors": errors}

@@ -141,6 +141,23 @@ def validate_channel_map(channels, plc_hw) -> list:
             info(f"{cid}: SV 출력이 배정되지 않았습니다. 지금은 사용(en) 상태가 아니라 무해하지만, "
                  f"켜기 전에 config.json의 sv_out을 배정해야 유량이 나갑니다")
 
+        # 스케일 유효성: 0 이하면 변환식이 무효화되거나 0으로 나누기가 된다.
+        fs = float(p.get("fs_sccm") or 0)
+        sv_full = float(p.get("sv_full") or 0)
+        pv_full = float(p.get("pv_full") or 0)
+        pv_zero = float(p.get("pv_zero") or 0)
+        if fs <= 0:
+            warn(f"{cid}: 풀스케일(fs_sccm)이 {p.get('fs_sccm')} 입니다. 0보다 커야 합니다")
+        if sv_full <= 0:
+            warn(f"{cid}: SV 풀카운트(sv_full)가 {p.get('sv_full')} 입니다. 0보다 커야 합니다")
+        if pv_full <= pv_zero:
+            warn(f"{cid}: PV 풀카운트({p.get('pv_full')})가 영점카운트({p.get('pv_zero')}) 이하입니다")
+        # MAX(운전 상한)가 하드웨어 풀스케일을 넘으면 SV가 풀스케일에서 포화된다.
+        mx = float(ch.get("max") or 0)
+        if fs > 0 and mx > fs + 1e-6:
+            warn(f"{cid}: MAX {mx:g} sccm이 풀스케일 {fs:g} sccm을 초과합니다. "
+                 f"SV가 풀스케일에서 포화되어 화면 값과 실제 유량이 달라집니다")
+
         if pv is not None:
             if pv in cat.DAC_CHANNELS:       # 2) 종류 혼동
                 warn(f"{cid}: '{pv}'는 출력 채널입니다. PV에는 ADC 채널을 지정하세요")

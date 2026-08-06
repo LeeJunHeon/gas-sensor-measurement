@@ -67,6 +67,13 @@ async def handle_command(data: dict):
                 c["max"] = max(0.0, to_num(data.get("value")))
                 if to_num(c.get("sv")) > c["max"]:
                     c["sv"] = c["max"]
+                # MAX가 MFC 하드웨어 풀스케일을 넘으면 SV가 포화돼 화면 값과 실제 유량이 달라진다.
+                # 운전 상한 자체는 사용자 판단이므로 막지 않고 경고만 남긴다.
+                fs = float((c.get("plc") or {}).get("fs_sccm") or 0)
+                if fs > 0 and float(c["max"]) > fs + 1e-6:
+                    await push_log(
+                        f"{c['id']}: MAX {c['max']:g}이 풀스케일 {fs:g}을 초과합니다. "
+                        f"SV가 풀스케일에서 포화되어 화면 값과 실제 유량이 달라집니다", "warn")
                 await push_state()
 
         elif cmd == "set_4way":
