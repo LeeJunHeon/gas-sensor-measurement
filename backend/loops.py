@@ -79,19 +79,23 @@ async def plc_write_loop():
                 last = None
                 continue
             # 안전정지면 무조건 닫기(열림·유량 명령 금지). status는 읽기 폴링이 채운다.
-            safe = (state.plc_live.get("status") or {}).get("SAFETY_STOP") is True
+            # PLC 안전정지와 파이썬 비상정지(system.safeStop) 둘 다 닫힘 조건이다.
+            plc_safe = (state.plc_live.get("status") or {}).get("SAFETY_STOP") is True
+            safe = plc_safe or bool(state.system.get("safeStop"))
+            # ★ 전이 감지는 PLC의 SAFETY_STOP에만 반응한다.
+            #   파이썬 비상정지는 engine._emergency_off가 이미 valveIn을 닫으므로 중복 처리 불필요.
             # ★ 안전정지 전이(False→True) 시점에 앱 상태(valveIn/sv)도 닫는다.
             #   valveIn을 그대로 두면 SAFETY_RESET으로 운전을 arm하는 순간 이전에 열려 있던
             #   밸브가 전부 자동으로 다시 열린다. PLC 래더는 수동 재투입을 의도했으므로
             #   파이썬이 그걸 무너뜨리면 안 된다. 전이 시점 1회만 — 매 주기면 조작이 막히고 로그가 도배된다.
-            if safe and not prev_plc_safe:
+            if plc_safe and not prev_plc_safe:
                 for ch in state.channels:
                     ch["valveIn"] = False
                     ch["sv"] = 0.0
                 await push_log("PLC 안전정지 감지 — 모든 밸브·유량을 닫았습니다. "
                                "복구 후 다시 열어야 합니다", "warn")
                 await push_state()
-            prev_plc_safe = safe
+            prev_plc_safe = plc_safe
             valve_map, sv_map = {}, {}
             for ch in state.channels:
                 p = ch.get("plc")

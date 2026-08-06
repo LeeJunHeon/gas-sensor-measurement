@@ -133,6 +133,9 @@ plc_live — PLC 실측(읽기 폴링 결과). state 메시지에 항상 포함�
 { "cmd": "run" }
 { "cmd": "stop" }
 { "cmd": "purge" }
+{ "cmd": "emergency" }                                         // 비상정지 — 전 채널 차단(safeStop=true)
+{ "cmd": "clear_emergency" }                                   // 비상정지 해제 — 밸브는 자동으로 열리지 않는다
+// safeStop=true 동안 set_valve/set_sv/purge/run은 거부된다.
 { "cmd": "apply_setup",  "channels": [ /* {ch,en,grp,route,max,sv,scale?} ... */ ], "params": { } }
 // scale = {fs_sccm, sv_full, pv_zero, pv_full} — 아날로그 스케일만 반영.
 // PLC 주소(cmd_coil/sv_reg/pv_reg)는 화면에서 바꿀 수 없다(서버가 무시).

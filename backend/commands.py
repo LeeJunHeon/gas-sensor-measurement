@@ -33,6 +33,12 @@ async def handle_command(data: dict):
             await push_log("자동 실행 중에는 수동 조작이 잠깁니다 (AUTO STOP 후 가능)", "warn")
             return
 
+        # 비상정지 중에는 수동 조작·실행을 막는다. engine.emergency()가 한 번 닫아 두어도
+        # 이 검사가 없으면 곧바로 다시 열 수 있어 비상정지가 지속되지 않는다.
+        if state.system.get("safeStop") and cmd in ("set_valve", "set_sv", "purge", "run"):
+            await push_log("비상정지 상태입니다. 해제 후 조작하세요", "warn")
+            return
+
         if cmd == "set_valve":
             ch = int(data.get("ch", -1))
             is_open = bool(data.get("open"))
@@ -106,6 +112,12 @@ async def handle_command(data: dict):
         elif cmd == "emergency":
             engine.emergency()
             await push_log("⛔ 비상정지 — 전 채널 차단", "err")
+            await push_state()
+
+        elif cmd == "clear_emergency":
+            # 비상정지 해제. ★ 밸브를 자동으로 열지 않는다 — 사람이 확인하고 다시 연다.
+            state.system["safeStop"] = False
+            await push_log("비상정지 해제 — 수동 조작이 가능합니다", "info")
             await push_state()
 
         elif cmd == "purge":
