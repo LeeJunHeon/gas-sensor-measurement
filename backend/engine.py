@@ -85,6 +85,23 @@ async def _run_recipe():
     state.system["phase"] = "idle"
     state.system["stepRemain"] = 0
     state.system["loop"]["current"] = 0
+
+    # PLC 감시 기준: 시작 시점에 연결돼 있었는가.
+    # PLC를 아예 안 쓰는 개발/시뮬 환경에서는 통신 감시를 하지 않는다(모듈 상태 없이 지역 변수로).
+    plc_was_connected = bool((state.plc_live or {}).get("connected"))
+
+    def _plc_abort_for(step_no: int):
+        def check():
+            live = state.plc_live or {}
+            if (live.get("status") or {}).get("SAFETY_STOP") is True:
+                return (f"P{step_no} 진행 중 PLC 안전정지 — 레시피를 중단합니다. "
+                        f"이 측정은 무효입니다")
+            if plc_was_connected and not live.get("connected"):
+                return (f"P{step_no} 진행 중 PLC 통신 두절 — 레시피를 중단합니다. "
+                        f"이 측정은 무효입니다")
+            return None
+        return check
+
     try:
         for loop_i in range(loop_count):
             state.system["loop"]["current"] = loop_i + 1
@@ -97,14 +114,15 @@ async def _run_recipe():
                 state.system["stepIndex"] = n + 1
                 await push_log(f"P{n+1} 시작 (Loop {loop_i+1}/{loop_count})", "ok")
 
+                abort = _plc_abort_for(n + 1)
                 # 준비(prep): 값 적용 후 안정화 대기
-                await _phase("prep", float(proc.get("prep") or 0))
+                await _phase("prep", float(proc.get("prep") or 0), abort)
                 if not is_running_flag():
                     return
                 # 측정(meas): 값 유지하며 시간 흐름.
                 # ── 하드웨어 연결 시 여기에 RH/SMU 측정값 기록 코드 삽입 위치 ──
                 #    (예: 주기적으로 센서값을 읽어 그래프/파일에 저장)
-                await _phase("meas", float(proc.get("meas") or 0))
+                await _phase("meas", float(proc.get("meas") or 0), abort)
                 if not is_running_flag():
                     return
         await push_log("AUTO RUN 완료 — 레시피 종료", "ok")
@@ -122,10 +140,13 @@ def is_running_flag() -> bool:
     return bool(state.system.get("running"))
 
 
-async def _phase(name: str, seconds: float):
+async def _phase(name: str, seconds: float, plc_abort=None):
     """name 구간을 seconds 동안 진행. 남은시간은 telemetry(5Hz)가 전달. running 꺼지면 즉시 반환.
     1초를 0.1초 단위로 쪼개 running을 자주 확인 → STOP 반영이 최대 0.1초로 빨라짐
-    (AUTO STOP 직후 AUTO RUN을 눌러도 이전 태스크가 곧바로 끝나 재시작이 정상 동작)."""
+    (AUTO STOP 직후 AUTO RUN을 눌러도 이전 태스크가 곧바로 끝나 재시작이 정상 동작).
+
+    plc_abort: 중단 사유 문자열(없으면 None)을 돌려주는 콜백. 1초마다 확인한다.
+    PLC 이상 중에 계속 진행하면 가스가 안 흐르는데 측정이 정상 완료된 것처럼 보인다."""
     state.system["phase"] = name
     remain = int(round(seconds))
     state.system["stepRemain"] = remain
@@ -136,10 +157,20 @@ async def _phase(name: str, seconds: float):
             return
         await asyncio.sleep(0.1)
         ticks += 1
-        if ticks >= 10:               # 1초마다 남은시간 감소
+        if ticks >= 10:               # 1초마다 남은시간 감소 + PLC 이상 확인
             ticks = 0
             remain -= 1
             state.system["stepRemain"] = remain   # telemetry가 이 값을 5Hz로 내려보냄
+            if plc_abort is not None:
+                reason = plc_abort()
+                if reason:
+                    # 복구 후 자동 재개를 막기 위해 SV를 0으로 내린다.
+                    # (안전정지면 PLC가 이미 닫았고, 통신두절이면 파이썬이 쓸 수 없다)
+                    _all_off()
+                    state.system["running"] = False
+                    await push_log(reason, "err")
+                    await push_state()
+                    return
     state.system["stepRemain"] = 0
 
 
