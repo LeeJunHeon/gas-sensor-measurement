@@ -95,10 +95,10 @@ async def _run_recipe():
             live = state.plc_live or {}
             if (live.get("status") or {}).get("SAFETY_STOP") is True:
                 return (f"P{step_no} 진행 중 PLC 안전정지 — 레시피를 중단합니다. "
-                        f"이 측정은 무효입니다")
+                        f"이 측정은 무효입니다. 밸브를 모두 닫았습니다 — 복구 후 다시 열어야 합니다")
             if plc_was_connected and not live.get("connected"):
                 return (f"P{step_no} 진행 중 PLC 통신 두절 — 레시피를 중단합니다. "
-                        f"이 측정은 무효입니다")
+                        f"이 측정은 무효입니다. 밸브를 모두 닫았습니다 — 복구 후 다시 열어야 합니다")
             return None
         return check
 
@@ -164,9 +164,10 @@ async def _phase(name: str, seconds: float, plc_abort=None):
             if plc_abort is not None:
                 reason = plc_abort()
                 if reason:
-                    # 복구 후 자동 재개를 막기 위해 SV를 0으로 내린다.
-                    # (안전정지면 PLC가 이미 닫았고, 통신두절이면 파이썬이 쓸 수 없다)
-                    _all_off()
+                    # 복구 후 자동 재개를 막는다. 안전정지든 통신두절이든 사람이 확인하고 다시 열어야 한다.
+                    # ★ _all_off()는 sv만 0으로 만든다 — valveIn이 True로 남으면 통신 복구 시
+                    #   밸브가 다시 열린다(안전정지는 loops의 전이 감지가 닫아주지만 통신두절은 아무도 안 닫는다).
+                    _emergency_off()
                     state.system["running"] = False
                     await push_log(reason, "err")
                     await push_state()
