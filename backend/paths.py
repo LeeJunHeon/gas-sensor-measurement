@@ -47,3 +47,21 @@ def ensure_data_dirs() -> bool:
     except Exception as e:  # noqa: BLE001
         print(f"[warn] 데이터 폴더 생성 실패: {RECIPES_DIR} ({e})")
         return False
+
+
+def check_writable():
+    """DATA_ROOT에 실제로 쓸 수 있는지 확인한다.
+    ★ makedirs 성공만으로는 부족하다 — 폴더가 이미 있으면 읽기 전용이어도 통과한다.
+    반환: (가능여부, 문제 설명). 예외를 던지지 마라."""
+    probe = os.path.join(DATA_ROOT, ".write_test.tmp")
+    try:
+        with open(probe, "w", encoding="utf-8") as f:
+            f.write("ok")
+        return True, ""
+    except Exception as e:  # noqa: BLE001
+        return False, f"{type(e).__name__}: {e}"
+    finally:
+        try:
+            os.remove(probe)
+        except Exception:  # noqa: BLE001
+            pass

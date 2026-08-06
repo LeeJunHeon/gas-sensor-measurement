@@ -28,7 +28,7 @@ import plc
 import loops
 import window
 import plc_catalog
-from paths import FRONTEND_DIR, INDEX_PATH
+from paths import FRONTEND_DIR, INDEX_PATH, DATA_ROOT, check_writable
 from state import state, validate_channel_map
 from connection import manager
 import commands
@@ -57,6 +57,15 @@ async def lifespan(_app: FastAPI):
     # ★ 여기서 push_log를 부르면 안 된다 — 기동 시점엔 접속한 클라이언트가 0개라 사라진다.
     #   state.startup_notices에 쌓아 두면 접속 시 connection.py가 전달한다.
     state.startup_notices.clear()
+    # 쓰기 권한 확인: Program Files 등에 설치하면 저장이 조용히 실패해
+    # "설정을 바꿔도 재시작하면 초기값" 증상이 난다(exe 경로 문제와 증상이 같다).
+    ok_w, why = check_writable()
+    if not ok_w:
+        print(f"[warn] 데이터 폴더 쓰기 불가: {DATA_ROOT} ({why})")
+        state.startup_notices.append({
+            "msg": f"데이터 폴더에 쓸 수 없습니다: {DATA_ROOT} — "
+                   f"설정·레시피가 저장되지 않습니다. 쓰기 가능한 경로로 옮겨서 실행하세요.",
+            "level": "warn"})
     for msg in validate_channel_map(state.channels, state.plc_system):
         print(f"[warn] 채널 배정 — {msg}")
         state.startup_notices.append({"msg": f"채널 배정 확인 필요 — {msg}", "level": "warn"})

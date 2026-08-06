@@ -15,6 +15,8 @@ import socket
 import threading
 import contextlib
 
+from paths import DATA_ROOT, check_writable
+
 WINDOW = None         # main()에서 생성한 pywebview 창 객체를 보관
 _allow_close = False  # 창 닫기 허용 플래그(종료 확인 통과 후 True). X 클릭은 모달로 되묻는다.
 
@@ -79,6 +81,17 @@ def run(app, host: str, port: int):
     port : 희망 포트. 이미 쓰이고 있으면 port+1 … 순으로 최대 10개까지 대체한다.
     """
     import uvicorn
+
+    # 쓰기 불가면 설정·레시피가 저장되지 않는다. exe는 콘솔이 없고 UI 로그를 안 볼 수도 있어
+    # 한 번은 창으로 알린다. ★ 중단하지 않는다 — 읽기 전용이어도 운전은 가능해야 한다.
+    ok_w, _why = check_writable()
+    if not ok_w:
+        _msgbox("Gas Sensor Measurement System",
+                "데이터 폴더에 쓸 수 없습니다.\n"
+                f"{DATA_ROOT}\n\n"
+                "설정과 레시피가 저장되지 않습니다.\n"
+                "프로그램을 C:\\VANAM\\GasSensor\\ 같은 쓰기 가능한 경로로\n"
+                "옮겨서 실행하세요.")
 
     free = find_free_port(host, port)
     if free is None:
