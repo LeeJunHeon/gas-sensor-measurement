@@ -218,9 +218,10 @@ async def handle_command(data: dict):
                 if ok:
                     await push_log("PLC 재연결 성공", "ok")
                 else:
-                    await push_log("PLC 재연결 실패 — 대상 확인", "warn")
+                    # 조치 가능한 원인을 구체적으로 알린다(exe에는 콘솔이 없다).
+                    await push_log(f"PLC 재연결 실패 — {plc.plc.diagnose_connection()}", "warn")
             except Exception as e:  # noqa: BLE001
-                await push_log(f"PLC 재연결 실패 — 대상 확인 ({e})", "warn")
+                await push_log(f"PLC 재연결 실패 — {plc.plc.diagnose_connection()} ({e})", "warn")
 
         elif cmd == "recipe_new":
             keep_params = dict(state.recipe.get("params", DEFAULT_PARAMS))

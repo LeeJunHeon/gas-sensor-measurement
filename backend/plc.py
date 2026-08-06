@@ -103,6 +103,7 @@ class PlcClient:
         self._task = None                 # 연결 유지 루프 태스크
         self._connected = False
         self._hb_value = False            # 하트비트 토글 상태(매 주기 반전 → PLC가 엣지로 생존 판단)
+        self._last_error = ""             # 마지막 연결 실패 원인(diagnose_connection이 인용)
         # config 주도 주소맵(load_addresses로 채움). 비어있으면 하드코딩 fallback 사용.
         self._valve_coil = {}             # {채널id: cmd_coil}
         self._sv_reg = {}                 # {채널id: sv_reg}
@@ -204,10 +205,45 @@ class PlcClient:
             ok = client.connect()
             return client if ok else None
 
-        client = await asyncio.to_thread(_open)
+        try:
+            client = await asyncio.to_thread(_open)
+        except Exception as e:  # noqa: BLE001 — 실패 원인을 진단용으로 보관하고 미연결 처리
+            self._last_error = f"{type(e).__name__}: {e}"
+            self._client = None
+            self._connected = False
+            return False
+        if client is None:
+            self._last_error = "연결 시도가 거부되거나 응답이 없습니다(timeout)"
+        else:
+            self._last_error = ""
         self._client = client
         self._connected = client is not None
         return self._connected
+
+    def diagnose_connection(self) -> str:
+        """연결 실패 원인을 사람이 조치할 수 있는 문장으로 돌려준다.
+        exe에는 콘솔이 없어 이 문장이 현장의 유일한 단서다. 예외를 던지지 마라."""
+        is_tcp = self.cfg.mode == "tcp"
+        if (ModbusTcpClient if is_tcp else ModbusSerialClient) is None:
+            return ("통신 라이브러리가 없습니다(pymodbus/pyserial 미설치). "
+                    "설치 후 다시 실행하세요")
+        if is_tcp:
+            if not self.cfg.host:
+                return "PLC 주소(host)가 설정되지 않았습니다. System Setup에서 지정하세요"
+            return (f"연결 실패 — 케이블·PLC 전원·주소({self.cfg.host}:{self.cfg.tcp_port})·"
+                    f"국번({self.cfg.unit_id})을 확인하세요"
+                    + (f" ({self._last_error})" if self._last_error else ""))
+
+        ports = [p["device"] for p in list_serial_ports()]
+        avail = ", ".join(ports) if ports else "없음"
+        if not self.cfg.port:
+            return (f"COM 포트가 설정되지 않았습니다. System Setup에서 포트를 지정하세요. "
+                    f"사용 가능한 포트: {avail}")
+        if ports and self.cfg.port not in ports:
+            return f"{self.cfg.port}을 찾을 수 없습니다. 사용 가능한 포트: {avail}"
+        return (f"연결 실패 — 케이블·PLC 전원·국번({self.cfg.unit_id})·"
+                f"통신속도({self.cfg.baudrate})를 확인하세요"
+                + (f" ({self._last_error})" if self._last_error else ""))
 
     async def close(self):
         client, self._client = self._client, None

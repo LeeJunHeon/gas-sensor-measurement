@@ -70,6 +70,12 @@ async def lifespan(_app: FastAPI):
         lv, msg = n.get("level", "warn"), n["msg"]
         print(f"[{lv}] 채널 배정 — {msg}")
         state.startup_notices.append({"msg": f"채널 배정 확인 필요 — {msg}", "level": lv})
+    # 연결 대상이 설정돼 있지 않으면 기동 시점에 알린다.
+    # exe를 처음 켠 사용자가 무엇을 해야 하는지 바로 알 수 있게 한다.
+    if not plc.plc._conn_enabled():
+        msg = plc.plc.diagnose_connection()
+        print(f"[warn] PLC 연결 안 함 — {msg}")
+        state.startup_notices.append({"msg": f"PLC {msg}", "level": "warn"})
     await plc.plc.start()   # port 비어있으면 no-op(설정 전 무해)
     tasks = loops.start_all()
 
