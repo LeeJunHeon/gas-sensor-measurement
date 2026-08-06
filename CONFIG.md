@@ -96,7 +96,13 @@ C:\VANAM\GasSensor\
 
 1. PLC 슬롯3에 DV04A 모듈을 장착한다.
 2. XG5000에서 `SV_WRITE2` 블록의 **"프로그램에서 제외"를 해제**하고 다운로드한다.
-3. `config.json`의 `plc_system.dac_modules` 를 `2` 로 바꾼다.
+3. `config.json`의 `plc_hw.dac_modules` 를 `2` 로 바꾼다.
+
+   ```json
+   "plc_hw": { "dac_modules": 2 }
+   ```
+
+   `plc_hw`는 최상위 블록이다(`plc_system`은 Modbus 주소 전용이라 여기에 없다).
 4. VA5~VA8의 `sv_out` 을 `DAC2_CH0` ~ `DAC2_CH3` 으로 배정한다.
 
 `dac_modules`가 `1`인 상태에서 `DAC2_*`를 지정하면 시작 시 경고가 뜬다
@@ -111,6 +117,7 @@ C:\VANAM\GasSensor\
 | 화면 값과 실제 유량이 다름 | `fs_sccm` / `sv_full` 이 MFC 명판과 맞는지 확인 |
 | 두 채널이 같이 움직임 | 같은 `sv_out`을 두 채널이 쓰고 있는지 확인(중복) |
 | 시작 시 경고 메시지가 뜸 | 메시지 내용대로 조치. 경고가 있어도 프로그램은 실행된다 |
+| 설정을 바꿔도 재시작하면 초기값 | 설치 경로에 쓰기 권한이 있는지 확인(`BUILD.md`의 "설치 위치 주의"). 시작 시 "데이터 폴더에 쓸 수 없습니다" 안내가 뜬다 |
 | 레시피 실행이 거부됨 | 유량이 배분된 채널에 `sv_out`이 없을 때 차단된다 |
 
 시작 시 경고는 콘솔과 화면의 System Log 양쪽에 남는다.

@@ -171,7 +171,9 @@
     "alm_air": 336,
     "alm_mfc": 337,
     "alm_idd": 338,
-    "alm_dac": 339,
+    "alm_dac": 339
+  },
+  "plc_hw": {
     "dac_modules": 1
   }
 }

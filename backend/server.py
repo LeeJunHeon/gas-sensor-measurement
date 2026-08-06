@@ -66,7 +66,7 @@ async def lifespan(_app: FastAPI):
             "msg": f"데이터 폴더에 쓸 수 없습니다: {DATA_ROOT} — "
                    f"설정·레시피가 저장되지 않습니다. 쓰기 가능한 경로로 옮겨서 실행하세요.",
             "level": "warn"})
-    for n in validate_channel_map(state.channels, state.plc_system):
+    for n in validate_channel_map(state.channels, state.plc_hw):
         lv, msg = n.get("level", "warn"), n["msg"]
         print(f"[{lv}] 채널 배정 — {msg}")
         state.startup_notices.append({"msg": f"채널 배정 확인 필요 — {msg}", "level": lv})
@@ -103,7 +103,7 @@ async def plc_catalog_route():
         "valve": plc_catalog.VALVE_COILS,
         "dac": plc_catalog.DAC_CHANNELS,
         "adc": plc_catalog.ADC_CHANNELS,
-        "dac_modules": state.plc_system.get("dac_modules", 1),
+        "dac_modules": state.plc_hw.get("dac_modules", 1),
     })
 
 

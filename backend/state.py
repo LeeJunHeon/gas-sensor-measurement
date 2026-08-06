@@ -53,7 +53,11 @@ DEFAULT_PLC_SYSTEM = {
     "alm_mfc":      337,   # M00211 (읽기) MFC 입력 이상 알람
     "alm_idd":      338,   # M00212 (읽기) MFC 입력 단선검출 알람
     "alm_dac":      339,   # M00213 (읽기) 아날로그 출력 모듈 이상 알람
-    "dac_modules":  1,     # DV04A 장착 수. 증설하면 2로 올린다(주소 아님 — 하드웨어 구성)
+}
+
+# 하드웨어 구성(주소가 아님). plc_system은 전부 Modbus 주소이므로 성격이 다른 값은 여기 둔다.
+DEFAULT_PLC_HW = {
+    "dac_modules": 1,     # DV04A 장착 수. 증설하면 2로 올린다
 }
 
 # 스케일 키 기본값(채널 기본값에도 없을 때의 최후 방어값).
@@ -86,7 +90,7 @@ def _norm_channel_plc(v, cid: str = ""):
     return out
 
 
-def validate_channel_map(channels, plc_system) -> list:
+def validate_channel_map(channels, plc_hw) -> list:
     """채널 배정(sv_out/pv_in)을 검사해 문제 목록을 돌려준다.
     반환: [{"level": "warn"|"info", "msg": str}]
       warn — 지금 당장 문제(알 수 없는 이름·종류 혼동·증설 미장착·중복·en인데 미배정·알 수 없는 id)
@@ -102,8 +106,9 @@ def validate_channel_map(channels, plc_system) -> list:
 
     def info(msg):
         problems.append({"level": "info", "msg": msg})
+
     try:
-        max_mod = int((plc_system or {}).get("dac_modules", 1))
+        max_mod = int((plc_hw or {}).get("dac_modules", 1))
     except (TypeError, ValueError):
         max_mod = 1
     sv_used, pv_used = {}, {}
@@ -268,6 +273,7 @@ class State:
         self.settings = dict(DEFAULT_SETTINGS)
         self.plc = dict(DEFAULT_PLC)
         self.plc_system = dict(DEFAULT_PLC_SYSTEM)
+        self.plc_hw = dict(DEFAULT_PLC_HW)
         # PLC 실측 라이브(읽기 경로): 폴링 태스크가 갱신, snapshot으로 프론트에 전송.
         self.plc_live = {"connected": False, "pv": {}, "pv_raw": {}, "status": {}}
         # 기동 시점 진단(채널 배정·쓰기 권한 등). lifespan에는 접속한 클라이언트가 없어
@@ -324,6 +330,7 @@ class State:
         self.settings = {**DEFAULT_SETTINGS, **(data.get("settings") or {})}
         self.plc = {**DEFAULT_PLC, **(data.get("plc") or {})}
         self.plc_system = {**DEFAULT_PLC_SYSTEM, **(data.get("plc_system") or {})}
+        self.plc_hw = {**DEFAULT_PLC_HW, **(data.get("plc_hw") or {})}
         # 사용 채널은 시작 시 밸브 열림으로 둔다(데모 일관성).
         for c in self.channels:
             c.setdefault("valveIn", False)   # 시작 시 모든 밸브 닫힘(흐름 표시도 꺼진 상태)
@@ -341,6 +348,7 @@ class State:
             "settings": self.settings,
             "plc": self.plc,
             "plc_system": self.plc_system,
+            "plc_hw": self.plc_hw,
         }
         try:
             atomic_write_json(CONFIG_PATH, payload)
@@ -358,6 +366,7 @@ class State:
             "settings": dict(self.settings),
             "plc": dict(self.plc),
             "plc_system": dict(self.plc_system),
+            "plc_hw": dict(self.plc_hw),
             "plc_live": {
                 "connected": bool(self.plc_live.get("connected")),
                 "pv": dict(self.plc_live.get("pv") or {}),
