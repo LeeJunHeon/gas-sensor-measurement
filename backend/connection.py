@@ -19,6 +19,11 @@ class ConnectionManager:
         self.active.add(ws)
         await self._send(ws, state.snapshot())
         await self._send(ws, {"type": "log", "msg": "화면 ↔ 서버 연결됨", "level": "ok"})
+        # 기동 진단 재생: 서버 시작 시점엔 접속자가 없어 놓친 경고를 지금 전달한다.
+        # 목록은 비우지 않는다(재접속·새로고침 때도 다시 보여야 한다).
+        for n in state.startup_notices:
+            await self._send(ws, {"type": "log", "msg": f"[기동 진단] {n['msg']}",
+                                  "level": n.get("level", "warn")})
 
     def disconnect(self, ws: WebSocket):
         self.active.discard(ws)

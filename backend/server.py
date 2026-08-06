@@ -30,7 +30,7 @@ import window
 import plc_catalog
 from paths import FRONTEND_DIR, INDEX_PATH
 from state import state, validate_channel_map
-from connection import manager, push_log
+from connection import manager
 import commands
 from commands import handle_command
 
@@ -53,11 +53,13 @@ async def lifespan(_app: FastAPI):
     logger.configure(state.settings)
     plc.configure(state.plc)
     plc.load_addresses(state.channels, state.plc_system)   # config 주도 주소맵 로드
-    # 채널 배정 검사: 문제가 있어도 중단하지 않고 콘솔·UI 로그로 알린다(진단 우선).
+    # 채널 배정 검사: 문제가 있어도 중단하지 않는다(진단 우선).
+    # ★ 여기서 push_log를 부르면 안 된다 — 기동 시점엔 접속한 클라이언트가 0개라 사라진다.
+    #   state.startup_notices에 쌓아 두면 접속 시 connection.py가 전달한다.
+    state.startup_notices.clear()
     for msg in validate_channel_map(state.channels, state.plc_system):
         print(f"[warn] 채널 배정 — {msg}")
-        with contextlib.suppress(Exception):
-            await push_log(f"채널 배정 확인 필요 — {msg}", "warn")
+        state.startup_notices.append({"msg": f"채널 배정 확인 필요 — {msg}", "level": "warn"})
     await plc.plc.start()   # port 비어있으면 no-op(설정 전 무해)
     tasks = loops.start_all()
 
