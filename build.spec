@@ -5,6 +5,8 @@ build.spec — PyInstaller onedir 빌드 설정 (납품용).
 빌드:  pyinstaller build.spec --clean --noconfirm
 결과:  dist/GasSensor/GasSensor.exe
 
+★ 버전은 backend/version.py에서 관리한다. 배포 전 APP_VERSION·BUILD_DATE를 갱신할 것.
+
 onedir을 쓰는 이유:
   - 시작이 빠르다(매 실행 압축 해제 없음)
   - config.json이 exe 옆에 자연스럽게 놓인다(paths.DATA_ROOT = exe 폴더)

@@ -21,6 +21,18 @@ pyinstaller build.spec --clean --noconfirm
 > 그대로 빌드할 때를 위한 안전장치다. 위처럼 깨끗한 venv에서 빌드하면 애초에
 > 설치돼 있지 않으므로 대부분 불필요해진다. 그래도 남겨 둔다(해가 없다).
 
+## 1-2. 버전 관리
+
+버전 문자열은 `backend/version.py` 한 곳에서 관리한다. **빌드 전에 갱신할 것.**
+
+```python
+APP_VERSION = "1.0.0"
+BUILD_DATE  = "2026-08-05"
+```
+
+이 값은 세 곳에 나타난다 — 기동 콘솔 로그, 파일 로그(`logs/measurement-*.log`) 첫 줄,
+화면 헤더 우측의 작은 `v1.0.0` 표시. 고객이 로그만 보내와도 어느 빌드인지 특정할 수 있다.
+
 ## 2. 결과물 구조
 
 ```
@@ -72,6 +84,7 @@ C:\VANAM\GasSensor\
 
 ## 6. 납품 전 체크리스트
 
+- [ ] `backend/version.py` 의 `APP_VERSION` · `BUILD_DATE` 갱신 (빌드 전)
 - [ ] `config.json` 의 `plc.port` 에 현장 COM 포트 입력
 - [ ] `plc.mode` 가 `serial` 인지 확인
 - [ ] `config.json` 의 `sv_out`/`pv_in` 이 실배선과 일치하는지 확인 (→ `CONFIG.md`)

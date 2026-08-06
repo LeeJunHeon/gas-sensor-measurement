@@ -28,6 +28,7 @@ import plc
 import loops
 import window
 import plc_catalog
+import version
 from paths import FRONTEND_DIR, INDEX_PATH, DATA_ROOT, check_writable
 from state import state, validate_channel_map
 from connection import manager
@@ -51,6 +52,10 @@ async def lifespan(_app: FastAPI):
     # startup: 파일 로거 구성(config의 settings 기준) + PLC 통신 설정 반영(포트가 있으면 연결 유지 루프 시작)
     #          + 백그라운드 주기 태스크 시작
     logger.configure(state.settings)
+    # 버전은 진단이 아니라 정보 — 콘솔과 파일 로그 맨 앞에 남긴다(로그만 받아도 버전을 알 수 있게).
+    _ver = f"{version.APP_NAME} v{version.APP_VERSION} ({version.BUILD_DATE})"
+    print(f"[info] {_ver}")
+    logger.write("info", _ver)
     plc.configure(state.plc)
     plc.load_addresses(state.channels, state.plc_system)   # config 주도 주소맵 로드
     # 채널 배정 검사: 문제가 있어도 중단하지 않는다(진단 우선).

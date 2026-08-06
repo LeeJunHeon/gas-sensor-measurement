@@ -224,6 +224,13 @@ function applyState(s){
     const rh=document.getElementById('rh'); if(rh&&s.system.rh!=null) rh.textContent=(+s.system.rh).toFixed(1);
     const mv=document.getElementById('measVal'); if(mv&&s.system.smu) mv.textContent=s.system.smu;
   }
+  if(s.version){   // \ud504\ub85c\uadf8\ub7a8 \ubc84\uc804 \u2014 \ud5e4\ub354 \uc6b0\uce21\uc5d0 \uc791\uac8c \ud45c\uc2dc
+    const av=document.getElementById('appVer');
+    if(av){
+      av.textContent='v'+(s.version.version||'');
+      av.title=(s.version.name||'')+' v'+(s.version.version||'')+' ('+(s.version.build||'')+')';
+    }
+  }
   if(s.settings){   // \ub85c\uae45 \uc124\uc815 \u2192 System Setup \ubaa8\ub2ec \uc785\ub825\uc5d0 \ubc18\uc601
     const st=s.settings;
     const setC=(id,v)=>{const e=document.getElementById(id); if(e) e.checked=!!v;};

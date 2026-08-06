@@ -6,6 +6,7 @@ state.py — 서버 상태(channels / system / recipe)의 단일 주인 + config
 
 import json
 
+import version
 from storage import atomic_write_json, safe_read_json, CONFIG_PATH
 
 # ===================== 기본값 =====================
@@ -380,6 +381,8 @@ class State:
     def snapshot(self, include_recipe: bool = False) -> dict:
         snap = {
             "type": "state",
+            "version": {"name": version.APP_NAME, "version": version.APP_VERSION,
+                        "build": version.BUILD_DATE},
             "channels": [dict(c) for c in self.channels],
             "system": dict(self.system),
             "settings": dict(self.settings),
