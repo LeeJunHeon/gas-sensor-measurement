@@ -71,6 +71,7 @@ async def plc_poll_loop():
 # 미연결/예외 시 캐시를 비워 재연결·복구 후 전량 재기입한다.
 async def plc_write_loop():
     last = None   # (밸브 튜플, SV 튜플, 4way) — 통째로 비교해 바뀔 때만 전송
+    prev_plc_safe = False   # PLC 안전정지의 직전 값(전이 감지용)
     while True:
         await asyncio.sleep(PLC_WRITE_INTERVAL_S)
         try:
@@ -79,6 +80,18 @@ async def plc_write_loop():
                 continue
             # 안전정지면 무조건 닫기(열림·유량 명령 금지). status는 읽기 폴링이 채운다.
             safe = (state.plc_live.get("status") or {}).get("SAFETY_STOP") is True
+            # ★ 안전정지 전이(False→True) 시점에 앱 상태(valveIn/sv)도 닫는다.
+            #   valveIn을 그대로 두면 SAFETY_RESET으로 운전을 arm하는 순간 이전에 열려 있던
+            #   밸브가 전부 자동으로 다시 열린다. PLC 래더는 수동 재투입을 의도했으므로
+            #   파이썬이 그걸 무너뜨리면 안 된다. 전이 시점 1회만 — 매 주기면 조작이 막히고 로그가 도배된다.
+            if safe and not prev_plc_safe:
+                for ch in state.channels:
+                    ch["valveIn"] = False
+                    ch["sv"] = 0.0
+                await push_log("PLC 안전정지 감지 — 모든 밸브·유량을 닫았습니다. "
+                               "복구 후 다시 열어야 합니다", "warn")
+                await push_state()
+            prev_plc_safe = safe
             valve_map, sv_map = {}, {}
             for ch in state.channels:
                 p = ch.get("plc")
