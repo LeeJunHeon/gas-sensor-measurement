@@ -111,8 +111,13 @@ async def plc_write_loop():
                 if cat.dac_reg(p.get("sv_out")) is not None:
                     sv_map[cid] = 0.0 if closed else float(ch.get("sv") or 0)
             # 4-way: 앱의 측정 방향(routeOut=='sensor')을 반영. 안전정지면 닫기(False).
-            # TODO(하드웨어 확인): V4W 코일 ON=측정(sensor) 방향으로 가정 — 폴러리티는 실기로 검증.
-            want_4w = (not safe) and (state.system.get("routeOut") == "sensor")
+            # 극성은 config(plc_hw.v4w_on_is_sensor)로 뺐다 — 실기에서 반대로 밝혀져도
+            # 코드 수정·재빌드 없이 현장에서 뒤집을 수 있다.
+            # ★ 안전정지 시에는 극성과 무관하게 코일을 끈다(무전원 = 안전 위치라는 가정).
+            #   이 가정이 실제 밸브 배관과 맞는지는 실기에서 확인이 필요하다.
+            on_is_sensor = bool(state.plc_hw.get("v4w_on_is_sensor", True))
+            to_sensor = (state.system.get("routeOut") == "sensor")
+            want_4w = (not safe) and (to_sensor if on_is_sensor else not to_sensor)
             want = (tuple(valve_map.items()), tuple(sv_map.items()), want_4w)
             if last != want:
                 # 순서 중요: SV 먼저 → 밸브 나중.

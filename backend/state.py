@@ -57,7 +57,9 @@ DEFAULT_PLC_SYSTEM = {
 
 # 하드웨어 구성(주소가 아님). plc_system은 전부 Modbus 주소이므로 성격이 다른 값은 여기 둔다.
 DEFAULT_PLC_HW = {
-    "dac_modules": 1,     # DV04A 장착 수. 증설하면 2로 올린다
+    "dac_modules": 1,           # DV04A 장착 수. 증설하면 2로 올린다
+    "v4w_on_is_sensor": True,   # 4-way 코일 ON이 측정(sensor) 방향인가.
+                                # 실기에서 반대면 false로 바꾼다(코드 수정 불필요)
 }
 
 # 스케일 키 기본값(채널 기본값에도 없을 때의 최후 방어값).
