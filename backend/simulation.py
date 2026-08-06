@@ -18,17 +18,27 @@ def sim_tick(state, dt: float) -> dict:
     elapsed = int(state._elapsed_f)
     state.system["elapsed"] = elapsed
 
+    # PLC가 연결돼 있고 그 채널에 실측 PV가 있으면 실측값이 진실이다.
+    # 시뮬레이션으로 덮으면 state.channels[i]["pv"]와 snapshot에 가짜 값이 실려 나가고,
+    # 앞으로 이 값을 읽는 코드가 전부 가짜를 쓰게 된다(화면은 프론트가 덮어써서 우연히 맞을 뿐).
+    live = state.plc_live or {}
+    live_pv = (live.get("pv") or {}) if live.get("connected") else {}
+
     pv = []
     for c in state.channels:
-        flowing = c["en"] and c.get("valveIn")
-        if flowing:
-            target = float(c.get("sv") or 0)
-            amp = 1.6 if target > 0 else 0.4
-            val = target + (random.random() - 0.5) * amp
-            if val < 0:
-                val = 0.0
+        real = live_pv.get(c["id"])
+        if real is not None:
+            val = float(real)
         else:
-            val = 0.0
+            flowing = c["en"] and c.get("valveIn")
+            if flowing:
+                target = float(c.get("sv") or 0)
+                amp = 1.6 if target > 0 else 0.4
+                val = target + (random.random() - 0.5) * amp
+                if val < 0:
+                    val = 0.0
+            else:
+                val = 0.0
         c["pv"] = val
         pv.append(round(val, 2))
 
