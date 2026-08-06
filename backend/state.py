@@ -88,10 +88,20 @@ def _norm_channel_plc(v, cid: str = ""):
 
 def validate_channel_map(channels, plc_system) -> list:
     """채널 배정(sv_out/pv_in)을 검사해 문제 목록을 돌려준다.
-    ★ 예외를 던지지 않는다 — 배정이 이상해도 프로그램은 떠야 진단이 가능하다."""
+    반환: [{"level": "warn"|"info", "msg": str}]
+      warn — 지금 당장 문제(알 수 없는 이름·종류 혼동·증설 미장착·중복·en인데 미배정·알 수 없는 id)
+      info — 지금은 무해하지만 알아둘 것(en=False인데 미배정)
+    ★ 예외를 던지지 않는다 — 배정이 이상해도 프로그램은 떠야 진단이 가능하다.
+    ★ 경고를 무작정 늘리면 사람이 읽지 않게 되므로 심각도를 나눈다."""
     import plc_catalog as cat
 
     problems = []
+
+    def warn(msg):
+        problems.append({"level": "warn", "msg": msg})
+
+    def info(msg):
+        problems.append({"level": "info", "msg": msg})
     try:
         max_mod = int((plc_system or {}).get("dac_modules", 1))
     except (TypeError, ValueError):
@@ -106,41 +116,40 @@ def validate_channel_map(channels, plc_system) -> list:
             continue
         cid = ch.get("id", "?")
         if cat.valve_coil(cid) is None:      # 6) 알 수 없는 채널 id
-            problems.append(f"{cid}: 알 수 없는 채널 id — 밸브 코일을 결정할 수 없습니다")
+            warn(f"{cid}: 알 수 없는 채널 id — 밸브 코일을 결정할 수 없습니다")
 
         sv, pv = p.get("sv_out"), p.get("pv_in")
         if sv is not None:
             if sv in cat.ADC_CHANNELS:       # 2) 종류 혼동
-                problems.append(f"{cid}: '{sv}'는 입력 채널입니다. SV에는 DAC 채널을 지정하세요")
+                warn(f"{cid}: '{sv}'는 입력 채널입니다. SV에는 DAC 채널을 지정하세요")
             elif sv not in cat.DAC_CHANNELS:  # 1) 알 수 없는 이름
-                problems.append(f"{cid}: 알 수 없는 SV 채널 '{sv}' — 사용 가능: {dac_all}")
+                warn(f"{cid}: 알 수 없는 SV 채널 '{sv}' — 사용 가능: {dac_all}")
             else:
                 if cat.DAC_CHANNELS[sv]["module"] > max_mod:   # 3) 증설 모듈 미장착
-                    problems.append(
-                        f"{cid}: '{sv}'은 증설 모듈(DV04A #2)이 필요합니다. "
-                        f"plc_system.dac_modules를 2로 올리거나 DAC1_CH0~CH3 중에서 고르세요")
+                    warn(f"{cid}: '{sv}'은 증설 모듈(DV04A #2)이 필요합니다. "
+                         f"plc_hw.dac_modules를 2로 올리거나 DAC1_CH0~CH3 중에서 고르세요")
                 sv_used.setdefault(sv, []).append(cid)
         elif ch.get("en"):                   # 5) 사용 중인데 미배정
-            problems.append(
-                f"{cid}: 사용(en) 상태인데 SV 출력이 배정되지 않았습니다. "
-                f"밸브는 열리지만 유량 지령이 나가지 않습니다")
+            warn(f"{cid}: 사용(en) 상태인데 SV 출력이 배정되지 않았습니다. "
+                 f"밸브는 열리지만 유량 지령이 나가지 않습니다")
+        else:                                # 5') 꺼져 있어 지금은 무해 — 켜기 전에 알린다
+            info(f"{cid}: SV 출력이 배정되지 않았습니다. 지금은 사용(en) 상태가 아니라 무해하지만, "
+                 f"켜기 전에 config.json의 sv_out을 배정해야 유량이 나갑니다")
 
         if pv is not None:
             if pv in cat.DAC_CHANNELS:       # 2) 종류 혼동
-                problems.append(f"{cid}: '{pv}'는 출력 채널입니다. PV에는 ADC 채널을 지정하세요")
+                warn(f"{cid}: '{pv}'는 출력 채널입니다. PV에는 ADC 채널을 지정하세요")
             elif pv not in cat.ADC_CHANNELS:  # 1) 알 수 없는 이름
-                problems.append(f"{cid}: 알 수 없는 PV 채널 '{pv}' — 사용 가능: {adc_all}")
+                warn(f"{cid}: 알 수 없는 PV 채널 '{pv}' — 사용 가능: {adc_all}")
             else:
                 pv_used.setdefault(pv, []).append(cid)
 
     for name, ids in sv_used.items():        # 4) 중복 배정
         if len(ids) > 1:
-            problems.append(
-                f"{', '.join(ids)}가 SV 채널 '{name}'을 함께 씁니다. 한쪽 유량이 무시됩니다")
+            warn(f"{', '.join(ids)}가 SV 채널 '{name}'을 함께 씁니다. 한쪽 유량이 무시됩니다")
     for name, ids in pv_used.items():
         if len(ids) > 1:
-            problems.append(
-                f"{', '.join(ids)}가 PV 채널 '{name}'을 함께 씁니다. 한쪽 측정값이 무시됩니다")
+            warn(f"{', '.join(ids)}가 PV 채널 '{name}'을 함께 씁니다. 한쪽 측정값이 무시됩니다")
     return problems
 
 

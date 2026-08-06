@@ -66,9 +66,10 @@ async def lifespan(_app: FastAPI):
             "msg": f"데이터 폴더에 쓸 수 없습니다: {DATA_ROOT} — "
                    f"설정·레시피가 저장되지 않습니다. 쓰기 가능한 경로로 옮겨서 실행하세요.",
             "level": "warn"})
-    for msg in validate_channel_map(state.channels, state.plc_system):
-        print(f"[warn] 채널 배정 — {msg}")
-        state.startup_notices.append({"msg": f"채널 배정 확인 필요 — {msg}", "level": "warn"})
+    for n in validate_channel_map(state.channels, state.plc_system):
+        lv, msg = n.get("level", "warn"), n["msg"]
+        print(f"[{lv}] 채널 배정 — {msg}")
+        state.startup_notices.append({"msg": f"채널 배정 확인 필요 — {msg}", "level": lv})
     await plc.plc.start()   # port 비어있으면 no-op(설정 전 무해)
     tasks = loops.start_all()
 
