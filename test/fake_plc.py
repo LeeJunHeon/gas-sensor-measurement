@@ -9,9 +9,9 @@ HMI가 Modbus '마스터'이므로, 붙을 '슬레이브'를 이 스크립트가
 
 설치:
     pip install "pymodbus==3.6.9"
-실행(기본 127.0.0.1:502 에서 대기):
-    python fake_plc.py
-    (포트를 바꾸려면)  python fake_plc.py --port 5020
+실행(저장소 루트에서. 기본 127.0.0.1:502 에서 대기):
+    python test/fake_plc.py
+    (포트를 바꾸려면)  python test/fake_plc.py --port 5020
 그리고 HMI는 TCP 모드로 host 127.0.0.1, port 502(또는 지정한 값), 국번 1로 연결.
 
 콘솔 명령(실행 중 입력):

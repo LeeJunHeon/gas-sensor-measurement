@@ -4,13 +4,22 @@ Gas Sensor Measurement System을 PyInstaller로 묶어 고객사에 납품하는
 
 ## 1. 빌드
 
+**깨끗한 가상환경에서 빌드할 것** (번들 크기·의존성 오염 방지).
+개발 PC에 설치된 무관한 패키지(matplotlib, Jupyter 등)가 번들에 딸려 들어가면
+결과물이 수십 MB 커진다.
+
 ```
-pip install -r requirements.txt
-pip install pyinstaller
+python -m venv .venv-build
+.venv-build\Scripts\activate
+pip install -r requirements.txt pyinstaller
 pyinstaller build.spec --clean --noconfirm
 ```
 
 `dist/GasSensor/` 아래에 결과물이 생성된다.
+
+> `build.spec` 의 `excludes` 목록(PyQt5/PyQt6, matplotlib, tkinter 등)은 개발 PC에서
+> 그대로 빌드할 때를 위한 안전장치다. 위처럼 깨끗한 venv에서 빌드하면 애초에
+> 설치돼 있지 않으므로 대부분 불필요해진다. 그래도 남겨 둔다(해가 없다).
 
 ## 2. 결과물 구조
 
