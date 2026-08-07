@@ -23,23 +23,24 @@ from storage import atomic_write_json, safe_read_json, CONFIG_PATH
 #   sv_out = DAC 채널 이름(DAC1_CH0 …) 또는 None(미배정)
 #   pv_in  = ADC 채널 이름(ADC_CH0 …) 또는 None(미배정)
 # 밸브 지령 코일은 채널 id로 카탈로그가 결정하므로 여기에 없다.
+# ★ 실배선 확정(P40~43=VA1·3·5·6, DAC CH0~3, ADC CH0·2·4·5).
+#   VA2·4·7·8은 미배선 — 배선 후 여기와 config를 함께 갱신.
 DEFAULT_CHANNEL_PLC = {
     "VA1": {"sv_out": "DAC1_CH0", "pv_in": "ADC_CH0",
             "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA2": {"sv_out": "DAC1_CH1", "pv_in": "ADC_CH1",
+    "VA2": {"sv_out": None, "pv_in": None,
             "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA3": {"sv_out": "DAC1_CH2", "pv_in": "ADC_CH2",
+    "VA3": {"sv_out": "DAC1_CH1", "pv_in": "ADC_CH2",
             "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA4": {"sv_out": "DAC1_CH3", "pv_in": "ADC_CH3",
+    "VA4": {"sv_out": None, "pv_in": None,
             "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    # ★ VA5~VA8은 DV04A #2(증설)가 없어 SV가 실제로 나갈 곳이 없다. 배선 확인 후 배정한다.
-    "VA5": {"sv_out": None, "pv_in": "ADC_CH4",
+    "VA5": {"sv_out": "DAC1_CH2", "pv_in": "ADC_CH4",
             "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA6": {"sv_out": None, "pv_in": "ADC_CH5",
+    "VA6": {"sv_out": "DAC1_CH3", "pv_in": "ADC_CH5",
             "fs_sccm": 200,  "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA7": {"sv_out": None, "pv_in": "ADC_CH6",
+    "VA7": {"sv_out": None, "pv_in": None,
             "fs_sccm": 200,  "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
-    "VA8": {"sv_out": None, "pv_in": "ADC_CH7",
+    "VA8": {"sv_out": None, "pv_in": None,
             "fs_sccm": 100,  "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
 }
 

@@ -24,8 +24,8 @@
       "max": 2000,
       "sv": 0.0,
       "plc": {
-        "sv_out": "DAC1_CH1",
-        "pv_in": "ADC_CH1",
+        "sv_out": null,
+        "pv_in": null,
         "fs_sccm": 2000,
         "sv_full": 2000,
         "pv_zero": 0,
@@ -40,7 +40,7 @@
       "max": 2000,
       "sv": 0.0,
       "plc": {
-        "sv_out": "DAC1_CH2",
+        "sv_out": "DAC1_CH1",
         "pv_in": "ADC_CH2",
         "fs_sccm": 2000,
         "sv_full": 2000,
@@ -56,8 +56,8 @@
       "max": 2000,
       "sv": 0.0,
       "plc": {
-        "sv_out": "DAC1_CH3",
-        "pv_in": "ADC_CH3",
+        "sv_out": null,
+        "pv_in": null,
         "fs_sccm": 2000,
         "sv_full": 2000,
         "pv_zero": 0,
@@ -72,7 +72,7 @@
       "max": 2000,
       "sv": 0.0,
       "plc": {
-        "sv_out": null,
+        "sv_out": "DAC1_CH2",
         "pv_in": "ADC_CH4",
         "fs_sccm": 2000,
         "sv_full": 2000,
@@ -88,7 +88,7 @@
       "max": 200,
       "sv": 0.0,
       "plc": {
-        "sv_out": null,
+        "sv_out": "DAC1_CH3",
         "pv_in": "ADC_CH5",
         "fs_sccm": 200,
         "sv_full": 2000,
@@ -105,7 +105,7 @@
       "sv": 0.0,
       "plc": {
         "sv_out": null,
-        "pv_in": "ADC_CH6",
+        "pv_in": null,
         "fs_sccm": 200,
         "sv_full": 2000,
         "pv_zero": 0,
@@ -121,7 +121,7 @@
       "sv": 0.0,
       "plc": {
         "sv_out": null,
-        "pv_in": "ADC_CH7",
+        "pv_in": null,
         "fs_sccm": 100,
         "sv_full": 2000,
         "pv_zero": 0,
