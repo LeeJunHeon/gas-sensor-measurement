@@ -234,7 +234,7 @@ DEFAULT_PLC = {
 def default_recipe() -> dict:
     return {
         "name": "",
-        "useHumidity": True,
+        "useHumidity": False,
         "loopCount": 1,
         "procs": [],
         "params": dict(DEFAULT_PARAMS),
@@ -279,7 +279,7 @@ def normalize_recipe(r: dict) -> dict:
         bottle.append(0)
     return {
         "name": str(r.get("name") or ""),
-        "useHumidity": bool(r.get("useHumidity", True)),
+        "useHumidity": bool(r.get("useHumidity", False)),
         "loopCount": int(to_num(r.get("loopCount"), 1)) or 1,
         "bottle": bottle,
         "procs": procs,
