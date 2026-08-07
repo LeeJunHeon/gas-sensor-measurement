@@ -35,7 +35,8 @@ gas-sensor-measurement/
 │   └── version.py                #   프로그램 버전(배포 시 갱신)
 └── test/                         # PLC 없이 검증하는 도구
     ├── fake_plc.py               #   가짜 PLC(Modbus TCP 슬레이브 + 안전 로직 에뮬레이터)
-    └── test_plc.py               #   PLC 하드웨어 테스트(터미널 메뉴, 코일/ADC/DAC 점검)
+    ├── test_plc.py               #   PLC 하드웨어 테스트(터미널 메뉴, 코일/ADC/DAC 점검)
+    └── e2e_smoke.py              #   실통신 자동 스모크(연결·잠금·리셋·PV추종 판정)
 ```
 
 ## 문서 지도
@@ -113,6 +114,7 @@ GasSensor/
   만들지 않는다(운전자가 "유량이 흐른다"고 오인하지 않도록).
 - PLC 미연결 상태에서는 AUTO RUN·PURGE가 거부된다(물리적으로 아무 일도 일어나지 않으므로).
 - PLC 없이 동작을 시험하려면 `test/fake_plc.py`(가짜 PLC 슬레이브)를 띄우고 TCP로 붙인다.
+- 자동 스모크: fake_plc + 서버 기동 후 `python test/e2e_smoke.py` — 30초 내 핵심 안전 사슬 판정.
 - 서버 연결이 끊기면 헤더에 "서버 연결 끊김"을 크게 표시하고 모든 측정값이 `—`가 된다
   (2초마다 자동 재연결 시도). 조작을 시도하면 오프라인 경고만 나온다.
 - DV04A가 1대뿐이라 SV 출력은 4채널이다. 실배선 확정으로 **VA1·VA3·VA5·VA6**이 이를 쓰고
