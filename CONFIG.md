@@ -80,6 +80,9 @@ C:\VANAM\GasSensor\
 
 4-way는 P48로 가정한다(배선 미검증).
 
+화면의 밸브 열(P 출력 표시)은 `plc_catalog.VALVE_OUTPUTS` 를 따른다 —
+래더 VALVE 블록을 바꾸면 이 표도 함께 갱신할 것.
+
 **VA2·VA4·VA7·VA8은 미배선** — 배선 시 `config.json` 과 `backend/state.py` 의
 `DEFAULT_CHANNEL_PLC` 기본값을 **함께** 갱신할 것.
 **습도 기능(VA2·VA4)은 배선 전까지 사용 불가** — 레시피의 `rh` 는 0으로 둔다.

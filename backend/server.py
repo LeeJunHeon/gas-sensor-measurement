@@ -117,6 +117,7 @@ async def plc_catalog_route():
     함께 보여주기 위해 쓴다. 값이 변하지 않으므로 state 스냅샷에 매번 싣지 않고 여기서 준다."""
     return JSONResponse({
         "valve": plc_catalog.VALVE_COILS,
+        "valve_out": plc_catalog.VALVE_OUTPUTS,
         "dac": plc_catalog.DAC_CHANNELS,
         "adc": plc_catalog.ADC_CHANNELS,
         "dac_modules": state.plc_hw.get("dac_modules", 1),

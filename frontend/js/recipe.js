@@ -86,12 +86,18 @@ function buildMapRows(){
   channels.forEach((c,i)=>{
     const p=c.plc; if(!p) return;
     const coil=(cat.valve||{})[c.id];
+    // 밸브 열은 편집 대상이 아니다 — 래더의 이름표를 그대로 보여줘 XG5000 없이도 배선을 읽게 한다.
+    const pout=(cat.valve_out||{})[c.id];
+    const mAddr=(coil!=null)?('M00'+(100+(coil-160))):null;   // 160→M00100 … 167→M00107
+    const valveCell=(coil==null)?'—'
+      : pout ? `${c.id}_CMD (${mAddr}) → ${pout}`
+             : `${c.id}_CMD (${mAddr}) — <span class="dim">미배선</span>`;
     const noSv=!p.sv_out;
     const tr=document.createElement('tr');
     tr.className=noSv?'dis':'';
     tr.innerHTML=`
       <td class="chid">${c.id}</td>
-      <td>${coil!=null?('코일 '+coil+' (M00'+(100+(coil-160))+')'):'—'}</td>
+      <td class="mono">${valveCell}</td>
       <td><select data-svout="${i}">${opts(cat.dac,p.sv_out,mods)}</select></td>
       <td><select data-pvin="${i}">${opts(cat.adc,p.pv_in,0)}</select></td>
       <td data-mapst="${c.id}">${mapStatusHtml(c)}</td>`;

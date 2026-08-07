@@ -67,3 +67,14 @@ def describe_adc(name) -> str:
     """'ADC_CH4 (D204)' 형태의 표시 문자열. 모르는 이름이면 그대로 돌려준다."""
     m = ADC_CHANNELS.get(name)
     return f"{name} (D{m['reg']})" if m else str(name)
+
+
+# ── 표시 전용: 래더 VALVE 블록의 물리 출력 대응 ─────────────────────────────
+# ★ 통신 계약이 아니다(코일 번호는 위 VALVE_COILS 가 계약). 화면 안내용이며,
+#   PLC 래더 VALVE 블록을 수정하면 이 표도 반드시 함께 갱신한다.
+#   2026-08-07 확정 배선: P40~P43 = VA1·VA3·VA5·VA6, 4-way = P48(배선 미검증).
+VALVE_OUTPUTS = {
+    "VA1": "P40", "VA2": None, "VA3": "P41", "VA4": None,
+    "VA5": "P42", "VA6": "P43", "VA7": None, "VA8": None,
+    "V4W": "P48",
+}
