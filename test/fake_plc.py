@@ -53,6 +53,15 @@ PV_REGS     = [200, 201, 202, 203, 204, 205, 206, 207]  # 실측유량 (읽기: 
 
 NCH = len(CH_NAMES)
 
+# 실배선 라우팅: (이름, CMD코일, SV레지스터, PV레지스터)
+# 물리: DAC CHn 전선 → 해당 MFC → 유량 → ADC CHm. 미배선 채널은 PV 응답 없음.
+WIRED = [
+    ("VA1", 160, 100, 200),
+    ("VA3", 162, 101, 202),
+    ("VA5", 164, 102, 204),
+    ("VA6", 165, 103, 205),
+]
+
 PRESS_TIMEOUT = 10.0   # 공압 상실 10초 → 트립 (PLC PRESS_TMR)
 COMM_TIMEOUT  = 3.0    # 하트비트 두절 3초 → 트립 (PLC COMM_TMR)
 
@@ -88,7 +97,7 @@ class PlcSim:
         self.last_hb_time = time.time()
         self.air_lost_since = None
         self.prev_reset = 0
-        self.pv = [0.0] * NCH
+        self.pv = [0.0] * len(WIRED)   # 배선된 채널만 유량이 생긴다(WIRED와 같은 순서)
 
     def _co(self, addr):
         return self.store.getValues(1, addr, 1)[0]
@@ -138,13 +147,15 @@ class PlcSim:
         self._set_co(ALM_IDD, self.idd_alarm)
         self._set_co(ALM_DAC, self.dac_alarm)
 
-        for i in range(NCH):
-            valve_open = self._co(CMD_COILS[i]) == 1
-            sv_raw = self._hr(SV_REGS[i]) if (self.run_permit and valve_open) else 0
+        # ★ 채널 인덱스가 아니라 실배선 라우팅을 따른다 — SV와 PV가 서로 다른 채널 번호일 수 있다
+        #   (예: VA3는 SV=D101(DAC CH1) → PV=D202(ADC CH2)). 미배선 PV 레지스터는 0으로 남는다.
+        for i, (_name, coil, sv_reg, pv_reg) in enumerate(WIRED):
+            valve_open = self._co(coil) == 1
+            sv_raw = self._hr(sv_reg) if (self.run_permit and valve_open) else 0
             # ★ SV 풀스케일 2000 → PV 풀스케일 4000. 2배로 환산해 수렴시킨다.
             target = min(PV_FULL_COUNT, sv_raw * (PV_FULL_COUNT // SV_FULL_COUNT))
             self.pv[i] += (target - self.pv[i]) * min(1.0, dt * 3.0)
-            self._set_hr(PV_REGS[i], round(self.pv[i]))
+            self._set_hr(pv_reg, round(self.pv[i]))
 
     def status_line(self):
         comm = (time.time() - self.last_hb_time) < COMM_TIMEOUT
@@ -157,8 +168,9 @@ class PlcSim:
             f"단선={'O' if self.idd_alarm else 'x'} "
             f"DAC={'O' if self.dac_alarm else 'x'} | "
             f"밸브(VA1~8/4W)={valves} "
-            f"SV={[self._hr(a) for a in SV_REGS]} "
-            f"PV={[self._hr(a) for a in PV_REGS]}"
+            # 배선된 채널만 SV/PV를 보여준다(미배선 레지스터는 항상 0이라 노이즈).
+            + " ".join(f"{n}:SV={self._hr(sv)}/PV={self._hr(pv)}"
+                       for n, _c, sv, pv in WIRED)
         )
 
 
