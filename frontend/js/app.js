@@ -116,6 +116,12 @@
       window.appAlert((probs.length ? probs.join('\n') : (msg.reason || '알 수 없는 오류')), 'AUTO RUN 시작 불가');
       return;
     }
+    if (msg.of === 'apply_setup') {
+      if (msg.ok) return;                     // 성공 로그는 서버가 push
+      (msg.problems || []).forEach(p => window.logMsg(p, 'err'));
+      window.logMsg('설정이 적용되지 않았습니다 — 로그를 확인하세요', 'err');
+      return;
+    }
     if (msg.of !== 'recipe_save') return;
     if (msg.ok) return;                       // 성공 로그는 서버가 push
     if (msg.reason === 'exists') {

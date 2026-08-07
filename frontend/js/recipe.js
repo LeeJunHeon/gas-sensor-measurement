@@ -25,7 +25,8 @@ function buildSetupRows(){
     e.target.closest('tr').classList.toggle('dis',!e.target.checked);
   }));
 }
-/* 하드웨어 배정 표(읽기 전용). 배정은 config.json에서만 바꾼다 — 여기선 확인용으로만 보여준다.
+/* 하드웨어 배정 표(편집 가능). 드롭다운이라 오타가 불가능하고, 중복·미장착 배정은
+   적용 시 서버가 통째로 거부한다. 밸브 코일은 카탈로그가 채널 id로 결정 — 편집 대상 아님.
    레지스터 번호를 함께 표시하려면 카탈로그가 필요해 서버에서 한 번 받아 캐시한다. */
 let _plcCatalog=null;
 function loadPlcCatalog(){
@@ -47,13 +48,19 @@ function showMapRowsError(){
 function buildMapRows(){
   const tb=document.getElementById('setupMapRows'); if(!tb) return;
   const cat=_plcCatalog||{valve:{},dac:{},adc:{}};
-  const desc=(map,name)=>{
-    if(!name) return '— 미배정 —';
-    const m=(map||{})[name];
-    return m ? `${name} (D${m.reg})` : `${name} (알 수 없음)`;
+  // 드롭다운 옵션: 미배정 + 카탈로그 이름(라벨에 레지스터 번호 병기).
+  const opts=(map,cur,limit)=>{
+    let h=`<option value=""${cur?'':' selected'}>— 미배정 —</option>`;
+    Object.keys(map||{}).forEach(name=>{
+      const m=map[name];
+      if(limit && m.module && m.module>limit) return;   // 미장착 모듈 채널은 목록에서 제외
+      h+=`<option value="${name}"${cur===name?' selected':''}>${name} (D${m.reg})</option>`;
+    });
+    return h;
   };
+  const mods=cat.dac_modules||1;
   tb.innerHTML='';
-  channels.forEach(c=>{
+  channels.forEach((c,i)=>{
     const p=c.plc; if(!p) return;
     const coil=(cat.valve||{})[c.id];
     const noSv=!p.sv_out;
@@ -62,8 +69,8 @@ function buildMapRows(){
     tr.innerHTML=`
       <td class="chid">${c.id}</td>
       <td>${coil!=null?('코일 '+coil):'—'}</td>
-      <td>${desc(cat.dac,p.sv_out)}</td>
-      <td>${desc(cat.adc,p.pv_in)}</td>
+      <td><select data-svout="${i}">${opts(cat.dac,p.sv_out,mods)}</select></td>
+      <td><select data-pvin="${i}">${opts(cat.adc,p.pv_in,0)}</select></td>
       <td>${noSv?'⚠ SV 출력 없음':'정상'}</td>`;
     tb.appendChild(tr);
   });
@@ -87,7 +94,7 @@ function buildScaleRows(){
 }
 function openSetup(){
   buildSetupRows();
-  // 카탈로그 도착 후 배정 표 렌더(읽기 전용). 실패는 표에 명시한다(조용히 넘기지 않는다).
+  // 카탈로그 도착 후 배정 표 렌더(드롭다운). 실패는 표에 명시한다(조용히 넘기지 않는다).
   loadPlcCatalog().then(buildMapRows).catch(e=>{
     console.error('[plc_catalog] 조회 실패 — 배정 표를 표시할 수 없습니다', e);
     showMapRowsError();
@@ -159,8 +166,13 @@ function collectSetup(){
     else {grp='air';route='pure';}
     const row={ch:i, en:enEl.checked, grp, route,
       max:parseFloat(mxEl.value)||0, sv:parseFloat(svEl.value)||0};
-    // 스케일은 plc 매핑이 있는 채널만(주소는 서버가 고정 — 여기선 스케일만 보낸다)
+    // 스케일·배정은 plc 매핑이 있는 채널만. 밸브 코일은 서버(카탈로그)가 결정하므로 안 보낸다.
     if(c.plc){
+      row.id=c.id;
+      const svEl2=document.querySelector(`[data-svout="${i}"]`);
+      const pvEl2=document.querySelector(`[data-pvin="${i}"]`);
+      if(svEl2) row.sv_out=svEl2.value;
+      if(pvEl2) row.pv_in=pvEl2.value;
       row.scale={
         fs_sccm: parseFloat(document.querySelector(`[data-sfs="${i}"]`)?.value) || 0,
         sv_full: parseInt(document.querySelector(`[data-svfull="${i}"]`)?.value) || 0,
