@@ -16,6 +16,7 @@ import socket
 import threading
 import contextlib
 
+import logger
 from paths import DATA_ROOT, check_writable
 
 WINDOW = None         # main()에서 생성한 pywebview 창 객체를 보관
@@ -127,7 +128,10 @@ def run(app, host: str, port: int):
                 "다른 프로그램을 종료한 뒤 다시 실행하세요.")
         return
     if free != port:
+        # 콘솔 없는 exe에서는 print가 증발한다 → 파일 로그에도 남긴다.
+        # (아직 logger.configure 전이라 early 버퍼로. lifespan에서 flush된다)
         print(f"[info] 포트 {port} 사용 중 → {free} 사용")
+        logger.early("info", f"포트 {port} 사용 중 → {free} 사용")
     port = free
 
     def run_server():
@@ -141,6 +145,8 @@ def run(app, host: str, port: int):
     except Exception as e:  # noqa: BLE001
         print(f"[info] pywebview를 불러올 수 없습니다 ({e}).")
         print(f"[info] 브라우저에서 http://{host}:{port} 를 열어 사용하세요. (Ctrl+C 종료)")
+        logger.early("warn", f"pywebview를 불러올 수 없습니다 ({e}) — "
+                             f"브라우저에서 http://{host}:{port} 로 접속하세요")
         _msgbox("Gas Sensor Measurement System",
                 "화면을 표시할 수 없습니다.\n"
                 "Microsoft Edge WebView2 런타임이 설치되어 있지 않을 수 있습니다.\n"
