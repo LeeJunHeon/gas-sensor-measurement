@@ -29,6 +29,7 @@ import loops
 import window
 import plc_catalog
 import version
+import paths
 from paths import FRONTEND_DIR, INDEX_PATH, DATA_ROOT, check_writable
 from state import state, validate_channel_map
 from connection import manager
@@ -51,36 +52,40 @@ commands.set_shutdown_handler(window.request_shutdown)
 async def lifespan(_app: FastAPI):
     # startup: 파일 로거 구성(config의 settings 기준) + PLC 통신 설정 반영(포트가 있으면 연결 유지 루프 시작)
     #          + 백그라운드 주기 태스크 시작
-    logger.configure(state.settings)
-    # 버전은 진단이 아니라 정보 — 콘솔과 파일 로그 맨 앞에 남긴다(로그만 받아도 버전을 알 수 있게).
-    _ver = f"{version.APP_NAME} v{version.APP_VERSION} ({version.BUILD_DATE})"
-    print(f"[info] {_ver}")
-    logger.write("info", _ver)
+    logger.configure(state.settings)   # 여기서 early 버퍼(import 단계 진단)가 파일로 flush된다
+    # 버전은 진단이 아니라 정보 — 파일 로그 맨 앞에 남긴다(로그만 받아도 버전을 알 수 있게).
+    logger.write("info", f"{version.APP_NAME} v{version.APP_VERSION} ({version.BUILD_DATE})")
     plc.configure(state.plc)
     plc.load_addresses(state.channels, state.plc_system)   # config 주도 주소맵 로드
-    # 채널 배정 검사: 문제가 있어도 중단하지 않는다(진단 우선).
+
+    # 기동 진단: 문제가 있어도 중단하지 않는다(진단 우선).
     # ★ 여기서 push_log를 부르면 안 된다 — 기동 시점엔 접속한 클라이언트가 0개라 사라진다.
     #   state.startup_notices에 쌓아 두면 접속 시 connection.py가 전달한다.
+    #   단 connection은 _send를 직접 쓰므로 logger.write가 불리지 않는다 →
+    #   파일에도 남도록 여기서 함께 기록한다(기동 시점 1회).
     state.startup_notices.clear()
+
+    def notice(msg: str, level: str = "warn"):
+        logger.write(level, msg)
+        state.startup_notices.append({"msg": msg, "level": level})
+
+    # import 단계에서 모아둔 진단(설정 파일 손상, 정적 폴더 누락 등)을 화면에도 전달.
+    for lv, msg in logger.drain_early():
+        state.startup_notices.append({"msg": msg, "level": lv})
+    if paths.DATA_DIR_ERROR:
+        notice(paths.DATA_DIR_ERROR, "warn")
     # 쓰기 권한 확인: Program Files 등에 설치하면 저장이 조용히 실패해
     # "설정을 바꿔도 재시작하면 초기값" 증상이 난다(exe 경로 문제와 증상이 같다).
     ok_w, why = check_writable()
     if not ok_w:
-        print(f"[warn] 데이터 폴더 쓰기 불가: {DATA_ROOT} ({why})")
-        state.startup_notices.append({
-            "msg": f"데이터 폴더에 쓸 수 없습니다: {DATA_ROOT} — "
-                   f"설정·레시피가 저장되지 않습니다. 쓰기 가능한 경로로 옮겨서 실행하세요.",
-            "level": "warn"})
+        notice(f"데이터 폴더에 쓸 수 없습니다: {DATA_ROOT} ({why}) — "
+               f"설정·레시피가 저장되지 않습니다. 쓰기 가능한 경로로 옮겨서 실행하세요.", "warn")
     for n in validate_channel_map(state.channels, state.plc_hw):
-        lv, msg = n.get("level", "warn"), n["msg"]
-        print(f"[{lv}] 채널 배정 — {msg}")
-        state.startup_notices.append({"msg": f"채널 배정 확인 필요 — {msg}", "level": lv})
+        notice(f"채널 배정 확인 필요 — {n['msg']}", n.get("level", "warn"))
     # 연결 대상이 설정돼 있지 않으면 기동 시점에 알린다.
     # exe를 처음 켠 사용자가 무엇을 해야 하는지 바로 알 수 있게 한다.
     if not plc.plc._conn_enabled():
-        msg = plc.plc.diagnose_connection()
-        print(f"[warn] PLC 연결 안 함 — {msg}")
-        state.startup_notices.append({"msg": f"PLC {msg}", "level": "warn"})
+        notice(f"PLC {plc.plc.diagnose_connection()}", "warn")
     await plc.plc.start()   # port 비어있으면 no-op(설정 전 무해)
     tasks = loops.start_all()
 
@@ -143,11 +148,16 @@ _js = os.path.join(FRONTEND_DIR, "js")
 if os.path.isdir(_css):
     app.mount("/css", StaticFiles(directory=_css), name="css")
 else:
-    print(f"[error] 정적 폴더 없음: {_css} — 빌드 시 frontend가 누락됐을 수 있습니다")
+    # ★ 화면이 아예 안 뜨는 치명적 상황이라 print도 남긴다(UI 로그를 볼 수 없을 수 있다).
+    _miss = f"정적 폴더 없음: {_css} — 빌드 시 frontend가 누락됐을 수 있습니다"
+    print(f"[error] {_miss}")
+    logger.early("err", _miss)
 if os.path.isdir(_js):
     app.mount("/js", StaticFiles(directory=_js), name="js")
 else:
-    print(f"[error] 정적 폴더 없음: {_js} — 빌드 시 frontend가 누락됐을 수 있습니다")
+    _miss = f"정적 폴더 없음: {_js} — 빌드 시 frontend가 누락됐을 수 있습니다"
+    print(f"[error] {_miss}")
+    logger.early("err", _miss)
 
 
 # ===================== 실행 (서버 스레드 + 창) =====================

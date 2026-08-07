@@ -13,6 +13,7 @@ import os
 import json
 from typing import Any
 
+import logger
 from paths import CONFIG_PATH, RECIPES_DIR, ensure_data_dirs  # noqa: F401 — 재노출
 
 # 쓰기 폴더 준비. 권한이 없어도 여기서 죽지 않는다(파일 저장 시점에 개별 실패로 처리).
@@ -35,7 +36,8 @@ def safe_read_json(path: str):
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:  # noqa: BLE001
-        print(f"[warn] JSON 읽기 실패: {path} ({e})")
+        # import 단계(config 로드)에도 불릴 수 있어 early 버퍼로 보낸다(로거 설정 후 flush).
+        logger.early("warn", f"JSON 읽기 실패: {path} ({e})")
         return None
 
 

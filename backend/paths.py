@@ -38,14 +38,21 @@ def data_path(*parts: str) -> str:
     return os.path.join(DATA_ROOT, *parts)
 
 
+# 폴더 생성 실패 사유. ★ logger를 import하면 순환(logger→paths)이라 여기 보관만 하고,
+#   server.py가 기동 시 읽어 로그로 남긴다.
+DATA_DIR_ERROR = ""
+
+
 def ensure_data_dirs() -> bool:
     """쓰기 폴더를 만든다. 권한이 없으면(예: Program Files 설치) False를 돌려준다.
     ★ import 시점에 예외로 죽으면 프로그램이 아예 안 뜨므로 절대 raise하지 않는다."""
+    global DATA_DIR_ERROR
     try:
         os.makedirs(RECIPES_DIR, exist_ok=True)
+        DATA_DIR_ERROR = ""
         return True
     except Exception as e:  # noqa: BLE001
-        print(f"[warn] 데이터 폴더 생성 실패: {RECIPES_DIR} ({e})")
+        DATA_DIR_ERROR = f"데이터 폴더 생성 실패: {RECIPES_DIR} ({e})"
         return False
 
 

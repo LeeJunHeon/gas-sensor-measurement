@@ -15,6 +15,34 @@ _LEVELS = {"info": 0, "ok": 0, "warn": 1, "err": 2}   # ok/info 동급, 그 이�
 _cfg = {"enabled": True, "dir": "logs", "level": "info", "keep": 30}
 _abs_dir = None
 
+# 로거 설정 전(import 단계)에 발생한 진단. 파일에 쓸 수 없으니 모아뒀다가 configure에서 flush한다.
+# ★ state를 import하지 않는다(순환) — 화면 알림은 서버가 drain_early()로 꺼내 간다.
+_early = []            # [(level, message)]
+_early_flushed = False
+
+
+def early(level: str, message: str):
+    """로거 설정 전 단계의 진단. 콘솔에 찍지 않고 모아뒀다가 configure()에서 flush한다."""
+    _early.append((level, message))
+
+
+def _flush_early():
+    """모아둔 초기 진단을 파일에 기록한다(한 번만)."""
+    global _early_flushed
+    if _early_flushed:
+        return
+    _early_flushed = True
+    for lv, msg in _early:
+        write(lv, msg)
+
+
+def drain_early() -> list:
+    """초기 진단을 [(level, message)]로 돌려주고 버퍼를 비운다(화면 알림용).
+    파일 기록은 configure()에서 이미 끝났다."""
+    out = list(_early)
+    _early.clear()
+    return out
+
 
 def _resolve_dir(d: str) -> str:
     if not d:
@@ -38,7 +66,9 @@ def configure(settings: dict):
             os.makedirs(_abs_dir, exist_ok=True)
             _cleanup_old()
         except Exception as e:  # noqa: BLE001
+            # ★ 로그 시스템 자체의 실패라 로그로 알릴 수 없다 → print 유지(무한 재귀 방지).
             print(f"[warn] 로그 폴더 준비 실패: {e}")
+    _flush_early()   # 설정이 끝났으니 그동안 모아둔 초기 진단을 파일에 남긴다
 
 
 def _cleanup_old():

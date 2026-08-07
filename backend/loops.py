@@ -12,6 +12,7 @@ server.py의 lifespan에서 start_all()/stop_all()로만 쓴다.
 import asyncio
 import contextlib
 
+import logger
 import plc
 import plc_catalog as cat
 from state import state
@@ -26,13 +27,23 @@ PLC_WRITE_INTERVAL_S = 0.25  # PLC 쓰기(밸브/SV 반영) 동기화 주기(초
 
 async def telemetry_loop():
     dt = 1.0 / TELEMETRY_HZ
+    # 같은 실패가 초당 TELEMETRY_HZ회 반복될 수 있다 → 첫 1회만 남기고 이후는 개수만 센다.
+    last_err, err_count = "", 0
     while True:
         await asyncio.sleep(dt)
         try:
             t = sim_tick(state, dt)
             await manager.broadcast(t)
+            if err_count:
+                logger.write("info", f"telemetry tick 복구 (억제된 반복 {err_count}회)")
+                last_err, err_count = "", 0
         except Exception as e:  # noqa: BLE001
-            print(f"[warn] telemetry tick 실패: {e}")
+            msg = f"telemetry tick 실패: {e}"
+            if msg != last_err:
+                logger.write("warn", msg)
+                last_err, err_count = msg, 0
+            else:
+                err_count += 1
 
 
 # PLC 읽기 폴링: 연결돼 있으면 주기적으로 PV/상태를 읽어 state.plc_live 갱신 후 브로드캐스트.

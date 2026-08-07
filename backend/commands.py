@@ -281,7 +281,7 @@ async def handle_command(data: dict):
             if _shutdown_handler is not None:
                 _shutdown_handler()
     except Exception as e:  # noqa: BLE001
-        print(f"[warn] 명령 처리 실패: {data.get('cmd')} ({e})")
+        logger.write("err", f"명령 처리 실패: {data.get('cmd')} ({e})")
         try:
             await push_log(f"명령 처리 오류 — {data.get('cmd')}", "err")
         except Exception:  # noqa: BLE001

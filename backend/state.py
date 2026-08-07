@@ -6,6 +6,7 @@ state.py — 서버 상태(channels / system / recipe)의 단일 주인 + config
 
 import json
 
+import logger
 import version
 from storage import atomic_write_json, safe_read_json, CONFIG_PATH
 
@@ -321,7 +322,7 @@ class State:
     def load_config(self):
         data = safe_read_json(CONFIG_PATH)
         if not data:
-            print("[info] config.json 없음 — 기본값으로 생성")
+            logger.early("info", "config.json 없음 — 기본값으로 생성")
             self.save_config()
             return
         chans = data.get("channels")
@@ -373,7 +374,8 @@ class State:
         try:
             atomic_write_json(CONFIG_PATH, payload)
         except Exception as e:  # noqa: BLE001
-            print(f"[warn] config 저장 실패: {e}")
+            # 여기는 동기 컨텍스트라 push_log(async)를 쓸 수 없다 → 파일 로그로 남긴다.
+            logger.write("warn", f"config 저장 실패: {e}")
 
     # ---- 외부로 내보낼 상태 스냅샷 ----
     # 레시피는 "권위 있는 변경"(연결 직후/New/Open/Save) 때만 포함한다.
