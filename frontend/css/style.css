@@ -114,9 +114,11 @@
   .loghead-actions{display:flex;align-items:center;gap:8px}
   .lh-clear{font-size:10px;font-weight:600;color:#56627a;background:#e3e8ef;border:1px solid var(--line2);border-radius:5px;padding:5px 12px;cursor:pointer}
   .lh-clear:hover{background:#d4dbe5;color:#2a3645}
-  .logbody{height:460px;max-height:62vh;overflow-y:auto;padding:8px 12px;font-family:var(--font-mono);font-size:11.5px;line-height:1.7;background:#fbfcfe}
+  /* 로그 본문은 대부분 한글 문장이라 고정폭에서 어차피 폴백된다 —
+     정렬 이득 없이 글꼴만 튀므로 본문은 본문 글꼴, 시각만 고정폭으로 둔다. */
+  .logbody{height:460px;max-height:62vh;overflow-y:auto;padding:8px 12px;font-family:var(--font-sans);font-size:12px;line-height:1.7;background:#fbfcfe}
   .logbody .le{display:flex;gap:9px;white-space:nowrap;border-bottom:1px solid #eef1f5;padding:1px 0}
-  .logbody .lt{color:#94a0b0;flex:0 0 auto}
+  .logbody .lt{color:#94a0b0;flex:0 0 auto;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
   .logbody .lv{flex:1;white-space:normal;word-break:break-word}
   .logbody .le.info .lv{color:#3a4861}
   .logbody .le.ok .lv{color:#1b8a44}
