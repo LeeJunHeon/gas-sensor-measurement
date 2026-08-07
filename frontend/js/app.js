@@ -117,6 +117,7 @@
       return;
     }
     if (msg.of === 'apply_setup') {
+      if (window.onSetupAck) window.onSetupAck(msg);   // 모달 유지/닫기·사유 표시는 recipe.js가 담당
       if (msg.ok) return;                     // 성공 로그는 서버가 push
       (msg.problems || []).forEach(p => window.logMsg(p, 'err'));
       window.logMsg('설정이 적용되지 않았습니다 — 로그를 확인하세요', 'err');

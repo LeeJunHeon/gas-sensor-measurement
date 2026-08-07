@@ -104,6 +104,49 @@ function buildMapRows(){
     tb.appendChild(tr);
   });
 }
+// 배정 배너 표시/숨김 — 거부 사유와 사전 중복 경고를 모달 안에서 보여준다.
+function showMapErr(text){
+  const el=document.getElementById('mapErr'); if(!el) return;
+  el.textContent=text; el.style.display='';
+}
+function hideMapErr(){
+  const el=document.getElementById('mapErr'); if(!el) return;
+  el.textContent=''; el.style.display='none';
+}
+// 폼 값만으로 중복을 미리 잡는다 — 서버 왕복 전에 보이게 해서 헛수고를 줄인다.
+function checkMapDup(){
+  const groups=[['[data-svout]','SV 출력'],['[data-pvin]','PV 입력']];
+  const msgs=[];
+  document.querySelectorAll('#setupMapRows select').forEach(s=>s.classList.remove('dup'));
+  groups.forEach(([sel])=>{
+    const seen={};
+    document.querySelectorAll('#setupMapRows '+sel).forEach(el=>{
+      const v=el.value; if(!v) return;
+      (seen[v]=seen[v]||[]).push(el);
+    });
+    Object.keys(seen).forEach(name=>{
+      if(seen[name].length<2) return;
+      const ids=seen[name].map(el=>{
+        const i=+(el.dataset.svout!==undefined?el.dataset.svout:el.dataset.pvin);
+        return (channels[i]||{}).id||('CH'+(i+1));
+      });
+      seen[name].forEach(el=>el.classList.add('dup'));
+      msgs.push(`${name}: ${ids.join('·')} 중복 — 적용 시 거부됩니다`);
+    });
+  });
+  if(msgs.length) showMapErr(msgs.join('\n')); else hideMapErr();
+}
+document.addEventListener('change', e=>{
+  if(e.target && e.target.closest && e.target.closest('#setupMapRows')) checkMapDup();
+});
+// 서버 판정(ack) 처리 — ok면 닫고, 거부면 모달을 유지한 채 사유를 보여준다.
+window.onSetupAck=function(msg){
+  clearTimeout(window._setupPending);
+  if(msg && msg.ok){ closeSetup(); return; }
+  const probs=(msg&&msg.problems)||[];
+  showMapErr(probs.length?probs.join('\n'):'설정이 거부되었습니다 — System Log 를 확인하세요');
+  buildMapRows();      // 드롭다운을 서버 상태(원래 값)로 되돌린다
+};
 /* 아날로그 스케일 표(MFC ↔ PLC). plc 매핑 없는 채널은 행을 만들지 않는다. */
 function buildScaleRows(){
   const tb=document.getElementById('setupScaleRows'); if(!tb) return;
@@ -124,7 +167,8 @@ function buildScaleRows(){
 function openSetup(){
   buildSetupRows();
   // 카탈로그 도착 후 배정 표 렌더(드롭다운). 실패는 표에 명시한다(조용히 넘기지 않는다).
-  loadPlcCatalog().then(()=>{ buildMapRows(); window.refreshMapStatus(undefined); }).catch(e=>{
+  hideMapErr();
+  loadPlcCatalog().then(()=>{ buildMapRows(); window.refreshMapStatus(undefined); checkMapDup(); }).catch(e=>{
     console.error('[plc_catalog] 조회 실패 — 배정 표를 표시할 수 없습니다', e);
     showMapRowsError();
   });
@@ -251,11 +295,16 @@ function applySetup(){
     return;
   }
   if(note){ note.textContent='설정 변경은 저장 후 재연결해야 적용됩니다.'; note.classList.remove('warn'); }
+  hideMapErr();
   window.cmdApplySetup(chans, params, settings, plc);
   // sync a few process params into the Auto Process panel inputs for immediate feedback
   const set=(id,el)=>{const a=document.getElementById(id),b=document.getElementById(el);if(a&&b)b.value=a.value;};
   set('setVStart','vStart'); set('setVEnd','vEnd'); set('setGraf','grafInt'); set('setLoop','loopCount'); set('setComp','smuComp');
-  closeSetup();
+  // ★ 즉시 닫지 않는다 — 서버가 거부하면 모달 안에서 사유를 봐야 한다(onSetupAck가 닫는다).
+  clearTimeout(window._setupPending);
+  window._setupPending=setTimeout(()=>{
+    showMapErr('서버 응답 없음 — System Log 를 확인하세요');
+  }, 2000);
 }
 document.getElementById('openSetup').addEventListener('click',openSetup);
 document.getElementById('closeSetup').addEventListener('click',closeSetup);
