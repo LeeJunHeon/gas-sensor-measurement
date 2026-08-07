@@ -309,7 +309,6 @@ class State:
             "elapsed": 0,
             "rh": None,          # 측정 하드웨어 없음 → 화면 "—"
             "smu": None,         # 측정 하드웨어 없음 → 화면 "—"
-            "connected": True,   # 서버↔하드웨어 (1단계는 시뮬, 항상 연결됨으로 표시)
             "safeStop": False,
             "phase": "idle",      # idle | prep | meas
             "stepIndex": 0,       # 현재 단계(1-base, 0=대기)
