@@ -1,7 +1,7 @@
 """
 state.py — 서버 상태(channels / system / recipe)의 단일 주인 + config.json 로드/저장.
 
-서버가 상태의 주인이다. 시뮬레이션 telemetry 생성(sim_tick)은 simulation.py로 분리했다.
+서버가 상태의 주인이다. telemetry 생성(실측 PV·경과시간·진행상태)은 loops.py가 담당한다.
 """
 
 import json

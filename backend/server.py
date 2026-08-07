@@ -7,7 +7,7 @@ server.py — 진입점.
 실행: 프로젝트 루트에서  python backend/server.py
 
 상태/명령/시뮬레이션/연결/파일/경로는 각 모듈로 분리:
-  state.py · commands.py · simulation.py · storage.py · connection.py · paths.py
+  state.py · commands.py · storage.py · connection.py · paths.py
 통신 약속(메시지/스키마)은 INTERFACE.md 참고.
 """
 

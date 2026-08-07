@@ -85,6 +85,14 @@ async def handle_command(data: dict):
                 await push_state()
 
         elif cmd == "run":
+            # PLC가 없으면 밸브도 MFC도 실제로 동작하지 않는다 — 화면만 진행되어
+            # 측정이 된 것처럼 보이는 상황을 막는다(시뮬레이션 제거 후 필수 가드).
+            if not (state.plc_live or {}).get("connected"):
+                problems = ["PLC가 연결되어 있지 않습니다 — 자동 실행은 PLC 연결 후 가능합니다"]
+                await manager.broadcast({"type": "ack", "of": "run", "ok": False,
+                                         "reason": "invalid", "problems": problems})
+                await push_log("AUTO RUN 불가 — " + problems[0], "err")
+                return
             # 화면이 현재 표 레시피를 함께 보내면 그걸 실행용으로 반영(저장은 하지 않음).
             # 이름은 기존 것을 유지 → Save as 전까지 파일에 쓰지 않고 실행만.
             if isinstance(data.get("recipe"), dict):
@@ -130,6 +138,9 @@ async def handle_command(data: dict):
         elif cmd == "purge":
             if state.system.get("running"):
                 await push_log("자동 실행 중에는 PURGE 불가 (AUTO STOP 후)", "warn")
+                return
+            if not (state.plc_live or {}).get("connected"):
+                await push_log("PLC가 연결되어 있지 않습니다 — 퍼지는 PLC 연결 후 가능합니다", "warn")
                 return
             # 가스 채널 닫고 SV=0, 마른 공기 채널을 열어 일정 유량으로 라인 청소
             from state import channel_role

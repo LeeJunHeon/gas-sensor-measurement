@@ -16,13 +16,38 @@ import logger
 import plc
 import plc_catalog as cat
 from state import state
-from simulation import sim_tick
 from connection import manager, push_state, push_log
 
 # ===================== 주기 설정 =====================
 TELEMETRY_HZ = 5            # 측정값 전송 빈도(초당 횟수). 숫자만 바꾸면 조절된다.
 PLC_POLL_INTERVAL_S = 0.7  # PLC 읽기(PV/상태) 폴링 주기(초).
 PLC_WRITE_INTERVAL_S = 0.25  # PLC 쓰기(밸브/SV 반영) 동기화 주기(초).
+
+
+def _build_telemetry(dt: float) -> dict:
+    """실측 기반 telemetry. PV는 PLC 실측만 싣는다 — 없으면 None(화면 '—').
+    경과시간 진행과 엔진 진행 상태 전달은 시뮬레이션이 아니라 실기능이라 여기 남는다."""
+    if state.system["running"]:
+        state._elapsed_f += dt
+    elapsed = int(state._elapsed_f)
+    state.system["elapsed"] = elapsed
+    live = state.plc_live or {}
+    live_pv = (live.get("pv") or {}) if live.get("connected") else {}
+    pv = []
+    for c in state.channels:
+        r = live_pv.get(c["id"])
+        v = round(float(r), 2) if r is not None else None
+        c["pv"] = v
+        pv.append(v)
+    return {
+        "type": "telemetry", "pv": pv, "rh": None, "smu": None,
+        "elapsed": elapsed, "running": state.system["running"],
+        "loop": dict(state.system["loop"]),
+        "phase": state.system.get("phase", "idle"),
+        "stepIndex": state.system.get("stepIndex", 0),
+        "stepTotal": state.system.get("stepTotal", 0),
+        "stepRemain": state.system.get("stepRemain", 0),
+    }
 
 
 async def telemetry_loop():
@@ -32,7 +57,7 @@ async def telemetry_loop():
     while True:
         await asyncio.sleep(dt)
         try:
-            t = sim_tick(state, dt)
+            t = _build_telemetry(dt)
             await manager.broadcast(t)
             if err_count:
                 logger.write("info", f"telemetry tick 복구 (억제된 반복 {err_count}회)")
