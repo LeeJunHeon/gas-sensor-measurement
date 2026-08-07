@@ -29,6 +29,29 @@ function buildSetupRows(){
    적용 시 서버가 통째로 거부한다. 밸브 코일은 카탈로그가 채널 id로 결정 — 편집 대상 아님.
    레지스터 번호를 함께 표시하려면 카탈로그가 필요해 서버에서 한 번 받아 캐시한다. */
 let _plcCatalog=null;
+let _lastLive=null;   // 마지막 plc_live (state push 시 갱신, telemetry 때는 유지)
+// 상태 열은 config가 아니라 '지금 실제로 살아있는가'를 보여준다.
+function mapStatusHtml(c){
+  const p=c.plc||{};
+  const live=_lastLive;
+  if(!live || !live.connected) return '<span class="dim">PLC 미연결</span>';
+  if(!p.sv_out && !p.pv_in)    return '<span class="warn">미배정</span>';
+  if(p.pv_in){
+    const v=(live.pv||{})[c.id];
+    if(v!=null) return '<span class="ok">통신 중 · PV '+(+v).toFixed(1)+'</span>';
+    return '<span class="warn">PV 수신 없음</span>';   // 연결됐는데 값이 안 옴(채널 정지·배선 확인)
+  }
+  return '<span class="dim">SV만 배정 (PV 없음)</span>';
+}
+// live를 넘기면 캐시 갱신, undefined면 캐시 유지(telemetry 경로).
+window.refreshMapStatus=function(live){
+  if(live!==undefined) _lastLive=live;
+  if(!setupOverlay || !setupOverlay.classList.contains('on')) return;   // 모달 닫혀 있으면 무시
+  document.querySelectorAll('[data-mapst]').forEach(td=>{
+    const c=channels.find(x=>x.id===td.dataset.mapst);
+    if(c) td.innerHTML=mapStatusHtml(c);
+  });
+};
 function loadPlcCatalog(){
   if(_plcCatalog) return Promise.resolve(_plcCatalog);
   return fetch('/plc_catalog').then(r=>{
@@ -71,7 +94,7 @@ function buildMapRows(){
       <td>${coil!=null?('코일 '+coil):'—'}</td>
       <td><select data-svout="${i}">${opts(cat.dac,p.sv_out,mods)}</select></td>
       <td><select data-pvin="${i}">${opts(cat.adc,p.pv_in,0)}</select></td>
-      <td>${noSv?'⚠ SV 출력 없음':'정상'}</td>`;
+      <td data-mapst="${c.id}">${mapStatusHtml(c)}</td>`;
     tb.appendChild(tr);
   });
 }
@@ -95,7 +118,7 @@ function buildScaleRows(){
 function openSetup(){
   buildSetupRows();
   // 카탈로그 도착 후 배정 표 렌더(드롭다운). 실패는 표에 명시한다(조용히 넘기지 않는다).
-  loadPlcCatalog().then(buildMapRows).catch(e=>{
+  loadPlcCatalog().then(()=>{ buildMapRows(); window.refreshMapStatus(undefined); }).catch(e=>{
     console.error('[plc_catalog] 조회 실패 — 배정 표를 표시할 수 없습니다', e);
     showMapRowsError();
   });
