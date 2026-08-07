@@ -91,7 +91,7 @@ function buildMapRows(){
     tr.className=noSv?'dis':'';
     tr.innerHTML=`
       <td class="chid">${c.id}</td>
-      <td>${coil!=null?('코일 '+coil):'—'}</td>
+      <td>${coil!=null?('코일 '+coil+' (M00'+(100+(coil-160))+')'):'—'}</td>
       <td><select data-svout="${i}">${opts(cat.dac,p.sv_out,mods)}</select></td>
       <td><select data-pvin="${i}">${opts(cat.adc,p.pv_in,0)}</select></td>
       <td data-mapst="${c.id}">${mapStatusHtml(c)}</td>`;
