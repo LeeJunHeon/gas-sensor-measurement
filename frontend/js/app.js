@@ -149,10 +149,6 @@
     if (send({ cmd: 'set_sv', ch: ch, value: value })) return;
     window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');
   };
-  window.cmdSetMax = function (ch, value) {
-    if (send({ cmd: 'set_max', ch: ch, value: value })) return;
-    window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');
-  };
   window.cmdSet4way = function (route) {
     if (send({ cmd: 'set_4way', route: route })) return;
     window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');

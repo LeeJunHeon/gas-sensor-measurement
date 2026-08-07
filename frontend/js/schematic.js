@@ -91,8 +91,7 @@ function renderLanes(){
         <div class="mfc-read">
           <span class="vid">${c.id} · MFC</span>
           <div class="pvrow"><span class="rlbl">PV</span><span class="pvb" data-pv="${idx}">${fmtPv(c)}</span><span class="un" style="visibility:hidden">sccm</span></div>
-          <span class="maxwrap">MAX<input value="${c.max}" size="4" data-max="${idx}" title="MFC 최대 용량" ${c.en?'':'disabled'}></span>
-          <div class="svrow"><span class="rlbl">SV</span><input class="svi" size="4" value="${c.sv.toFixed(d)}" data-sv="${idx}" ${c.en?'':'disabled'}><span class="un">sccm</span></div>
+          <div class="svrow"><span class="rlbl">SV</span><input class="svi" size="4" value="${c.sv.toFixed(d)}" data-sv="${idx}" title="MAX ${c.max} sccm — 변경은 System Setup" ${c.en?'':'disabled'}><span class="un">sccm</span><button class="svgo" data-svgo="${idx}" ${c.en?'':'disabled'} title="입력한 SV를 PLC로 보냅니다 (Enter도 동일)">적용</button></div>
         </div>
       </div>
       <i class="pipe grow ${eff(c)?'on':''}" data-seg="post" style="--c:${c.color}"></i>
@@ -120,27 +119,52 @@ function updateLaneValues(){
     const d=dec(c);
     lane.classList.toggle('lit', flowing(c)&&c.pv>0);   // 발광(글로우)은 파이프 애니메이션과 무관
     const pv=lane.querySelector(`[data-pv="${idx}"]`); if(pv) pv.textContent=fmtPv(c);
-    const sv=lane.querySelector(`[data-sv="${idx}"]`); if(sv&&document.activeElement!==sv) sv.value=c.sv.toFixed(d);
-    const mx=lane.querySelector(`[data-max="${idx}"]`); if(mx&&document.activeElement!==mx) mx.value=c.max;
+    const sv=lane.querySelector(`[data-sv="${idx}"]`);
+    if(sv){
+      // 포커스 중(편집 중)이면 값을 덮지 않는다 — 타이핑이 사라지지 않도록.
+      if(document.activeElement!==sv){ sv.value=c.sv.toFixed(d); sv.classList.remove('pending','over'); }
+      sv.title=`MAX ${c.max} sccm — 변경은 System Setup`;   // MAX는 Setup에서만 바뀐다
+    }
   });
 }
 
 function bindLaneEvents(){
   // \uc0ac\uc6a9\uc790 \ub3d9\uc791 = \uc694\uccad. \uc9c1\uc811 \uc0c1\ud0dc\ub97c \ubc14\uafb8\uc9c0 \uc54a\uace0 app.js \uba85\ub839 \ud568\uc218\ub85c \ubcf4\ub0b8\ub2e4.
   // \ud654\uba74\uc740 \uc11c\ubc84 state(\ub610\ub294 \ub04a\uae40 \uc2dc \uc2dc\ubbac\ub808\uc774\uc158 \ub300\uccb4)\uac00 \uc640\uc57c \uac31\uc2e0\ub41c\ub2e4.
-  document.querySelectorAll('[data-max]').forEach(inp=>inp.addEventListener('change',e=>{
-    window.cmdSetMax(+e.target.dataset.max, +e.target.value||0);
-  }));
-  document.querySelectorAll('[data-sv]').forEach(inp=>inp.addEventListener('change',e=>{
-    window.cmdSetSv(+e.target.dataset.sv, +e.target.value||0);
-  }));
-  // 입력 중 MAX 초과를 즉시 알린다 — 적용 후 조용히 깎이는 것보다 먼저 보이는 게 낫다.
-  document.querySelectorAll('[data-sv]').forEach(inp=>inp.addEventListener('input',e=>{
-    const c=channels[+e.target.dataset.sv]; if(!c) return;
-    const over=(+e.target.value||0) > (+c.max||0);
-    e.target.classList.toggle('over', over);
-    if(over) e.target.title=`MAX ${c.max} 초과 — 적용 시 제한됩니다`;
-    else e.target.removeAttribute('title');
+  // SV는 '명시적 적용'이다 — 타이핑만으로는 나가지 않고 [적용]/Enter 로만 전송한다.
+  const svInput=idx=>lanesEl.querySelector(`[data-sv="${idx}"]`);
+  const svRevert=idx=>{
+    const el=svInput(idx), c=channels[idx]; if(!el||!c) return;
+    el.value=c.sv.toFixed(dec(c));
+    el.classList.remove('pending','over');
+  };
+  const svApply=idx=>{
+    const el=svInput(idx), c=channels[idx]; if(!el||!c) return;
+    const raw=(el.value||'').trim();
+    const v=parseFloat(raw);
+    if(raw==='' || isNaN(v)){ svRevert(idx); return; }   // 빈값·오타는 원값 복귀
+    el.classList.remove('pending');
+    window.cmdSetSv(idx, v);   // 서버가 MAX로 클램프하면 로그로 알리고 값을 에코한다
+  };
+  document.querySelectorAll('[data-sv]').forEach(inp=>{
+    inp.addEventListener('input',e=>{
+      const idx=+e.target.dataset.sv, c=channels[idx]; if(!c) return;
+      const v=+e.target.value||0;
+      const over=v > (+c.max||0);
+      e.target.classList.toggle('over', over);                    // 초과(빨강)가 우선
+      e.target.classList.toggle('pending', !over && v!==c.sv);    // 미적용(주황)
+    });
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){ e.preventDefault(); svApply(+e.target.dataset.sv); }
+      else if(e.key==='Escape'){ e.preventDefault(); svRevert(+e.target.dataset.sv); e.target.blur(); }
+    });
+    inp.addEventListener('blur',e=>svRevert(+e.target.dataset.sv));
+  });
+  // ★ click이 아니라 mousedown + preventDefault — click이면 input의 blur(revert)가 먼저
+  //   실행돼 입력값이 사라진다. mousedown에서 포커스를 뺏지 않으면 그 경쟁이 없다.
+  document.querySelectorAll('[data-svgo]').forEach(btn=>btn.addEventListener('mousedown',e=>{
+    e.preventDefault();
+    svApply(+e.currentTarget.dataset.svgo);
   }));
   document.querySelectorAll('[data-v]').forEach(v=>v.addEventListener('click',()=>{
     const idx=+v.dataset.v.split('-')[0]; const c=channels[idx];
