@@ -2,7 +2,7 @@
 
 ## 0. 범위
 - 이 문서는 화면(index.html + app.js) ↔ 서버(server.py) 사이의 약속만 정의한다.
-- 서버 ↔ 하드웨어(보드/MFC) 통신은 범위 밖(추후 별도 정의). 1단계에서 서버는 시뮬레이션 값을 보낸다.
+- 서버 ↔ PLC는 Modbus(RTU/TCP). 측정값(PV)은 PLC 실측만 보내며, 없으면 null(화면 '—')이다.
 - 통신 방식: WebSocket(양방향 실시간), 메시지는 JSON.
 
 ## 1. 역할 분담
@@ -10,16 +10,16 @@
   - js/schematic.js : 배관도(channels/밸브) 렌더 + drawBuses
   - js/recipe.js : 레시피 표(procs) + System Setup 모달
   - js/core.js : 헤더/상태/로그, 서버상태 반영(applyState/applyTelemetry), fit/도크/종료모달, 전역 노출, 초기화
-  - js/app.js : 서버 연결, 명령 전송, 측정값 수신 → 화면 반영. 서버 끊기면 시뮬레이션 대체.
-- 서버 = `backend/` : 화면 명령 수신 → (1단계는 시뮬레이션) 상태 갱신 → 측정값 주기적 전송.
-  - server.py(진입점) · state.py(상태+config) · commands.py(명령) · storage.py(파일) · simulation.py(시뮬) · connection.py(연결)
+  - js/app.js : 서버 연결, 명령 전송, 측정값 수신 → 화면 반영. 서버 끊기면 모든 값 '—'.
+- 서버 = `backend/` : 화면 명령 수신 → 상태 갱신 → PLC 실측 측정값 주기적 전송.
+  - server.py(진입점) · state.py(상태+config) · commands.py(명령) · storage.py(파일) · loops.py(주기 태스크) · connection.py(연결)
 
 > 논리적 약속(아래 DOM 표식·전역 함수·메시지)은 파일이 어떻게 나뉘든 그대로 유효하다.
 
 ## 2. 핵심 원칙
 - 서버가 상태의 주인. 사용자 동작은 "요청"이며, 서버가 돌려준 상태가 와야 화면에 반영된다.
 - 측정값(PV·RH 등)은 서버가 먼저 밀어주는 방식으로 빠르게 갱신한다.
-- 서버 끊기면 화면은 "연결 끊김" 표시 + 마지막 값 유지 + 시뮬레이션 대체.
+- 서버 끊기면 화면은 "서버 연결 끊김" 표시 + 모든 측정값 '—'(가짜 값 없음) + 2초마다 재연결.
 
 ## 3. 상태 스키마
 
@@ -175,4 +175,4 @@ applyTelemetry(t)      빠른 측정값만 가볍게 반영(재렌더 없이) �
 ### 5.3 상호작용 규칙
 - 사용자 동작 → app.js가 명령 전송. 화면 상태는 서버 state가 와야 갱신(요청-반영 분리).
 - telemetry는 applyTelemetry()로 숫자만 가볍게 갱신(배관 재드로우 금지 → 빠른 표시 유지).
-- 서버 끊김 → #connStatus "연결 끊김" + 시뮬레이션 대체.
+- 서버 끊김 → #connStatus "연결 끊김" + 헤더 상태줄 "서버 연결 끊김" + 모든 값 '—'.

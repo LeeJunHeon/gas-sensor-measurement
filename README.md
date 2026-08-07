@@ -17,7 +17,7 @@ gas-sensor-measurement/
 │   └── js/ schematic.js          #   배관도(채널/밸브) 렌더 + drawBuses
 │         recipe.js               #   레시피 표 + System Setup 모달(스케일·배정 표시)
 │         core.js                 #   헤더/상태/로그·서버상태 반영·fit/도크/종료모달·초기화
-│         app.js                  #   서버 연동(WebSocket/명령/시뮬레이션 대체)
+│         app.js                  #   서버 연동(WebSocket/명령 전송, 끊김 시 값 '—')
 ├── backend/                      # 서버 (상태의 주인)
 │   ├── server.py                 #   진입점: FastAPI·라우트·WebSocket·lifespan
 │   ├── window.py                 #   pywebview 창 생성·종료, 포트 탐색, WebView2 안내
@@ -29,7 +29,6 @@ gas-sensor-measurement/
 │   ├── recipe_calc.py            #   한 단계 → 채널별 목표 SV 계산 + 검증
 │   ├── plc.py                    #   Modbus 클라이언트(블록 읽기/쓰기·스케일 변환·하트비트)
 │   ├── plc_catalog.py            #   래더가 제공하는 채널 목록(고정 계약)
-│   ├── simulation.py             #   시뮬레이션 telemetry(sim_tick) — 실측이 있으면 실측 우선
 │   ├── storage.py                #   레시피/설정 파일 I/O(원자적 쓰기·검증·목록)
 │   ├── logger.py                 #   파일 로그(날짜별 회전·보관일수)
 │   ├── connection.py             #   ConnectionManager + push_state/push_log
@@ -110,8 +109,10 @@ GasSensor/
 ## 현재 범위
 
 - PLC 제어 경로는 실제로 동작한다. 측정 하드웨어(RH·SMU)는 없어 화면에 "—"로 표시된다.
-- PLC 미연결 상태에서는 유량(PV)을 `backend/simulation.py`가 시뮬레이션한다.
-  연결되면 해당 채널은 실측값이 우선한다.
-- 서버 연결이 끊기면 화면은 "연결 끊김"을 표시하고 마지막 값을 유지하며,
-  브라우저 내부 시뮬레이션 모드로 전환된다(2초마다 자동 재연결 시도).
+- **측정값은 전부 실측이다.** PLC로 읽은 값이 없으면 화면에 `—`로 표시하며, 가짜 값을
+  만들지 않는다(운전자가 "유량이 흐른다"고 오인하지 않도록).
+- PLC 미연결 상태에서는 AUTO RUN·PURGE가 거부된다(물리적으로 아무 일도 일어나지 않으므로).
+- PLC 없이 동작을 시험하려면 `test/fake_plc.py`(가짜 PLC 슬레이브)를 띄우고 TCP로 붙인다.
+- 서버 연결이 끊기면 헤더에 "서버 연결 끊김"을 크게 표시하고 모든 측정값이 `—`가 된다
+  (2초마다 자동 재연결 시도). 조작을 시도하면 오프라인 경고만 나온다.
 - DV04A가 1대뿐이라 SV 출력은 4채널이다. VA5~VA8은 증설 후 배정한다([`CONFIG.md`](CONFIG.md) ⑤).

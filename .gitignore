@@ -20,3 +20,7 @@ logs/
 .idea/
 .DS_Store
 *.log
+
+# 레시피는 사용자 데이터 — 저장소에 담지 않는다(납품 패키지 오염 방지)
+recipes/*.json
+!recipes/.gitkeep
