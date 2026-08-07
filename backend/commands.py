@@ -28,6 +28,25 @@ def set_shutdown_handler(fn):
 async def handle_command(data: dict):
     try:
         cmd = data.get("cmd")
+        # PLC가 명령을 실제로 수행할 수 없는 상태(미연결·안전정지)에서는 물리 조작을
+        # 전면 잠근다. 화면만 바뀌고 하드웨어는 안 움직이는 거짓 상태와,
+        # 안전 리셋 순간 미리 세팅된 밸브가 일괄 개방되는 사고를 함께 막는다.
+        # ★ System Setup(apply_setup)·set_max·레시피·리셋/재연결·비상정지는 잠그지 않는다
+        #   — 연결 설정과 안전 조작은 항상 가능해야 한다.
+        if cmd in ("set_valve", "set_sv", "purge", "run", "set_4way"):
+            live = state.plc_live or {}
+            locked_reason = None
+            if not live.get("connected"):
+                locked_reason = "PLC 미연결 — 조작이 잠겨 있습니다. System Setup에서 연결 후 사용하세요"
+            elif (live.get("status") or {}).get("SAFETY_STOP") is True:
+                locked_reason = "PLC 안전정지 중 — 조작이 잠겨 있습니다. 안전 리셋 후 사용하세요"
+            if locked_reason:
+                if cmd == "run":
+                    await manager.broadcast({"type": "ack", "of": "run", "ok": False,
+                                             "reason": "plc_locked", "problems": [locked_reason]})
+                await push_log(locked_reason, "warn")
+                return
+
         # 자동 실행 중에는 수동 채널 조작 차단(엔진과 충돌 방지)
         if state.system.get("running") and cmd in ("set_valve", "set_sv", "set_max", "apply_setup"):
             await push_log("자동 실행 중에는 수동 조작이 잠깁니다 (AUTO STOP 후 가능)", "warn")
@@ -85,14 +104,7 @@ async def handle_command(data: dict):
                 await push_state()
 
         elif cmd == "run":
-            # PLC가 없으면 밸브도 MFC도 실제로 동작하지 않는다 — 화면만 진행되어
-            # 측정이 된 것처럼 보이는 상황을 막는다(시뮬레이션 제거 후 필수 가드).
-            if not (state.plc_live or {}).get("connected"):
-                problems = ["PLC가 연결되어 있지 않습니다 — 자동 실행은 PLC 연결 후 가능합니다"]
-                await manager.broadcast({"type": "ack", "of": "run", "ok": False,
-                                         "reason": "invalid", "problems": problems})
-                await push_log("AUTO RUN 불가 — " + problems[0], "err")
-                return
+            # PLC 미연결·안전정지 거부는 위 잠금 게이트가 처리한다(중복 안내 금지).
             # 화면이 현재 표 레시피를 함께 보내면 그걸 실행용으로 반영(저장은 하지 않음).
             # 이름은 기존 것을 유지 → Save as 전까지 파일에 쓰지 않고 실행만.
             if isinstance(data.get("recipe"), dict):
@@ -139,9 +151,7 @@ async def handle_command(data: dict):
             if state.system.get("running"):
                 await push_log("자동 실행 중에는 PURGE 불가 (AUTO STOP 후)", "warn")
                 return
-            if not (state.plc_live or {}).get("connected"):
-                await push_log("PLC가 연결되어 있지 않습니다 — 퍼지는 PLC 연결 후 가능합니다", "warn")
-                return
+            # PLC 미연결·안전정지 거부는 위 잠금 게이트가 처리한다(중복 안내 금지).
             # 가스 채널 닫고 SV=0, 마른 공기 채널을 열어 일정 유량으로 라인 청소
             from state import channel_role
             PURGE_DRY_FLOW = 1000.0   # 청소용 총 마른공기 유량(sccm)
@@ -168,7 +178,6 @@ async def handle_command(data: dict):
                 if not (0 <= i < len(state.channels)):
                     continue
                 c = state.channels[i]
-                was_en = c["en"]
                 en = bool(item.get("en", c["en"]))
                 c["en"] = en
                 c["grp"] = item.get("grp", c["grp"])
@@ -185,9 +194,9 @@ async def handle_command(data: dict):
                     for k in ("fs_sccm", "sv_full", "pv_zero", "pv_full"):
                         if k in sc:
                             c["plc"][k] = max(0, to_num(sc[k], c["plc"].get(k, 0)))
-                if en and not was_en:
-                    c["valveIn"] = True
-                elif not en:
+                # ★ 채널을 켜도 밸브는 자동으로 열지 않는다 — 배관도에서 사람이 연다.
+                #   (끄면 닫는 것은 안전 방향이므로 유지)
+                if not en:
                     c["valveIn"] = False
             if isinstance(data.get("params"), dict):
                 state.params = {**state.params, **data["params"]}
