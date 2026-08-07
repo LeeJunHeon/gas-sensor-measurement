@@ -41,11 +41,27 @@ def safe_read_json(path: str):
         return None
 
 
+# Windows 파일명 제약. 리눅스에서는 통과하는 이름이 Windows에서만 저장에 실패해
+# 원인을 찾기 어려우므로, 플랫폼과 무관하게 같은 규칙으로 거른다.
+_WIN_RESERVED = {"CON", "PRN", "AUX", "NUL",
+                 *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+_WIN_BAD_CHARS = set('<>:"|?*') | {chr(i) for i in range(32)}
+
+
 def valid_recipe_name(name: str) -> bool:
-    """슬래시/역슬래시/상위경로 금지, recipes 폴더 밖 금지."""
+    """슬래시/역슬래시/상위경로 금지, recipes 폴더 밖 금지,
+    Windows 금지문자·예약어·끝 공백/점·과도한 길이 금지."""
     if not name or not isinstance(name, str):
         return False
     if "/" in name or "\\" in name or ".." in name or name != os.path.basename(name):
+        return False
+    if any(ch in _WIN_BAD_CHARS for ch in name):
+        return False
+    if name != name.rstrip(" ."):        # Windows가 끝 공백·점을 잘라 파일명이 달라진다
+        return False
+    if name.split(".")[0].upper() in _WIN_RESERVED:   # 'CON.old' 같은 형태도 예약된다
+        return False
+    if len(name) > 80:
         return False
     target = os.path.abspath(os.path.join(RECIPES_DIR, name + ".json"))
     return os.path.dirname(target) == os.path.abspath(RECIPES_DIR)

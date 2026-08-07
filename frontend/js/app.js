@@ -159,7 +159,8 @@
         if (lastSave) send({ cmd: 'recipe_save', name: lastSave.name, overwrite: true, recipe: lastSave.recipe });
       }, '덮어쓰기 확인');
     } else if (msg.reason === 'invalid') {
-      window.logMsg('레시피 저장 실패 — 잘못된 이름', 'err');
+      // 서버가 사유를 보내면 그대로 보여준다(무엇이 잘못됐는지 알 수 없으면 고칠 수 없다).
+      window.logMsg(msg.msg ? ('레시피 저장 실패 — ' + msg.msg) : '레시피 저장 실패 — 잘못된 이름', 'err');
     } else {
       window.logMsg('레시피 저장 실패', 'err');
     }

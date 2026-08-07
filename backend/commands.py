@@ -236,7 +236,10 @@ async def handle_command(data: dict):
             recipe = data.get("recipe") or {}
             if not valid_recipe_name(name):
                 await manager.broadcast(
-                    {"type": "ack", "of": "recipe_save", "ok": False, "reason": "invalid", "name": name})
+                    {"type": "ack", "of": "recipe_save", "ok": False, "reason": "invalid",
+                     "name": name,
+                     "msg": "사용할 수 없는 이름입니다. < > : \" | ? * 문자, 끝의 공백·점, "
+                            "CON·COM1 같은 Windows 예약어는 쓸 수 없습니다"})
                 await push_log(f"레시피 저장 실패 — 잘못된 이름: {name}", "err")
                 return
             path = os.path.join(RECIPES_DIR, name + ".json")
