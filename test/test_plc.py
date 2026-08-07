@@ -6,6 +6,7 @@ test_plc.py — 가스센서 PLC 하드웨어 테스트 (터미널 메뉴, 단�
   · ADC(아날로그 입력) : AD08A 채널값(PV 레지스터) 읽기
   · DAC(아날로그 출력) : DV04A 채널값(SV 레지스터) 쓰기
 주소맵은 PLC 래더/HMI와 동일(base 0). 별도 UI 없이 VSCode 터미널에서 숫자 입력으로 조작.
+주소 라벨은 실배선(P40~43=VA1·3·5·6) 기준 — CONFIG.md 참조.
 
 설치:
     pip install "pymodbus==3.6.9" pyserial
@@ -27,17 +28,23 @@ import time
 from pymodbus.client import ModbusSerialClient, ModbusTcpClient
 
 # ── 주소맵 (base 0 = M0000/D0000) ─────────────────────────────────────────
-COILS_W = [("VA1 (에어1)", 160), ("VA2 (에어2)", 161), ("VA3 (에어3)", 162),
-           ("VA4 (에어4)", 163), ("VA5 (가스1)", 164), ("VA6 (가스2)", 165),
-           ("VA7 (가스3)", 166), ("VA8 (가스4)", 167),
-           ("4WAY", 168)]                                 # 쓰기: 밸브 출력 지령
+COILS_W = [("VA1 (에어1)", 160), ("VA2 (물1·미배선)", 161), ("VA3 (에어2)", 162),
+           ("VA4 (물2·미배선)", 163), ("VA5 (가스1)", 164), ("VA6 (가스2)", 165),
+           ("VA7 (가스3·미배선)", 166), ("VA8 (가스4·미배선)", 167),
+           ("4WAY (배선 미확인)", 168)]                    # 쓰기: 밸브 출력 지령
 HB_COIL, RESET_COIL = 176, 178                            # 하트비트 / 안전리셋(펄스)
 STATUS = [("AIR_OK  (공압정상)", 320), ("SAFETY_STOP(안전정지)", 321),
           ("RUN_PERMIT (운전허가)", 323),
           ("ALM_AIR (공압알람)", 336), ("ALM_MFC (MFC입력이상)", 337),
           ("ALM_IDD (입력단선검출)", 338), ("ALM_DAC (출력모듈이상)", 339)]  # 읽기: 상태
-SV_REGS = [(f"VA{i + 1} SV", 100 + i) for i in range(8)]  # 쓰기: DAC (D100~107)
-PV_REGS = [(f"VA{i + 1} PV", 200 + i) for i in range(8)]  # 읽기: ADC (D200~207)
+SV_REGS = [("VA1 SV (에어1)", 100), ("VA3 SV (에어2)", 101),
+           ("VA5 SV (가스1)", 102), ("VA6 SV (가스2)", 103)]   # DAC1 CH0~3 = 실배선 4대
+PV_REGS = [("VA1 PV (에어1)", 200), ("VA3 PV (에어2)", 202),
+           ("VA5 PV (가스1)", 204), ("VA6 PV (가스2)", 205)]   # ADC CH0·2·4·5 = 실배선 4대
+# ★ PV 주소는 실배선 때문에 비연속(200·202·204·205)이다. 블록 읽기는 min~max 범위를
+#   한 번에 읽고 (주소 - base) 오프셋으로 꺼내야 한다 — 순서대로 zip하면 값이 어긋난다.
+PV_BASE = PV_REGS[0][1]
+PV_SPAN = PV_REGS[-1][1] - PV_BASE + 1
 
 SV_MAX_COUNT = 2000   # DV04A를 래더가 0~2000(0~5V)으로 클램프
 PV_MAX_COUNT = 4000   # AD08A 출력데이터타입 0~4000
@@ -167,8 +174,8 @@ def menu_adc(plc):
         print("   ※ sccm 환산은 하지 않는다 — MFC 출력 사양(0~5V/4~20mA) 진단에 raw가 필요하다")
         for i, (name, addr) in enumerate(PV_REGS, 1):
             print(f"   {i}) {name} (D{addr})")
-        print("   d) 8채널 일괄 덤프 (D200~207 블록 1회 읽기, raw)")
-        print("   m) 8채널 연속 모니터 (Ctrl+C로 중단, raw)")
+        print("   d) 배선 4채널 일괄 덤프 (D200~205 블록 1회 읽기, raw)")
+        print("   m) 배선 4채널 연속 모니터 (Ctrl+C로 중단, raw)")
         print("   0) 뒤로")
         s = ask("선택 > ")
         if s == "0":
@@ -179,24 +186,24 @@ def menu_adc(plc):
             print(f"\n   {name} (D{addr}) = {v if v is not None else '읽기 실패'} (raw)")
             ask("\nEnter로 계속 > ")
         elif s == "d":
-            vals = plc.read_regs(PV_REGS[0][1], len(PV_REGS))
+            vals = plc.read_regs(PV_BASE, PV_SPAN)
             print()
             if vals is None:
                 print("   읽기 실패")
             else:
-                for (name, addr), v in zip(PV_REGS, vals):
-                    print(f"     {name} (D{addr}) = {v:>5}  (raw)")
+                for name, addr in PV_REGS:
+                    print(f"     {name} (D{addr}) = {vals[addr - PV_BASE]:>5}  (raw)")
             ask("\nEnter로 계속 > ")
         elif s == "m":
             print("\n   연속 모니터 raw (Ctrl+C로 중단)")
             try:
                 while True:
-                    vals = plc.read_regs(PV_REGS[0][1], len(PV_REGS))
+                    vals = plc.read_regs(PV_BASE, PV_SPAN)
                     if vals is None:
                         print("   읽기 실패")
                     else:
-                        print("   " + "  ".join(f"{n.split()[0]}={v}"
-                                                for (n, _), v in zip(PV_REGS, vals)))
+                        print("   " + "  ".join(f"{n.split()[0]}={vals[a - PV_BASE]}"
+                                                for n, a in PV_REGS))
                     time.sleep(0.5)
             except KeyboardInterrupt:
                 print("\n   (중단)")
@@ -265,11 +272,12 @@ def menu_snapshot(plc):
     print(" [밸브 출력 코일]")
     for name, addr in COILS_W:
         print(f"   {name:<12} = {fmt(plc.read_coil(addr))}")
-    pv = plc.read_regs(PV_REGS[0][1], len(PV_REGS)) or ["?"] * len(PV_REGS)
+    pv = plc.read_regs(PV_BASE, PV_SPAN)
     sv = plc.read_regs(SV_REGS[0][1], len(SV_REGS)) or ["?"] * len(SV_REGS)
-    print(" [PV (ADC, D200~207, raw 카운트)]")
-    print("   " + "  ".join(f"{n.split()[0]}={v}" for (n, _), v in zip(PV_REGS, pv)))
-    print(" [SV (DAC, D100~107, raw 카운트)]")
+    print(" [PV (ADC, D200·202·204·205, raw 카운트)]")
+    print("   " + "  ".join(f"{n.split()[0]}={pv[a - PV_BASE] if pv else '?'}"
+                            for n, a in PV_REGS))
+    print(" [SV (DAC, D100~103, raw 카운트)]")
     print("   " + "  ".join(f"{n.split()[0]}={v}" for (n, _), v in zip(SV_REGS, sv)))
     ask("\nEnter로 계속 > ")
 
