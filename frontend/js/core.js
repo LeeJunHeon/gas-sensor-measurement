@@ -51,15 +51,26 @@ let running=false;
 /* 헤더 현재 상태 표시 — 지금은 running 기준. 추후 서버가 더 구체적인 상태 문자열을
    내려주면 setHdrStatus()로 그대로 표시하도록 확장 가능. */
 let _hdrTransient=false, _hdrTimer=null;
+let _runInfo=null;   // last engine progress from telemetry (phase/step/remain)
 function setHdrStatus(text, kind){   // kind: 'idle' | 'run' | 'purge' | 'stop'
   const e=document.getElementById('hdrStatus'); if(!e) return;
+  // Skip identical repaints - telemetry(5Hz) and state(0.7s) both call this.
+  if(e.textContent===text && e.dataset.kind===kind) return;
+  e.dataset.kind=kind;
   const t=e.querySelector('.htxt'); if(t) t.textContent=text;
   e.classList.remove('run','purge','stop');
   if(kind && kind!=='idle') e.classList.add(kind);
 }
 function refreshHdrStatus(){
-  if(_hdrTransient) return;   // 임시 표시(퍼지/정지) 유지 중이면 건드리지 않음
-  setHdrStatus(running?'자동 실행 중':'대기 중', running?'run':'idle');
+  if(_hdrTransient) return;   // \uc784\uc2dc \ud45c\uc2dc(\ud37c\uc9c0/\uc815\uc9c0) \uc720\uc9c0 \uc911\uc774\uba74 \uac74\ub4dc\ub9ac\uc9c0 \uc54a\uc74c
+  if(running && _runInfo){
+    var ph=_runInfo.phase==='prep' ? '\uc900\ube44' : '\uce21\uc815';
+    setHdrStatus('\uc790\ub3d9 \uc2e4\ud589 \uc911 \u00b7 P'+_runInfo.i+'/'+_runInfo.n
+                 +' \u00b7 '+ph+' '+_runInfo.r+'s','run');
+  } else {
+    setHdrStatus(running?'\uc790\ub3d9 \uc2e4\ud589 \uc911':'\ub300\uae30 \uc911',
+                 running?'run':'idle');
+  }
 }
 // 퍼지/정지처럼 잠깐 보여줄 상태(기본 상태로 자동 복귀)
 window.flashHdrStatus=function(text, kind, ms){
@@ -75,6 +86,7 @@ function uiSetRunning(on){
   if(pill) pill.classList.toggle('idle',!on);
   const rt=document.getElementById('runtxt'); if(rt) rt.textContent=on?'RUNNING':'IDLE';
   if(on){ _hdrTransient=false; clearTimeout(_hdrTimer); }  // 실행 시작은 즉시 반영
+  if(!on) _runInfo=null;   // stopped: drop stale progress detail
   // 실행 중에는 레시피 편집 영역을 잠근다(엔진은 시작 시점 레시피로 동작 — 실행 중 값 변경은 무시됨).
   // 툴바(New/Open/Save·이름·Humidity)·표(봄베·단계행)·＋Add Process만 잠그고,
   // AUTO STOP/EXIT/PURGE·파라미터 카드는 그대로 둔다(정지·종료는 항상 가능).
@@ -305,10 +317,8 @@ function applyTelemetry(tl){
   if(tl.loop){ const hl=document.getElementById('hdrLoop'); if(hl) hl.textContent=`${tl.loop.current} / ${tl.loop.total}`; }
   // \uc5d4\uc9c4 \uc9c4\ud589 \uc0c1\ud0dc \u2192 \ud5e4\ub354 \uc0c1\ud0dc\uc904: "\uc790\ub3d9 \uc2e4\ud589 \uc911 \u00b7 P{i}/{total} \u00b7 \uc900\ube44/\uce21\uc815 {\ub0a8\uc740}s" (\uc784\uc2dc \ud45c\uc2dc \uc911\uc5d4 \uac74\ub4dc\ub9ac\uc9c0 \uc54a\uc74c)
   if(tl.phase==='prep'||tl.phase==='meas'){
-    if(!_hdrTransient){
-      const ph = tl.phase==='prep' ? '\uc900\ube44' : '\uce21\uc815';
-      setHdrStatus(`\uc790\ub3d9 \uc2e4\ud589 \uc911 \u00b7 P${tl.stepIndex||0}/${tl.stepTotal||0} \u00b7 ${ph} ${tl.stepRemain||0}s`, 'run');
-    }
+    _runInfo={phase:tl.phase,i:tl.stepIndex||0,n:tl.stepTotal||0,r:tl.stepRemain||0};
+    refreshHdrStatus();
   }
   if(tl.running!=null) applyRunLock(!!tl.running);   // \uc2e4\ud589\uc911 \uc218\ub3d9\uc870\uc791 \uc7a0\uae08 \uc720\uc9c0
   updateSystem();  // activeCh / totalFlow \ud14d\uc2a4\ud2b8\ub9cc \uac31\uc2e0(\uac00\ubcbc\uc6c0)
