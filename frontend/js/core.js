@@ -221,6 +221,10 @@ function applyState(s){
     });
     deriveDisplay();   // 정렬 없이 표시 필드만 derive (서버 인덱스 유지)
   }
+  // Do not overwrite the recipe form while the user is typing in the Auto Process panel.
+  var _ae=document.activeElement, _apv=document.getElementById('viewProc');
+  var _recipeEditing=!!(_apv&&_ae&&_apv.contains(_ae)&&/^(INPUT|TEXTAREA|SELECT)$/.test(_ae.tagName));
+  if(!_recipeEditing){
   if(s.recipe){
     procs.length=0;
     (s.recipe.procs||[]).forEach(p=>procs.push(Object.assign({}, p, {g:(p.g||[0,0,0,0]).slice()})));
@@ -230,6 +234,7 @@ function applyState(s){
     const lc=document.getElementById('loopCount'); if(lc&&s.recipe.loopCount!=null) lc.value=s.recipe.loopCount;
     (s.recipe.bottle||[]).forEach((v,i)=>{const el=document.getElementById('b'+i); if(el) el.value=(v||v===0)?v:'';});
     applyParams(s.recipe.params);
+  }
   }
   if(s.system){
     if(s.system.routeOut) routeOut=s.system.routeOut;
@@ -275,7 +280,7 @@ function applyState(s){
     renderLanes();   // \ubc30\uad00\ub3c4 \uc804\uccb4 \uc7ac\ub80c\ub354 (mapped \ucc44\ub110 PLC PV\ub294 window.plcLive\ub97c \uc77d\uc74c)
   else
     updateLaneValues();   // \uac12\ub9cc in-place \uac31\uc2e0 \u2192 .pipe.on \uc560\ub2c8\uba54\uc774\uc158 \ub9ac\uc14b \uc548 \ub428
-  renderRecipe();  // \ub808\uc2dc\ud53c \ud45c \uc7ac\ub80c\ub354
+  if(!_recipeEditing) renderRecipe();  // \ub808\uc2dc\ud53c \ud45c \uc7ac\ub80c\ub354
   updateSystem();  // \uc0c1\ub2e8 \ud1b5\uacc4
   applyRunLock(running);   // \uc7ac\ub80c\ub354\ub41c \ubc30\uad00\ub3c4\uc5d0 \uc2e4\ud589\uc911 \uc7a0\uae08 \uc7ac\uc801\uc6a9
   if(window.refreshMapStatus) window.refreshMapStatus(s.plc_live||null);

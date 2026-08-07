@@ -332,3 +332,12 @@ function collectRecipe(){
   return {name, useHumidity, loopCount, bottle,
     procs:procs.map(p=>Object.assign({},p,{g:(p.g||[0,0,0,0]).slice()})), params};
 }
+
+// 숫자/텍스트 입력 포커스 시 전체 선택 — 기존 값 위에 바로 타이핑해 교체할 수 있게
+document.addEventListener('focusin', e=>{
+  const t=e.target;
+  if(t && t.tagName==='INPUT' && !t.disabled && !t.readOnly
+     && t.type!=='checkbox' && t.type!=='radio'){
+    setTimeout(()=>{ try{ t.select(); }catch(_){} }, 0);
+  }
+});

@@ -147,7 +147,7 @@
     "logKeepDays": 30
   },
   "plc": {
-    "mode": "serial",
+    "mode": "tcp",
     "host": "127.0.0.1",
     "tcp_port": 502,
     "port": "",
