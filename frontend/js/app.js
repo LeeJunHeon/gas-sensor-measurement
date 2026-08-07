@@ -322,9 +322,12 @@
   }
 
   // 비상정지 — 확인 없이 즉시 전송(비상이므로). 서버 engine.emergency()가 전 채널 차단.
-  document.getElementById('btnEstop')?.addEventListener('click', () => send({ cmd: 'emergency' }));
-  // 비상정지 해제 — 해제해도 밸브는 열리지 않는다(사람이 확인 후 다시 연다).
-  document.getElementById('btnEstopClear')?.addEventListener('click', () => send({ cmd: 'clear_emergency' }));
+  // 래치 토글 — 눌려 있으면 해제, 아니면 비상정지. 상태는 서버 system.safeStop 이 진실.
+  document.getElementById('btnEstop')?.addEventListener('click', () => {
+    const on = document.getElementById('btnEstop')?.classList.contains('active');
+    send({ cmd: on ? 'clear_emergency' : 'emergency' });
+    if (on && window.flashHdrStatus) window.flashHdrStatus('비상정지 해제 — 밸브는 닫혀 있음', 'stop');
+  });
   // 안전리셋(운전 준비) — M112 순간 펄스 요청.
   document.getElementById('plcReset')?.addEventListener('click', () => window.cmdPlcReset());
   // PLC 재연결 요청.

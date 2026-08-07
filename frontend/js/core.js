@@ -262,12 +262,14 @@ function applyState(s){
     if(hl&&s.system.loop) hl.textContent=`${s.system.loop.current} / ${s.system.loop.total}`;
     const rh=document.getElementById('rh'); if(rh&&s.system.rh!=null) rh.textContent=(+s.system.rh).toFixed(1);
     const mv=document.getElementById('measVal'); if(mv&&s.system.smu) mv.textContent=s.system.smu;
-    // Soft e-stop: show the clear button only while it is needed.
+    // Soft e-stop is a latch toggle on the same button.
     var _es=!!s.system.safeStop;
     var _eb=document.getElementById('btnEstop');
-    if(_eb) _eb.classList.toggle('active', _es);
-    var _ec=document.getElementById('btnEstopClear');
-    if(_ec) _ec.style.display=_es?'':'none';
+    if(_eb){
+      _eb.classList.toggle('active', _es);
+      _eb.title=_es?'\ub204\ub978 \uc0c1\ud0dc \u2014 \ub2e4\uc2dc \ub204\ub974\uba74 \ud574\uc81c(\ubc38\ube0c\ub294 \ub2eb\ud78c \ucc44)'
+                   :'\uc18c\ud504\ud2b8 \ube44\uc0c1\uc815\uc9c0 \u2014 \ubaa8\ub4e0 \ubc38\ube0c \uc989\uc2dc \ucc28\ub2e8(\ub798\uce58)';
+    }
   }
   if(s.version){   // \ud504\ub85c\uadf8\ub7a8 \ubc84\uc804 \u2014 \ud5e4\ub354 \uc6b0\uce21\uc5d0 \uc791\uac8c \ud45c\uc2dc
     const av=document.getElementById('appVer');
