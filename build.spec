@@ -19,6 +19,32 @@ onedir을 쓰는 이유:
 
 block_cipher = None
 
+# exe 파일 속성(회사·버전)을 채운다. 백신 신뢰도와 고객 인상에 영향이 있고,
+# 버전이 없으면 납품 후 "어느 빌드인지" 특정할 수 없다.
+# ★ 리눅스 빌드나 PyInstaller API 차이로 실패해도 빌드는 계속돼야 하므로 None 폴백.
+import os, sys
+sys.path.insert(0, os.path.join(SPECPATH, 'backend'))
+_version_res = None
+try:
+    import version as _appver
+    _vt = tuple(int(x) for x in _appver.APP_VERSION.split('.'))[:3] + (0,)
+    from PyInstaller.utils.win32.versioninfo import (
+        VSVersionInfo, FixedFileInfo, StringFileInfo, StringTable,
+        StringStruct, VarFileInfo, VarStruct)
+    _version_res = VSVersionInfo(
+        ffi=FixedFileInfo(filevers=_vt, prodvers=_vt),
+        kids=[StringFileInfo([StringTable('041204B0', [
+            StringStruct('CompanyName', 'VANAM INC.'),
+            StringStruct('FileDescription', 'Gas Sensor Measurement System'),
+            StringStruct('FileVersion', _appver.APP_VERSION),
+            StringStruct('ProductName', 'Gas Sensor Measurement System'),
+            StringStruct('ProductVersion', _appver.APP_VERSION),
+        ])]),
+        VarFileInfo([VarStruct('Translation', [1042, 1200])])],
+    )
+except Exception:
+    _version_res = None   # 리눅스 빌드·API 차이 등 — 버전 리소스 없이 진행
+
 a = Analysis(
     ['backend/server.py'],
     pathex=['backend'],          # backend/ 안의 모듈을 최상위 이름으로 import 하므로 필요
@@ -69,13 +95,15 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,           # UPX 압축은 백신 오탐의 흔한 원인 — 상용 납품이므로 끈다
     console=True,        # ★ 디버깅용. 배포판은 False로 바꾼다(BUILD.md 참고)
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version=_version_res,
+    # icon='assets/app.ico'  # .ico 파일이 준비되면 추가
 )
 
 coll = COLLECT(
@@ -84,7 +112,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,           # UPX 압축은 백신 오탐의 흔한 원인 — 상용 납품이므로 끈다
     upx_exclude=[],
     name='GasSensor',
 )
