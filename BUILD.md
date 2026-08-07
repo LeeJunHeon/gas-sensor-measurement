@@ -45,11 +45,10 @@ dist/GasSensor/
 ├── GasSensor.exe
 ├── _internal/          ← PyInstaller 내부(건드리지 말 것)
 ├── config.json         ← ★ 수동 동봉 (미리 세팅한 것)
-├── admin.json          ← ★ 수동 동봉 (장비별 관리자 인증, 추후 기능)
 └── recipes/            ← ★ 수동 동봉 (기본 레시피)
 ```
 
-`config.json` · `admin.json` · `recipes/` 는 **빌드에 포함되지 않는다.** 번들에 넣으면
+`config.json` · `recipes/` 는 **빌드에 포함되지 않는다.** 번들에 넣으면
 읽기 전용 임시 폴더로 들어가 저장한 값이 종료 시 사라진다(`backend/paths.py` 참고).
 반드시 위 위치에 손으로 복사해 동봉한다.
 
@@ -58,7 +57,7 @@ dist/GasSensor/
 | 대상 | 위치 | 성격 |
 |---|---|---|
 | `frontend/` (HTML·CSS·JS) | `_internal/frontend/` | 번들 자원, 읽기 전용 |
-| `config.json`, `admin.json` | exe와 같은 폴더 | 사용자 데이터, 쓰기 |
+| `config.json` | exe와 같은 폴더 | 사용자 데이터, 쓰기 |
 | `recipes/`, `logs/` | exe와 같은 폴더 | 사용자 데이터, 쓰기 |
 
 `recipes/` 와 `logs/` 는 없으면 프로그램이 자동으로 만든다.
