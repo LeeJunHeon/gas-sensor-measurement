@@ -86,14 +86,26 @@ function uiSetRunning(on){
 // 자동 실행 중 수동 조작 영역을 잠근다(서버에서도 막히므로 화면도 시각적으로 잠금).
 // 잠금: 배관도 밸브·MAX/SV 입력·System Setup·PURGE·AUTO RUN(중복 시작 방지).
 // 비잠금: AUTO STOP·비상정지·EXIT·PROGRAM END(항상 동작).
-function applyRunLock(run){
-  const lock=sel=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle('locked',run));
-  lock('.n-valve'); lock('[data-max]'); lock('[data-sv]');
-  document.getElementById('openSetup')?.classList.toggle('locked',run);
-  document.querySelectorAll('.hbtn.purge').forEach(b=>b.classList.toggle('locked',run));
-  // SMU 패널의 .pbtn.runbig는 비활성(미구현)이라 제외 — 헤더 .hbtn.run만 잠금 토글.
-  document.querySelectorAll('.hbtn.run').forEach(b=>{b.disabled=run; b.classList.toggle('locked',run);});
+// \uc7a0\uae08\uc740 \ub450 \ucd95\uc774\ub2e4: \uc790\ub3d9 \uc2e4\ud589 \uc911(_runLocked) / PLC \ubbf8\uc900\ube44(!_plcReady).
+// \uacb9\uce58\ub294 \ub300\uc0c1\uc740 '\ub458 \uc911 \ud558\ub098\ub77c\ub3c4 \uc7a0\uadf8\uba74 \uc7a0\uae40'. MAX \uc785\ub825\uacfc System Setup\uc740 PLC\uc640 \ubb34\uad00\ud558\ubbc0\ub85c
+// \uc2e4\ud589 \uc911\uc5d0\ub9cc \uc7a0\uadfc\ub2e4(\uc11c\ubc84\uc758 \uc7a0\uae08 \uac8c\uc774\ud2b8\ub3c4 apply_setup\u00b7set_max\ub294 \ud5c8\uc6a9\ud55c\ub2e4).
+let _runLocked=false, _plcReady=true;
+function _applyLocks(){
+  const R=_runLocked, P=!_plcReady;
+  const set=(sel,on)=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle('locked',on));
+  set('.n-valve', R||P);
+  set('[data-sv]', R||P);
+  set('[data-max]', R);
+  document.getElementById('openSetup')?.classList.toggle('locked', R);
+  document.querySelectorAll('.hbtn.purge').forEach(b=>b.classList.toggle('locked', R||P));
+  // SMU \ud328\ub110\uc758 .pbtn.runbig\ub294 \ube44\ud65c\uc131(\ubbf8\uad6c\ud604)\uc774\ub77c \uc81c\uc678 \u2014 \ud5e4\ub354 .hbtn.run\ub9cc \uc7a0\uae08 \ud1a0\uae00.
+  document.querySelectorAll('.hbtn.run').forEach(b=>{b.disabled=R||P; b.classList.toggle('locked',R||P);});
+  const w=document.getElementById('wayToggle');
+  if(w){ w.disabled=P; w.classList.toggle('locked',P); }
 }
+function applyRunLock(run){ _runLocked=!!run; _applyLocks(); }
+// PLC\uac00 \uba85\ub839\uc744 \uc218\ud589\ud560 \uc218 \uc788\ub294 \uc0c1\ud0dc(\uc5f0\uacb0 + \uc548\uc804\uc815\uc9c0 \uc544\ub2d8)\uc77c \ub54c\ub9cc \ubb3c\ub9ac \uc870\uc791\uc744 \uc5f0\ub2e4.
+function applyPlcLock(ready){ _plcReady=!!ready; _applyLocks(); }
 // 레시피 AUTO RUN/STOP은 헤더 버튼(.hbtn)만 — SMU 패널 .pbtn.runbig/.stopbig는 비활성이라 미연결.
 document.querySelectorAll('.hbtn.run').forEach(b=>b.addEventListener('click',()=>window.cmdRun()));
 // AUTO STOP(푸터 신설) + 도크 AUTO STOP → 시퀀스 정지
@@ -172,8 +184,9 @@ function updatePlcLive(live){
   if(permit){
     permit.classList.remove('ok','bad');
     const t=permit.querySelector('.pp-permit-txt');
-    if(!connected){ if(t) t.textContent='\u2014'; }   // \ubbf8\uc5f0\uacb0\uc740 \uc6b0\uc0c1\ub2e8 \ubc30\uc9c0\uac00 \ud45c\uc2dc \u2014 \uc5ec\uae30\uc120 \uc911\ubcf5 \ud53c\ud574 '\u2014'
-    else if(st.SAFETY_STOP===true){ permit.classList.add('bad'); if(t) t.textContent='\uc815\uc9c0'; }
+    // \uc7a0\uae08 \uc0ac\uc720\uac00 \ubcf4\uc774\uac8c \ud55c\ub2e4 \u2014 \ubbf8\uc5f0\uacb0\uacfc \uc548\uc804\uc815\uc9c0\ub294 \uc870\uce58\uac00 \ub2e4\ub974\ub2e4.
+    if(!connected){ permit.classList.add('bad'); if(t) t.textContent='\ubbf8\uc5f0\uacb0 \u00b7 \uc870\uc791 \uc7a0\uae40'; }
+    else if(st.SAFETY_STOP===true){ permit.classList.add('bad'); if(t) t.textContent='\uc815\uc9c0 \u00b7 \uc870\uc791 \uc7a0\uae40'; }
     else { permit.classList.add('ok'); if(t) t.textContent='\uc6b4\uc804 \ud5c8\uac00'; }
   }
   const setDot=(id, ok)=>{
@@ -188,6 +201,8 @@ function updatePlcLive(live){
   setDot('stAlmIdd', !(st.ALM_IDD===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
   setDot('stAlmDac', !(st.ALM_DAC===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
   setDot('stComm',   connected);                   // \uc5f0\uacb0\uc774\uba74 \ud1b5\uc2e0(\ud558\ud2b8\ube44\ud2b8) \uc815\uc0c1=\ucd08\ub85d
+  // PLC \uc900\ube44 = \uc5f0\uacb0 + \uc548\uc804\uc815\uc9c0 \uc544\ub2d8. \ubbf8\uc900\ube44\uba74 \ubb3c\ub9ac \uc870\uc791 \ucee8\ud2b8\ub864\uc744 \uc7a0\uadfc\ub2e4.
+  applyPlcLock(connected && st.SAFETY_STOP!==true);
 }
 // \uc11c\ubc84 state \uba54\uc2dc\uc9c0 \u2192 \ub0b4\ubd80 \uc0c1\ud0dc \ubc18\uc601 \ud6c4 \uc7ac\ub80c\ub354
 function applyState(s){
@@ -308,6 +323,7 @@ window.channels=channels; window.procs=procs;
 window.renderLanes=renderLanes; window.renderRecipe=renderRecipe;
 window.drawBuses=drawBuses; window.updateSystem=updateSystem; window.logMsg=logMsg;
 window.applyState=applyState; window.applyTelemetry=applyTelemetry;
+window.applyPlcLock=applyPlcLock;
 window.collectRecipe=collectRecipe; window.collectSetup=collectSetup;
 
 /* ===================== fit ===================== */

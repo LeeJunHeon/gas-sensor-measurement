@@ -44,6 +44,8 @@
     connected = false;
     setConn(false);
     if (window.clearLiveValues) window.clearLiveValues();
+    // 서버가 없으면 PLC도 조작할 수 없다 — 컨트롤을 잠가 오조작을 막는다.
+    if (window.applyPlcLock) window.applyPlcLock(false);
     scheduleReconnect();
   }
 
