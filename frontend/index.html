@@ -111,6 +111,11 @@
           <button class="addbtn" id="addProc">+ Add Process</button>
           <span style="font-size:10.5px;color:var(--ink-faint)">행을 추가하면 P 번호가 자동 부여됩니다. 셀을 클릭해 값을 편집하세요.</span>
         </div>
+        <!-- 레시피를 편집한 자리에서 바로 실행/중단 — 동선을 끊지 않는다. -->
+        <div class="apv-actions">
+          <button class="hbtn run">▶ AUTO RUN</button>
+          <button class="hbtn stop">■ AUTO STOP</button>
+        </div>
 
         <div class="pgrid">
           <!-- Recipe loop + voltage -->
@@ -175,8 +180,6 @@
     </div>
 
     <footer class="appfoot">
-      <button class="hbtn run">▶ AUTO RUN</button>
-      <button class="hbtn stop">■ AUTO STOP</button>
       <button class="hbtn purge">✦ PURGE</button>
       <button class="hbtn estop" id="btnEstop">⛔ EMERGENCY STOP</button>
       <button class="hbtn" id="btnEstopClear" title="비상정지 해제 — 밸브는 자동으로 열리지 않습니다">↺ 비상정지 해제</button>
