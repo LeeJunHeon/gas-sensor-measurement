@@ -133,7 +133,7 @@ async def handle_command(data: dict):
 
         elif cmd == "stop":
             engine.stop()
-            await push_log("AUTO STOP — 자동 진행 중단(현재 상태 유지)", "info")
+            await push_log("AUTO STOP — 자동 진행 중단 — 가스 차단", "info")
             await push_state()
 
         elif cmd == "emergency":

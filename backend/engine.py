@@ -1,7 +1,8 @@
 """
-engine.py — 레시피 단계 진행 엔진(시뮬레이션 단계).
+engine.py — 레시피 단계 진행 엔진.
 P1→P2→… 순서로: 계산→SV적용→준비(prep)대기→측정(meas)유지→다음. Loop Count 반복.
 측정 하드웨어가 없으므로 측정 구간은 값 유지하며 시간만 흐른다.
+진행이 끝나면(정상 완료·STOP·PLC 이상 중단) 항상 가스를 차단한다 — 유량을 남기지 않는다.
 """
 
 import asyncio
@@ -59,9 +60,12 @@ def _apply_setpoints(sv: dict):
     state.system["routeOut"] = "sensor"
 
 
-def _all_off():
+def _all_close():
+    """자동 진행이 끝나면(정상 완료·STOP 공통) 가스를 차단한다 — 모든 SV=0, 모든 밸브 닫힘.
+    이전 규칙('유량 유지')은 자리를 비운 사이 가스가 계속 소모되는 문제로 폐기했다."""
     for c in state.channels:
         c["sv"] = 0.0
+        c["valveIn"] = False
 
 
 def _emergency_off():
@@ -127,11 +131,13 @@ async def _run_recipe():
                     return
         await push_log("AUTO RUN 완료 — 레시피 종료", "ok")
     finally:
-        # 정상 완료/중단 공통 마무리: 자동 진행 표시 해제(유량은 유지 — STOP 규칙과 동일)
+        # 정상 완료/중단 공통 마무리: 가스를 차단하고(STOP·완료 동일 규칙) 자동 진행 표시 해제.
+        _all_close()
         state.system["running"] = False
         state.system["phase"] = "idle"
         state.system["stepIndex"] = 0
         state.system["stepRemain"] = 0
+        await push_log("자동 실행 종료 — 가스 차단(모든 밸브·유량 닫음)", "info")
         await push_state()
 
 
@@ -165,7 +171,7 @@ async def _phase(name: str, seconds: float, plc_abort=None):
                 reason = plc_abort()
                 if reason:
                     # 복구 후 자동 재개를 막는다. 안전정지든 통신두절이든 사람이 확인하고 다시 열어야 한다.
-                    # ★ _all_off()는 sv만 0으로 만든다 — valveIn이 True로 남으면 통신 복구 시
+                    # ★ sv만 0으로 만들면 valveIn이 True로 남아 통신 복구 시
                     #   밸브가 다시 열린다(안전정지는 loops의 전이 감지가 닫아주지만 통신두절은 아무도 안 닫는다).
                     _emergency_off()
                     state.system["running"] = False
@@ -188,7 +194,8 @@ def start() -> bool:
 
 
 def stop():
-    """자동 진행만 중단(유량/밸브 유지). running=False로 두면 _phase/_run_recipe가 빠져나온다."""
+    """자동 진행 중단(가스 차단은 _run_recipe finally가 수행). running=False로 두면
+    _phase/_run_recipe가 빠져나온다."""
     state.system["running"] = False
 
 
