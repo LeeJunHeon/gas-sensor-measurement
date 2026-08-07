@@ -6,10 +6,12 @@ commands.py — 화면 명령 처리(handle_command).
 """
 
 import os
+import asyncio
 
 import engine
 import logger
 import plc
+import plc_catalog
 from state import state, default_recipe, DEFAULT_PARAMS, normalize_recipe, to_num
 from connection import manager, push_state, push_log
 from storage import (
@@ -300,6 +302,26 @@ async def handle_command(data: dict):
             await manager.broadcast({"type": "recipe_list", "names": list_recipes()})
 
         elif cmd == "exit":
+            # 정상 종료 한정 개선: 죽기 직전 가스 차단 1회 쓰기(SV 먼저 → 밸브).
+            # 크래시·강제종료는 래더 하트비트 3초 트립이 최후 방어선이다(변경 불가·불필요).
+            # 차단 쓰기가 실패하거나 늦어도 종료는 계속돼야 한다 → wait_for + 예외 무시.
+            try:
+                if plc.plc.is_connected():
+                    sv_map, valve_map = {}, {}
+                    for c in state.channels:
+                        p = c.get("plc") or {}
+                        if plc_catalog.valve_coil(c["id"]) is not None:
+                            valve_map[c["id"]] = False
+                        if plc_catalog.dac_reg(p.get("sv_out")) is not None:
+                            sv_map[c["id"]] = 0.0
+                    await asyncio.wait_for(plc.plc.write_sv_block(sv_map), 1.0)
+                    await asyncio.wait_for(plc.plc.write_valves_block(valve_map, False), 1.0)
+                    for c in state.channels:
+                        c["sv"] = 0.0
+                        c["valveIn"] = False
+                    await push_log("종료 — 가스 차단(모든 밸브·유량 닫음)", "info")
+            except Exception:  # noqa: BLE001
+                logger.write("warn", "종료 시 가스 차단 쓰기 실패 — 래더 3초 트립이 닫는다")
             await push_log("프로그램 종료", "info")
             if _shutdown_handler is not None:
                 _shutdown_handler()
