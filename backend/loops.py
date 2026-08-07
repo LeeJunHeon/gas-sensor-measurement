@@ -108,12 +108,26 @@ async def plc_poll_loop():
 async def plc_write_loop():
     last = None   # (밸브 튜플, SV 튜플, 4way) — 통째로 비교해 바뀔 때만 전송
     prev_plc_safe = False   # PLC 안전정지의 직전 값(전이 감지용)
+    prev_connected = False   # 연결의 직전 값(전이 감지) — 끊김 시 앱 상태도 닫힘으로 정렬
     while True:
         await asyncio.sleep(PLC_WRITE_INTERVAL_S)
         try:
             if not plc.plc.is_connected():
+                if prev_connected:
+                    # 연결됨→끊김 전이 1회: 래더는 3초 내 트립으로 실제 밸브를 닫는다.
+                    # 앱 상태도 함께 닫아 화면 거짓 표시와 재연결 시 일괄 재개를 막는다
+                    # (수동 재투입 원칙 — 트립 발생 전이 처리와 대칭).
+                    for ch in state.channels:
+                        ch["valveIn"] = False
+                        ch["sv"] = 0.0
+                    await push_log("PLC 연결 끊김 — 밸브·유량 설정을 닫힘으로 정렬했습니다. "
+                                   "재연결·리셋 후 다시 여세요", "warn")
+                    with contextlib.suppress(Exception):
+                        await push_state()
+                prev_connected = False
                 last = None
                 continue
+            prev_connected = True
             # 안전정지면 무조건 닫기(열림·유량 명령 금지). status는 읽기 폴링이 채운다.
             # PLC 안전정지와 파이썬 비상정지(system.safeStop) 둘 다 닫힘 조건이다.
             plc_safe = (state.plc_live.get("status") or {}).get("SAFETY_STOP") is True
