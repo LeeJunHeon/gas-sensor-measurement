@@ -15,6 +15,11 @@ pip install -r requirements.txt pyinstaller
 pyinstaller build.spec --clean --noconfirm
 ```
 
+> ⚠️ **의존성은 반드시 `requirements.txt`의 버전 그대로 설치한다. 특히 pymodbus는 3.6.9 고정 —
+> 이후 버전은 호출 규약이 달라 PLC 통신이 되지 않는다.**
+> 버전을 올려 빌드하면 exe는 정상으로 뜨지만 현장에서 통신만 안 되는, 원인을 찾기 어려운
+> 상태가 된다. `pip install -U` 로 임의 갱신하지 말 것.
+
 `dist/GasSensor/` 아래에 결과물이 생성된다.
 
 > `build.spec` 의 `excludes` 목록(PyQt5/PyQt6, matplotlib, tkinter 등)은 개발 PC에서
