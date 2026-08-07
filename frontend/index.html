@@ -59,8 +59,8 @@
                   <span class="plcstat" id="stComm"><span class="d"></span>통신</span>
                 </div>
                 <div class="pp-btns">
-                  <button class="plcreset" id="plcReset" title="PLC 운전 허가 켜기 — 트립(안전정지) 해제. 공압·통신이 정상일 때만 성공하며, 밸브는 자동으로 열리지 않습니다">↺ 안전 리셋</button>
-                  <button class="plcrecon" id="plcReconnectBtn" title="Modbus 연결을 다시 맺습니다(운전 허가와 별개)">⟳ 통신 재연결</button>
+                  <button class="plcreset" id="plcReset" title="PLC에 운전 허가 신호(SAFETY_RESET 펄스)를 보냅니다. CPU를 재시작하는 것이 아니며, 공압·통신이 정상일 때만 허가가 켜지고 밸브는 자동으로 열리지 않습니다">▶ 운전 준비</button>
+                  <button class="plcrecon" id="plcReconnectBtn" title="COM/TCP 연결을 닫고 새 설정으로 다시 엽니다. 끊김 시 1초마다 자동 재시도 중이므로, 이 버튼은 설정 반영·즉시 재시도·원인 진단용입니다">⟳ 통신 재연결</button>
                 </div>
               </div>
             </div>
@@ -181,8 +181,8 @@
 
     <footer class="appfoot">
       <button class="hbtn purge">✦ PURGE</button>
-      <button class="hbtn estop" id="btnEstop" title="소프트 비상정지 — 모든 밸브·유량 즉시 차단 후 조작 잠금. PLC 트립과는 별개입니다">⛔ EMERGENCY STOP</button>
-      <button class="hbtn" id="btnEstopClear" style="display:none" title="소프트 잠금만 해제 — 밸브는 닫힌 채 유지됩니다">↺ 비상정지 해제</button>
+      <button class="hbtn estop" id="btnEstop" title="소프트 비상정지(래치) — 모든 밸브 닫힘·유량 0을 즉시 쓰고 조작을 잠급니다. PLC 트립과는 별개입니다">⛔ EMERGENCY STOP</button>
+      <button class="hbtn" id="btnEstopClear" style="display:none" title="래치된 소프트 잠금만 풉니다 — 밸브는 닫힌 채 유지되며, 이후 사람이 직접 엽니다">↺ 비상정지 해제</button>
       <div class="footspace"></div>
       <button class="dock-toggle" id="dockToggle">Auto Process View ▸</button>
       <button class="hbtn log" id="openLog" title="System Log">▤ LOG<span class="logbadge"></span></button>

@@ -198,7 +198,7 @@ function updatePlcLive(live){
     const t=permit.querySelector('.pp-permit-txt');
     // \uc7a0\uae08 \uc0ac\uc720\uac00 \ubcf4\uc774\uac8c \ud55c\ub2e4 \u2014 \ubbf8\uc5f0\uacb0\uacfc \uc548\uc804\uc815\uc9c0\ub294 \uc870\uce58\uac00 \ub2e4\ub974\ub2e4.
     if(!connected){ permit.classList.add('bad'); if(t) t.textContent='PLC \ubbf8\uc5f0\uacb0 \u2014 \'\ud1b5\uc2e0 \uc7ac\uc5f0\uacb0\''; }
-    else if(st.SAFETY_STOP===true){ permit.classList.add('bad'); if(t) t.textContent='\uc548\uc804\uc815\uc9c0 \u2014 \'\uc548\uc804 \ub9ac\uc14b\'\uc73c\ub85c \uc6b4\uc804 \uc900\ube44'; }
+    else if(st.SAFETY_STOP===true){ permit.classList.add('bad'); if(t) t.textContent='\uc548\uc804\uc815\uc9c0 \u2014 \'\uc6b4\uc804 \uc900\ube44\'\ub97c \ub204\ub974\uc138\uc694'; }
     else { permit.classList.add('ok'); if(t) t.textContent='\uc6b4\uc804 \ud5c8\uac00'; }
   }
   const setDot=(id, ok)=>{
