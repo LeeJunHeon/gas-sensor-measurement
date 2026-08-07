@@ -205,9 +205,10 @@ function collectSetup(){
     }
     chans.push(row);
   });
-  const num=id=>parseFloat(document.getElementById(id)?.value)||0;
-  const params={vStart:num('setVStart'), vEnd:num('setVEnd'),
-    grafInterval:num('setGraf'), smuCompliance:num('setComp')};
+  // 측정 관련 파라미터(vStart/vEnd/grafInterval/smuCompliance)는 소비처가 없어 수집하지 않는다
+  // — 죽은 값을 config에 저장하면 나중에 '설정했는데 왜 안 되나' 오해를 부른다.
+  //   backend의 params 키 자체는 스냅샷 하위호환으로 남아 있다.
+  const params={};
   const settings={
     logEnabled: !!document.getElementById('logEnabled')?.checked,
     logDir: (document.getElementById('logDir')?.value || 'logs').trim(),

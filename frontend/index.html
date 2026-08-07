@@ -217,14 +217,16 @@
             </tr></thead>
             <tbody id="setupScaleRows"></tbody>
           </table>
-          <div class="setup-sec">측정 / 시스템 파라미터</div>
+          <div class="setup-sec">시스템 파라미터
+            <span style="font-weight:500;font-size:11px;color:var(--ink-faint)">— 측정 관련 항목은 별도 장비 담당이라 사용하지 않습니다</span>
+          </div>
           <div class="setup-grid">
-            <div class="setup-field"><label>Start 전압 (V)</label><input id="setVStart" value="0"></div>
-            <div class="setup-field"><label>End 전압 (V)</label><input id="setVEnd" value="0"></div>
-            <div class="setup-field"><label>Graph Interval (sec)</label><input id="setGraf" value="1"></div>
+            <div class="setup-field"><label>Start 전압 (V) — 미사용</label><input id="setVStart" value="0" disabled></div>
+            <div class="setup-field"><label>End 전압 (V) — 미사용</label><input id="setVEnd" value="0" disabled></div>
+            <div class="setup-field"><label>Graph Interval — 미사용</label><input id="setGraf" value="1" disabled></div>
             <div class="setup-field"><label>Loop Count</label><input id="setLoop" value="1"></div>
-            <div class="setup-field"><label>SMU Compliance (mA)</label><input id="setComp" value="1.0"></div>
-            <div class="setup-field"><label>목표 습도 RH (%)</label><input id="setRH" value="40"></div>
+            <div class="setup-field"><label>SMU Compliance — 미사용</label><input id="setComp" value="1.0" disabled></div>
+            <div class="setup-field"><label>목표 습도 RH (%) — 미사용(습도 미배선)</label><input id="setRH" value="40" disabled></div>
           </div>
           <div class="setup-section">
             <div class="setup-sec-title">로깅 (파일 기록)</div>
