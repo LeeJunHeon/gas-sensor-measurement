@@ -12,7 +12,8 @@ import engine
 import logger
 import plc
 import plc_catalog
-from state import state, default_recipe, DEFAULT_PARAMS, normalize_recipe, to_num
+from state import (state, default_recipe, DEFAULT_PARAMS, normalize_recipe, to_num,
+                   validate_channel_map)
 from connection import manager, push_state, push_log
 from storage import (
     atomic_write_json, safe_read_json, valid_recipe_name, list_recipes, RECIPES_DIR,
@@ -175,8 +176,61 @@ async def handle_command(data: dict):
 
         elif cmd == "apply_setup":
             chans = data.get("channels") or []
+
+            # ── 배정(sv_out/pv_in) 후보 검증 — 문제가 있으면 통째로 거부(부분 적용 없음) ──
+            def _norm(v):
+                v = (v or "").strip() if isinstance(v, str) else v
+                return v if v else None
+            problems, sv_seen, pv_seen = [], {}, {}
+            dac_ok = set(plc_catalog.dac_names(state.plc_hw.get("dac_modules", 1)))
+            adc_ok = set(plc_catalog.adc_names())
+            # ★ 중복은 '적용 후 최종 배정' 기준으로 본다 — 제출된 항목끼리만 비교하면
+            #   화면이 안 보낸 채널이 이미 쓰는 채널을 빼앗아도 통과한다.
+            _sent = {}
+            for item in data.get("channels", []):
+                cid = item.get("id")
+                if cid is None:
+                    i = int(item.get("ch", -1))
+                    if 0 <= i < len(state.channels):
+                        cid = state.channels[i]["id"]
+                if cid is not None:
+                    _sent[cid] = item
+            for c in state.channels:
+                cid = c["id"]
+                cur = c.get("plc") or {}
+                item = _sent.get(cid, {})
+                sent_sv, sent_pv = "sv_out" in item, "pv_in" in item
+                sv = _norm(item.get("sv_out")) if sent_sv else cur.get("sv_out")
+                pv = _norm(item.get("pv_in")) if sent_pv else cur.get("pv_in")
+                if sv is not None:
+                    if sv not in dac_ok:
+                        if sent_sv:   # 기존 값이 이상한 경우는 기동 진단이 따로 알린다
+                            problems.append(f"{cid}: SV 출력 '{sv}' 은(는) 사용할 수 없습니다(미장착 모듈 또는 잘못된 이름)")
+                    elif sv in sv_seen:
+                        problems.append(f"{cid}: SV 출력 '{sv}' 이(가) {sv_seen[sv]} 와(과) 중복 배정")
+                    else:
+                        sv_seen[sv] = cid
+                if pv is not None:
+                    if pv not in adc_ok:
+                        if sent_pv:
+                            problems.append(f"{cid}: PV 입력 '{pv}' 은(는) 잘못된 이름입니다")
+                    elif pv in pv_seen:
+                        problems.append(f"{cid}: PV 입력 '{pv}' 이(가) {pv_seen[pv]} 와(과) 중복 배정")
+                    else:
+                        pv_seen[pv] = cid
+            if problems:
+                await manager.broadcast({"type": "ack", "of": "apply_setup",
+                                         "ok": False, "problems": problems})
+                for p in problems:
+                    await push_log("설정 거부 — " + p, "err")
+                return
+
+            assign_changed = False   # 배정이 하나라도 바뀌면 루프 뒤에서 전체를 닫는다
+            _by_id = {c["id"]: n for n, c in enumerate(state.channels)}
             for item in chans:
                 i = int(item.get("ch", -1))
+                if not (0 <= i < len(state.channels)):
+                    i = _by_id.get(item.get("id"), -1)   # ch 없이 id로 온 항목도 받는다
                 if not (0 <= i < len(state.channels)):
                     continue
                 c = state.channels[i]
@@ -186,16 +240,20 @@ async def handle_command(data: dict):
                 c["route"] = item.get("route", c["route"])
                 c["max"] = max(0.0, to_num(item.get("max"), c["max"]))
                 c["sv"] = min(max(0.0, to_num(item.get("sv"), c["sv"])), c["max"])
-                # 아날로그 스케일만 화면에서 수정 가능.
-                # ★ 주소 배정(sv_out/pv_in)과 하드웨어 구성(dac_modules)은 UI에서 변경할 수 없다.
-                #   config.json을 직접 편집해야 한다. 여기서 클라이언트 값을 받아 쓰면
-                #   잘못된 배정이 조용히 들어간다. 밸브 코일은 plc_catalog가 결정하므로 config에 없다.
-                #   item에 sv_out/pv_in/cmd_coil이 섞여 와도 아래 루프가 scale 4키만 보므로 무시된다.
+                # 아날로그 스케일과 배정(sv_out/pv_in)을 화면에서 수정할 수 있다.
+                # ★ 배정은 UI 편집 허용 — 카탈로그 드롭다운(오타 불가) + 중복/미장착 검증(위에서
+                #   통째 거부) + 변경 시 전체 닫힘으로 보호한다.
+                #   밸브 코일(plc_catalog가 채널 id로 결정)과 dac_modules는 계속 편집 불가.
                 sc = item.get("scale")
                 if isinstance(sc, dict) and isinstance(c.get("plc"), dict):
                     for k in ("fs_sccm", "sv_full", "pv_zero", "pv_full"):
                         if k in sc:
                             c["plc"][k] = max(0, to_num(sc[k], c["plc"].get(k, 0)))
+                if isinstance(c.get("plc"), dict):
+                    if "sv_out" in item and _norm(item.get("sv_out")) != c["plc"].get("sv_out"):
+                        c["plc"]["sv_out"] = _norm(item.get("sv_out")); assign_changed = True
+                    if "pv_in" in item and _norm(item.get("pv_in")) != c["plc"].get("pv_in"):
+                        c["plc"]["pv_in"] = _norm(item.get("pv_in")); assign_changed = True
                 # ★ 채널을 켜도 밸브는 자동으로 열지 않는다 — 배관도에서 사람이 연다.
                 #   (끄면 닫는 것은 안전 방향이므로 유지)
                 if not en:
@@ -213,12 +271,22 @@ async def handle_command(data: dict):
                 incoming["unit_id"] = min(247, max(1, int(to_num(incoming.get("unit_id"), 1)) or 1))
                 state.plc = incoming
                 plc.configure(state.plc)           # 설정 반영(실제 연결은 재연결로)
+            if assign_changed:
+                # 배정이 바뀌면 유량 명령의 목적지가 바뀐다 — 흐르는 중 전환 사고 방지
+                for c in state.channels:
+                    c["valveIn"] = False
+                    c["sv"] = 0.0
+                await push_log("배정 변경 — 안전을 위해 모든 밸브·유량을 닫았습니다. "
+                               "확인 후 다시 여세요", "warn")
             plc.load_addresses(state.channels, state.plc_system)   # 채널 plc 변경분 즉시 반영
             state.save_config()
             await push_log("System Setup 적용 — 채널 설정 저장됨", "ok")
             if plc_changed:
                 await push_log("PLC 통신 설정 저장됨 — 재연결해야 적용됩니다", "info")
                 await plc.plc.reconnect()          # 새 설정으로 재연결(port 비면 no-op)
+            await manager.broadcast({"type": "ack", "of": "apply_setup", "ok": True})
+            for n in validate_channel_map(state.channels, state.plc_hw):
+                await push_log("배정 진단 — " + n["msg"], n.get("level", "info"))
             await push_state()
 
         elif cmd == "plc_ports":
