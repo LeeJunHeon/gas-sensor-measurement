@@ -2,15 +2,17 @@
    다른 파일 함수는 window.* 노출분을 사용. 전역 노출/초기화는 core.js가 담당. */
 /* ===================== channel model ===================== */
 // 초기값은 모두 0 / 비어 있음. 실제 값은 서버 state(또는 config 로드)가 채운다.
+// en은 전부 false로 시작한다 — 서버 state가 오기 전 첫 화면이 '채널이 켜진 것처럼'
+// 보이면 안 된다. pv도 null(=화면 '—')로 두고 실측이 올 때만 숫자를 그린다.
 let channels = [
-  {grp:'air', route:'pure', max:2000, sv:0, pv:0, en:true},   // VA1
-  {grp:'air', route:'pure', max:2000, sv:0, pv:0, en:false},  // VA2
-  {grp:'air', route:'mix',  max:2000, sv:0, pv:0, en:true},   // VA3
-  {grp:'air', route:'mix',  max:2000, sv:0, pv:0, en:false},  // VA4
-  {grp:'gas', route:'mix',  max:2000, sv:0, pv:0, en:true},   // VA5
-  {grp:'gas', route:'mix',  max:200,  sv:0, pv:0, en:true},   // VA6
-  {grp:'gas', route:'mix',  max:200,  sv:0, pv:0, en:false},  // VA7
-  {grp:'gas', route:'mix',  max:100,  sv:0, pv:0, en:false},  // VA8
+  {grp:'air', route:'pure', max:2000, sv:0, pv:null, en:false},  // VA1
+  {grp:'air', route:'pure', max:2000, sv:0, pv:null, en:false},  // VA2
+  {grp:'air', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA3
+  {grp:'air', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA4
+  {grp:'gas', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA5
+  {grp:'gas', route:'mix',  max:200,  sv:0, pv:null, en:false},  // VA6
+  {grp:'gas', route:'mix',  max:200,  sv:0, pv:null, en:false},  // VA7
+  {grp:'gas', route:'mix',  max:100,  sv:0, pv:null, en:false},  // VA8
 ];
 // derive display fields (label/color/sub) from group — does NOT reorder.
 // 서버가 채널 인덱스/순서/id의 주인이므로 화면은 받은 순서를 그대로 쓴다.
@@ -88,7 +90,7 @@ function renderLanes(){
       <div class="n-mfc ${eff(c)?'on':''}${c.en?'':' dis'}">
         <div class="mfc-read">
           <span class="vid">${c.id} · MFC</span>
-          <div class="pvrow"><span class="rlbl">PV</span><span class="pvb" data-pv="${idx}">${c.pv.toFixed(d)}</span><span class="un" style="visibility:hidden">sccm</span></div>
+          <div class="pvrow"><span class="rlbl">PV</span><span class="pvb" data-pv="${idx}">${fmtPv(c)}</span><span class="un" style="visibility:hidden">sccm</span></div>
           <span class="maxwrap">MAX<input value="${c.max}" size="4" data-max="${idx}" title="MFC 최대 용량" ${c.en?'':'disabled'}></span>
           <div class="svrow"><span class="rlbl">SV</span><input class="svi" size="4" value="${c.sv.toFixed(d)}" data-sv="${idx}" ${c.en?'':'disabled'}><span class="un">sccm</span></div>
         </div>
@@ -117,7 +119,7 @@ function updateLaneValues(){
     if(!lane) return;
     const d=dec(c);
     lane.classList.toggle('lit', flowing(c)&&c.pv>0);   // 발광(글로우)은 파이프 애니메이션과 무관
-    const pv=lane.querySelector(`[data-pv="${idx}"]`); if(pv) pv.textContent=c.pv.toFixed(d);
+    const pv=lane.querySelector(`[data-pv="${idx}"]`); if(pv) pv.textContent=fmtPv(c);
     const sv=lane.querySelector(`[data-sv="${idx}"]`); if(sv&&document.activeElement!==sv) sv.value=c.sv.toFixed(d);
     const mx=lane.querySelector(`[data-max="${idx}"]`); if(mx&&document.activeElement!==mx) mx.value=c.max;
   });

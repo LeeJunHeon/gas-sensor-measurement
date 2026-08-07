@@ -17,11 +17,14 @@ document.getElementById('exitConfirmOk').addEventListener('click',()=>{
   const fn=_pendingExit; closeExit(); if(fn) fn();
 });
 
+// PV \ud45c\uc2dc: \uc2e4\uce21\uac12\uc774 \uc5c6\uc73c\uba74 '\u2014'. \uac00\uc9dc \uc22b\uc790\ub97c \uadf8\ub9ac\uc9c0 \uc54a\ub294\ub2e4.
+function fmtPv(c){ return (c && c.pv!=null) ? (+c.pv).toFixed(dec(c)) : '\u2014'; }
 function updateSystem(){
   const act=channels.filter(c=>c.en).length;
-  const total=channels.filter(c=>c.en).reduce((s,c)=>s+c.pv,0);
+  const live=channels.filter(c=>c.en && c.pv!=null);
+  const total=live.reduce((s,c)=>s+c.pv,0);
   document.getElementById('activeCh').textContent=act+' / 8';
-  document.getElementById('totalFlow').textContent=Math.round(total)+' sccm';
+  document.getElementById('totalFlow').textContent=live.length?(Math.round(total)+' sccm'):'\u2014';
 }
 
 /* ===================== Auto Process dock ===================== */
@@ -133,7 +136,7 @@ document.getElementById('logModalClose')?.addEventListener('click',closeLog);
 logModal?.addEventListener('click',e=>{if(e.target===logModal)closeLog();});
 logMsg('\ud654\uba74 \uc900\ube44 \uc644\ub8cc \u2014 \uc11c\ubc84 \uc5f0\uacb0 \ub300\uae30','info');
 // \uce21\uc815\uac12 \uc2dc\ubbac\ub808\uc774\uc158\uc740 \ub354 \uc774\uc0c1 \ud654\uba74\uc5d0 \ub450\uc9c0 \uc54a\ub294\ub2e4.
-// \uc5f0\uacb0 \uc2dc: \uc11c\ubc84\uac00 telemetry\ub97c push. \ub04a\uae40 \uc2dc: app.js\uac00 \uc2dc\ubbac\ub808\uc774\uc158\uc73c\ub85c \ub300\uccb4\ud55c\ub2e4.
+// \uc5f0\uacb0 \uc2dc: \uc11c\ubc84\uac00 telemetry\ub97c push. \ub04a\uae40 \uc2dc: \ubaa8\ub4e0 \uac12\uc774 '\u2014'\ub85c \ubc14\ub010\ub2e4(\uac00\uc9dc \uac12 \uc5c6\uc74c).
 
 /* ===================== \uc11c\ubc84 \uc5f0\ub3d9 \ube0c\ub9ac\uc9c0 (app.js\uac00 \ud638\ucd9c) ===================== */
 function fmtElapsed(sec){
@@ -192,15 +195,12 @@ function applyState(s){
   const _prevStruct = lanesStructKey();
   const _prevFlow = lanesFlowKey();
   if(s.channels){
-    // 서버 state에 pv가 없을 수 있으므로 교체 시 이전 pv를 보존(없으면 sv 근처) — PV 깜빡임 방지.
+    // PV\ub294 \uc2e4\uce21\ub9cc \uc4f4\ub2e4 \u2014 \uc11c\ubc84\uac00 \uc548 \uc900 \uac12\uc744 sv\ub85c \uc9c0\uc5b4\ub0b4\uc9c0 \uc54a\uace0 \uc774\uc804 \uac12\ub9cc \uc720\uc9c0\ud55c\ub2e4.
     const prevPv = channels.map(c=>c.pv);
-    const live = s.plc_live || window.plcLive || {connected:false, pv:{}};
     channels.length=0;
     s.channels.forEach((c,i)=>{
       const merged = Object.assign({}, c);
-      if(merged.pv==null) merged.pv = (prevPv[i]!=null ? prevPv[i] : (merged.sv||0));
-      // PLC 연결 시 매핑 채널(c.plc)의 PV는 실측값으로 덮는다(미연결이면 서버/시뮬 값 유지).
-      if(live.connected && merged.plc && live.pv && live.pv[merged.id]!=null) merged.pv = +live.pv[merged.id];
+      if(merged.pv===undefined) merged.pv = (prevPv[i]!==undefined ? prevPv[i] : null);
       channels.push(merged);
     });
     deriveDisplay();   // 정렬 없이 표시 필드만 derive (서버 인덱스 유지)
@@ -267,14 +267,11 @@ function applyState(s){
 function applyTelemetry(tl){
   if(!tl) return;
   if(Array.isArray(tl.pv)){
-    const live=window.plcLive||{connected:false,pv:{}};
     tl.pv.forEach((v,i)=>{
       const c=channels[i];
-      // PLC 연결 + 매핑 채널이면 실측 PV 우선 — 시뮬 telemetry로 덮지 않는다.
-      if(live.connected && c && c.plc && live.pv && live.pv[c.id]!=null) return;
+      if(c) c.pv = (v==null ? null : +v);
       const el=document.querySelector(`[data-pv="${i}"]`);
-      if(el) el.textContent=(+v).toFixed(dec(c||{max:2000}));
-      if(c) c.pv=+v;
+      if(el) el.textContent = (v==null) ? '\u2014' : (+v).toFixed(dec(c||{max:2000}));
     });
   }
   if(tl.rh!=null){
@@ -294,6 +291,16 @@ function applyTelemetry(tl){
   if(tl.running!=null) applyRunLock(!!tl.running);   // \uc2e4\ud589\uc911 \uc218\ub3d9\uc870\uc791 \uc7a0\uae08 \uc720\uc9c0
   updateSystem();  // activeCh / totalFlow \ud14d\uc2a4\ud2b8\ub9cc \uac31\uc2e0(\uac00\ubcbc\uc6c0)
 }
+
+// \uc11c\ubc84 \ub04a\uae40: \ubaa8\ub4e0 \uc2e4\uce21 \ud45c\uc2dc\ub97c '\u2014'\ub85c \ubc14\uafbc\ub2e4. \ub9c8\uc9c0\ub9c9 \uac12\uc744 \uc774\uc5b4 \uadf8\ub9ac\uba74 \ud750\ub974\ub294 \uac83\uc73c\ub85c \uc624\uc778\ud55c\ub2e4.
+function clearLiveValues(){
+  document.querySelectorAll('[data-pv]').forEach(function(el){ el.textContent='\u2014'; });
+  ['rh','rhProc','measVal','clk','totalFlow'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.textContent='\u2014';
+  });
+  channels.forEach(function(c){ c.pv=null; });
+}
+window.clearLiveValues=clearLiveValues;
 
 /* app.js\uac00 \ucc38\uc870\ud560 \uc804\uc5ed \ub178\ucd9c */
 window.channels=channels; window.procs=procs;
