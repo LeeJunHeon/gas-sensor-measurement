@@ -318,8 +318,8 @@ function drawBuses(){
   p+=dotC(vLeft[0],vLeft[1],venSrcFlow?venSrcCol:GREY);
   // Vent/Sensor 라벨만 출력 파이프 끝에(배관도 라벨 톤). Air/Gas 텍스트는 넣지 않음.
   const lf=(13.5*sc).toFixed(1);
-  p+=`<text x="${cCx+r+L+8*sc}" y="${cCy+4.5*sc}" text-anchor="start" font-family="'IBM Plex Sans',sans-serif" font-size="${lf}" font-weight="700" fill="#2a3645">Sensor</text>`;
-  p+=`<text x="${cCx-r-L-8*sc}" y="${cCy+4.5*sc}" text-anchor="end" font-family="'IBM Plex Sans',sans-serif" font-size="${lf}" font-weight="700" fill="#2a3645">Vent</text>`;
+  p+=`<text x="${cCx+r+L+8*sc}" y="${cCy+4.5*sc}" text-anchor="start" font-family="inherit" font-size="${lf}" font-weight="700" fill="#2a3645">Sensor</text>`;
+  p+=`<text x="${cCx-r-L-8*sc}" y="${cCy+4.5*sc}" text-anchor="end" font-family="inherit" font-size="${lf}" font-weight="700" fill="#2a3645">Vent</text>`;
 
   updateWayToggle();
 
