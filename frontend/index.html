@@ -59,8 +59,8 @@
                   <span class="plcstat" id="stComm"><span class="d"></span>통신</span>
                 </div>
                 <div class="pp-btns">
-                  <button class="plcreset" id="plcReset" title="안전리셋(M112) 펄스 — 운전 준비">↺ 리셋(운전 준비)</button>
-                  <button class="plcrecon" id="plcReconnectBtn" title="PLC 재연결">⟳ PLC 재연결</button>
+                  <button class="plcreset" id="plcReset" title="PLC 운전 허가 켜기 — 트립(안전정지) 해제. 공압·통신이 정상일 때만 성공하며, 밸브는 자동으로 열리지 않습니다">↺ 안전 리셋</button>
+                  <button class="plcrecon" id="plcReconnectBtn" title="Modbus 연결을 다시 맺습니다(운전 허가와 별개)">⟳ 통신 재연결</button>
                 </div>
               </div>
             </div>
@@ -181,8 +181,8 @@
 
     <footer class="appfoot">
       <button class="hbtn purge">✦ PURGE</button>
-      <button class="hbtn estop" id="btnEstop">⛔ EMERGENCY STOP</button>
-      <button class="hbtn" id="btnEstopClear" title="비상정지 해제 — 밸브는 자동으로 열리지 않습니다">↺ 비상정지 해제</button>
+      <button class="hbtn estop" id="btnEstop" title="소프트 비상정지 — 모든 밸브·유량 즉시 차단 후 조작 잠금. PLC 트립과는 별개입니다">⛔ EMERGENCY STOP</button>
+      <button class="hbtn" id="btnEstopClear" style="display:none" title="소프트 잠금만 해제 — 밸브는 닫힌 채 유지됩니다">↺ 비상정지 해제</button>
       <div class="footspace"></div>
       <button class="dock-toggle" id="dockToggle">Auto Process View ▸</button>
       <button class="hbtn log" id="openLog" title="System Log">▤ LOG<span class="logbadge"></span></button>

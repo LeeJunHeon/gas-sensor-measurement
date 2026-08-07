@@ -197,8 +197,8 @@ function updatePlcLive(live){
     permit.classList.remove('ok','bad');
     const t=permit.querySelector('.pp-permit-txt');
     // \uc7a0\uae08 \uc0ac\uc720\uac00 \ubcf4\uc774\uac8c \ud55c\ub2e4 \u2014 \ubbf8\uc5f0\uacb0\uacfc \uc548\uc804\uc815\uc9c0\ub294 \uc870\uce58\uac00 \ub2e4\ub974\ub2e4.
-    if(!connected){ permit.classList.add('bad'); if(t) t.textContent='\ubbf8\uc5f0\uacb0 \u00b7 \uc870\uc791 \uc7a0\uae40'; }
-    else if(st.SAFETY_STOP===true){ permit.classList.add('bad'); if(t) t.textContent='\uc815\uc9c0 \u00b7 \uc870\uc791 \uc7a0\uae40'; }
+    if(!connected){ permit.classList.add('bad'); if(t) t.textContent='PLC \ubbf8\uc5f0\uacb0 \u2014 \'\ud1b5\uc2e0 \uc7ac\uc5f0\uacb0\''; }
+    else if(st.SAFETY_STOP===true){ permit.classList.add('bad'); if(t) t.textContent='\uc548\uc804\uc815\uc9c0 \u2014 \'\uc548\uc804 \ub9ac\uc14b\'\uc73c\ub85c \uc6b4\uc804 \uc900\ube44'; }
     else { permit.classList.add('ok'); if(t) t.textContent='\uc6b4\uc804 \ud5c8\uac00'; }
   }
   const setDot=(id, ok)=>{
@@ -215,6 +215,12 @@ function updatePlcLive(live){
   setDot('stComm',   connected);                   // \uc5f0\uacb0\uc774\uba74 \ud1b5\uc2e0(\ud558\ud2b8\ube44\ud2b8) \uc815\uc0c1=\ucd08\ub85d
   // PLC \uc900\ube44 = \uc5f0\uacb0 + \uc548\uc804\uc815\uc9c0 \uc544\ub2d8. \ubbf8\uc900\ube44\uba74 \ubb3c\ub9ac \uc870\uc791 \ucee8\ud2b8\ub864\uc744 \uc7a0\uadfc\ub2e4.
   applyPlcLock(connected && st.SAFETY_STOP!==true);
+  // Highlight only the button that is actionable right now.
+  var _rs=document.getElementById('plcReset');
+  if(_rs){ var _need=connected && st.SAFETY_STOP===true;
+    _rs.disabled=!_need; _rs.classList.toggle('attn', _need); }
+  var _rc=document.getElementById('plcReconnectBtn');
+  if(_rc) _rc.classList.toggle('attn', !connected);   // stays clickable when connected
 }
 // \uc11c\ubc84 state \uba54\uc2dc\uc9c0 \u2192 \ub0b4\ubd80 \uc0c1\ud0dc \ubc18\uc601 \ud6c4 \uc7ac\ub80c\ub354
 function applyState(s){
@@ -256,6 +262,12 @@ function applyState(s){
     if(hl&&s.system.loop) hl.textContent=`${s.system.loop.current} / ${s.system.loop.total}`;
     const rh=document.getElementById('rh'); if(rh&&s.system.rh!=null) rh.textContent=(+s.system.rh).toFixed(1);
     const mv=document.getElementById('measVal'); if(mv&&s.system.smu) mv.textContent=s.system.smu;
+    // Soft e-stop: show the clear button only while it is needed.
+    var _es=!!s.system.safeStop;
+    var _eb=document.getElementById('btnEstop');
+    if(_eb) _eb.classList.toggle('active', _es);
+    var _ec=document.getElementById('btnEstopClear');
+    if(_ec) _ec.style.display=_es?'':'none';
   }
   if(s.version){   // \ud504\ub85c\uadf8\ub7a8 \ubc84\uc804 \u2014 \ud5e4\ub354 \uc6b0\uce21\uc5d0 \uc791\uac8c \ud45c\uc2dc
     const av=document.getElementById('appVer');

@@ -311,6 +311,12 @@
   .plcreset:hover{background:#fdf0cf;border-color:#a8791a}
   .plcrecon{border:1px solid var(--line2);background:#fff;color:#2a3645}
   .plcrecon:hover{background:#eef2f7;border-color:var(--primary)}
+  /* 지금 눌러야 할 버튼만 강조한다 — 상태로 안내해 오조작을 줄인다 */
+  .attn{border-color:#d97a1f !important;background:#fdf0d8 !important;color:#8a5a10 !important;
+        box-shadow:0 0 0 2px rgba(217,122,31,.22)}
+  .plc-panel button:disabled{opacity:.45;cursor:default;background:#f1f3f6;
+        border-color:var(--line2);color:var(--ink-faint);box-shadow:none}
+  .hbtn.estop.active{background:#8f2328;border-color:#7a1e22;box-shadow:0 0 0 2px rgba(197,52,58,.35) inset}
 
   /* 4-way valve glyph inside rail */
   .vcsym{display:flex;justify-content:center;margin-bottom:6px}
