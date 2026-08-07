@@ -10,6 +10,7 @@ exe 납품 대응:
 """
 
 import os
+import sys
 import time
 import socket
 import threading
@@ -28,6 +29,25 @@ def _msgbox(title: str, msg: str):
         ctypes.windll.user32.MessageBoxW(0, msg, title, 0x10)
     except Exception:  # noqa: BLE001
         print(f"[{title}] {msg}")
+
+
+_MUTEX_HANDLE = None   # 핸들이 GC로 닫히면 뮤텍스가 풀린다 — 프로세스 수명 동안 전역에 보관
+
+
+def _acquire_single_instance() -> bool:
+    """이중 실행 방지. 이미 떠 있으면 False. 비Windows(개발 환경)는 항상 True.
+    ★ 방지 장치 자체가 이유가 되어 실행을 막으면 안 되므로 예외 시 True."""
+    if sys.platform != "win32":
+        return True
+    global _MUTEX_HANDLE
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        _MUTEX_HANDLE = kernel32.CreateMutexW(None, False, "VANAM_GasSensor_SingleInstance")
+        ERROR_ALREADY_EXISTS = 183
+        return kernel32.GetLastError() != ERROR_ALREADY_EXISTS
+    except Exception:  # noqa: BLE001
+        return True
 
 
 def find_free_port(host: str, start: int, tries: int = 10):
@@ -81,6 +101,13 @@ def run(app, host: str, port: int):
     port : 희망 포트. 이미 쓰이고 있으면 port+1 … 순으로 최대 10개까지 대체한다.
     """
     import uvicorn
+
+    # 이중 실행 차단. 인스턴스가 2개면 포트 회피로 둘 다 정상 기동해 창이 2개 뜨고,
+    # TCP 모드에서는 둘 다 PLC에 붙어 서로 밸브 명령을 덮어쓴다.
+    if not _acquire_single_instance():
+        _msgbox("Gas Sensor Measurement System",
+                "프로그램이 이미 실행 중입니다.\n작업 표시줄에서 기존 창을 확인하세요.")
+        return
 
     # 쓰기 불가면 설정·레시피가 저장되지 않는다. exe는 콘솔이 없고 UI 로그를 안 볼 수도 있어
     # 한 번은 창으로 알린다. ★ 중단하지 않는다 — 읽기 전용이어도 운전은 가능해야 한다.
