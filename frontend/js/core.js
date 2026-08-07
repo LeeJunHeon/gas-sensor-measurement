@@ -68,6 +68,7 @@ window.flashHdrStatus=function(text, kind, ms){
   _hdrTimer=setTimeout(()=>{ _hdrTransient=false; refreshHdrStatus(); }, ms||2500);
 };
 window.setHdrStatus=setHdrStatus;
+window.refreshHdrStatus=refreshHdrStatus;   // app.js\uac00 \uc11c\ubc84 \uc7ac\uc5f0\uacb0 \uc2dc \ud3c9\uc0c1\uc2dc \ud45c\uc2dc\ub85c \ub418\ub3cc\ub9b0\ub2e4
 function uiSetRunning(on){
   running=on;
   const pill=document.getElementById('runpill');

@@ -4,7 +4,7 @@
  *  - WebSocket(ws://host/ws)으로 서버에 연결한다.
  *  - 사용자 동작은 명령(cmd*)으로 서버에 보낸다. 화면은 서버 state가 와야 갱신된다.
  *  - 서버가 telemetry를 push하면 가볍게 화면에 반영한다(applyTelemetry).
- *  - 서버가 끊기면 "연결 끊김" 표시 + 마지막 값 유지 + 시뮬레이션 대체 + 2초마다 재연결.
+ *  - 서버가 끊기면 "연결 끊김" 표시 + 모든 값 '—' + 2초마다 재연결(가짜 값을 만들지 않는다).
  *
  * 통신 약속은 INTERFACE.md 참고. index.html이 노출하는 함수만 사용한다:
  *   applyState, applyTelemetry, logMsg, collectRecipe, collectSetup,
@@ -19,39 +19,6 @@
   let reconnectTimer = null;
   let lastSave = null;           // 덮어쓰기 확인용 마지막 저장 요청
 
-  // ---- 로컬 상태 미러: 서버 끊김 시 시뮬레이션/낙관적 갱신의 기준 ----
-  let mirror = buildInitialMirror();
-
-  function buildInitialMirror() {
-    const chans = (window.channels || []).map(c => Object.assign({}, c));
-    return {
-      channels: chans,
-      system: {
-        running: false, routeOut: 'sensor',
-        loop: { current: 0, total: 1 },
-        elapsed: 0, rh: null, smu: null,
-        connected: false, safeStop: false,
-      },
-      recipe: {
-        name: '', useHumidity: true, loopCount: 1, procs: [],
-        params: {
-          vStart: 0, vEnd: 0, vStep: 0, grafInterval: 1,
-          smuMode: 'Source V, Measure I', smuSource: 0,
-          smuCompliance: 1.0, chFrom: 1, chTo: 1,
-        },
-      },
-      settings: { logEnabled: true, logDir: 'logs', logLevel: 'info', logKeepDays: 30 },
-      plc: {
-        mode: 'serial', host: '127.0.0.1', tcp_port: 502,
-        port: '', baudrate: 115200, bytesize: 8, stopbits: 1, parity: 'N',
-        unit_id: 1, timeout_s: 1.5, inter_cmd_gap_s: 0.1, heartbeat_s: 1.0, reconnect_delay_s: 1.0,
-      },
-      plc_live: { connected: false, pv: {}, status: {} },
-    };
-  }
-
-  function deepCopy(o) { return JSON.parse(JSON.stringify(o)); }
-
   // ===================== WebSocket =====================
   function connect() {
     try {
@@ -63,7 +30,6 @@
     ws.onopen = () => {
       connected = true;
       setConn(true);
-      stopSim();
     };
     ws.onmessage = (ev) => {
       let msg;
@@ -77,7 +43,7 @@
   function onDisconnect() {
     connected = false;
     setConn(false);
-    startSim();
+    if (window.clearLiveValues) window.clearLiveValues();
     scheduleReconnect();
   }
 
@@ -100,7 +66,12 @@
     if (connState !== c) {
       connState = c;
       if (c) window.logMsg('서버 연결됨', 'ok');
-      else window.logMsg('서버 연결 끊김 — 시뮬레이션 모드', 'warn');
+      else window.logMsg('서버 연결 끊김', 'warn');
+    }
+    // 끊김은 헤더 상태줄에도 크게 남긴다(로그를 안 보고 있을 수 있다).
+    if (window.setHdrStatus) {
+      if (c) { if (window.refreshHdrStatus) window.refreshHdrStatus(); }
+      else window.setHdrStatus('서버 연결 끊김', 'stop');
     }
   }
 
@@ -116,18 +87,9 @@
   function handleMessage(msg) {
     switch (msg && msg.type) {
       case 'state':
-        mirror = { channels: deepCopy(msg.channels || []),
-                   system: deepCopy(msg.system || mirror.system),
-                   recipe: deepCopy(msg.recipe || mirror.recipe),
-                   settings: deepCopy(msg.settings || mirror.settings),
-                   plc: deepCopy(msg.plc || mirror.plc),
-                   plc_live: deepCopy(msg.plc_live || mirror.plc_live) };
         window.applyState(msg);
         break;
       case 'telemetry':
-        // 미러에도 빠른 값 반영(시뮬레이션 전환 시 연속성 유지)
-        if (Array.isArray(msg.pv)) msg.pv.forEach((v, i) => { if (mirror.channels[i]) mirror.channels[i].pv = v; });
-        if (msg.elapsed != null) mirror.system.elapsed = msg.elapsed;
         window.applyTelemetry(msg);
         break;
       case 'log':
@@ -167,53 +129,41 @@
   }
 
   // ===================== 명령(화면 → 서버) =====================
-  // 연결 시: 서버로 전송(요청). 끊김 시: 미러를 낙관적으로 갱신 후 applyState로 재렌더.
-  // withRecipe=false(기본): 레시피(초안)는 건드리지 않는다 — 서버의 일상 state push와 동일하게,
-  //   HMI 동작(밸브/4-way/RUN 등)으로 편집 중인 레시피가 사라지지 않도록 한다.
-  function localApply(mutator, withRecipe) {
-    try { mutator(mirror); } catch (e) {}
-    const snap = deepCopy(mirror);
-    if (!withRecipe) delete snap.recipe;
-    window.applyState(snap);
-  }
+  // 연결 시: 서버로 전송(요청). 끊김 시: 로컬로 흉내내지 않고 경고만 한다 —
+  //   화면이 서버와 다른 상태를 보여주면 운전자가 오인한다(가짜 상태 금지).
 
   window.cmdSetValve = function (ch, open) {
     if (send({ cmd: 'set_valve', ch: ch, open: open })) return;
-    localApply(m => {
-      const c = m.channels[ch];
-      if (!c || !c.en) return;
-      c.valveIn = open;
-    });
+    window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');
   };
   window.cmdSetSv = function (ch, value) {
     if (send({ cmd: 'set_sv', ch: ch, value: value })) return;
-    localApply(m => { const c = m.channels[ch]; if (c) c.sv = Math.max(0, Math.min(+value || 0, +c.max || 0)); });
+    window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');
   };
   window.cmdSetMax = function (ch, value) {
     if (send({ cmd: 'set_max', ch: ch, value: value })) return;
-    localApply(m => { const c = m.channels[ch]; if (c) c.max = Math.max(0, +value || 0); });
+    window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');
   };
   window.cmdSet4way = function (route) {
     if (send({ cmd: 'set_4way', route: route })) return;
-    localApply(m => { m.system.routeOut = route; });
+    window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');
   };
   window.cmdRun = function () {
     // 현재 화면 표의 레시피(bottle/procs/params/loopCount)를 함께 보내 서버가 그걸로 검증·실행.
     // 저장/불러오기 전에도 표에 입력한 그대로 동작(저장은 Save as 때만 파일에 기록).
     const recipe = (typeof collectRecipe === 'function') ? collectRecipe() : (window.collectRecipe ? window.collectRecipe() : null);
     if (send({ cmd: 'run', recipe: recipe })) return;
-    localApply(m => { m.system.running = true; m.system.elapsed = 0; m.system.loop.current = 0; });
-    simElapsed = 0;
+    window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');
   };
   window.cmdStop = function () {
     if (window.flashHdrStatus) window.flashHdrStatus('정지됨', 'stop');
     if (send({ cmd: 'stop' })) return;
-    localApply(m => { m.system.running = false; });
+    window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');
   };
   window.cmdPurge = function () {
     if (window.flashHdrStatus) window.flashHdrStatus('퍼지 중', 'purge');
     if (send({ cmd: 'purge' })) return;
-    window.logMsg('PURGE — 순수 Air로 라인 청소 (시뮬레이션)', 'info');
+    window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');
   };
   window.cmdExit = function () {
     // 브라우저 기본 confirm 대신 앱 내부 모달(window.confirmExit) 사용.
@@ -232,21 +182,7 @@
   window.requestExitConfirm = function () { window.cmdExit(); };
   window.cmdApplySetup = function (channels, params, settings, plc) {
     if (send({ cmd: 'apply_setup', channels: channels, params: params, settings: settings, plc: plc })) return;
-    localApply(m => {
-      (channels || []).forEach(item => {
-        const c = m.channels[item.ch];
-        if (!c) return;
-        const wasEn = c.en;
-        c.en = !!item.en; c.grp = item.grp; c.route = item.route;
-        c.max = item.max; c.sv = item.sv;
-        if (c.en && !wasEn) { c.valveIn = true; }
-        else if (!c.en) { c.valveIn = false; }
-      });
-      if (params) m.recipe.params = Object.assign({}, m.recipe.params, params);
-      if (settings) m.settings = Object.assign({}, m.settings, settings);
-      if (plc) m.plc = Object.assign({}, m.plc, plc);
-    });
-    window.logMsg('System Setup 적용 (시뮬레이션 — 서버 연결 시 config.json 저장)', 'warn');
+    window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');
   };
   // System Setup 모달의 포트 드롭다운 채우기 — 서버에 목록 요청(오프라인이면 빈 목록=텍스트 입력).
   window.cmdPlcPorts = function () {
@@ -265,7 +201,7 @@
   };
   window.cmdRecipeNew = function () {
     if (send({ cmd: 'recipe_new' })) return;
-    localApply(m => { m.recipe = Object.assign({}, m.recipe, { name: '', procs: [] }); }, true);
+    window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');
   };
   window.cmdRecipeSave = function (name, recipe, overwrite) {
     lastSave = { name: name, recipe: recipe };
@@ -378,45 +314,6 @@
     document.getElementById('confirmModalCancel')?.addEventListener('click', () => { _confirmCb = null; cClose(); });
     document.getElementById('confirmModalClose')?.addEventListener('click', () => { _confirmCb = null; cClose(); });
     if (cOv) cOv.addEventListener('click', e => { if (e.target === cOv) { _confirmCb = null; cClose(); } });
-  }
-
-  // ===================== 시뮬레이션 대체(서버 끊김 시) =====================
-  let simTimer = null;
-  let simElapsed = 0;
-  let simLast = 0;
-
-  function startSim() {
-    if (simTimer) return;
-    simElapsed = mirror.system.elapsed || 0;
-    simLast = Date.now();
-    simTimer = setInterval(simTick, 200);   // 5 Hz
-  }
-  function stopSim() {
-    if (simTimer) { clearInterval(simTimer); simTimer = null; }
-  }
-  function simTick() {
-    const now = Date.now();
-    const dt = (now - simLast) / 1000;
-    simLast = now;
-    const running = mirror.system.running;
-    if (running) simElapsed += dt;
-
-    const pv = mirror.channels.map(c => {
-      const flowing = c.en && c.valveIn;
-      if (!flowing) return 0;
-      const target = +c.sv || 0;
-      const amp = target > 0 ? 1.6 : 0.4;
-      return Math.max(0, target + (Math.random() - 0.5) * amp);
-    });
-    // rh·smu(측정값)는 하드웨어가 없으므로 시뮬레이션하지 않는다(화면엔 "—" 유지). PV(MFC 유량)만 시뮬.
-    const total = +mirror.recipe.loopCount || 1;
-    const current = running ? Math.min(total, 1 + Math.floor(simElapsed / 10)) : (mirror.system.loop.current || 0);
-
-    window.applyTelemetry({
-      pv: pv, rh: null, smu: null,
-      elapsed: Math.floor(simElapsed), running: running,
-      loop: { current: current, total: total },
-    });
   }
 
   // 비상정지 — 확인 없이 즉시 전송(비상이므로). 서버 engine.emergency()가 전 채널 차단.
