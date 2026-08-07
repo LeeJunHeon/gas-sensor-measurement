@@ -134,6 +134,14 @@ function bindLaneEvents(){
   document.querySelectorAll('[data-sv]').forEach(inp=>inp.addEventListener('change',e=>{
     window.cmdSetSv(+e.target.dataset.sv, +e.target.value||0);
   }));
+  // 입력 중 MAX 초과를 즉시 알린다 — 적용 후 조용히 깎이는 것보다 먼저 보이는 게 낫다.
+  document.querySelectorAll('[data-sv]').forEach(inp=>inp.addEventListener('input',e=>{
+    const c=channels[+e.target.dataset.sv]; if(!c) return;
+    const over=(+e.target.value||0) > (+c.max||0);
+    e.target.classList.toggle('over', over);
+    if(over) e.target.title=`MAX ${c.max} 초과 — 적용 시 제한됩니다`;
+    else e.target.removeAttribute('title');
+  }));
   document.querySelectorAll('[data-v]').forEach(v=>v.addEventListener('click',()=>{
     const idx=+v.dataset.v.split('-')[0]; const c=channels[idx];
     if(!c||!c.en) return;   // disabled channel: valve locked

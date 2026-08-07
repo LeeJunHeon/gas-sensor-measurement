@@ -78,8 +78,12 @@ async def handle_command(data: dict):
             if 0 <= ch < len(state.channels):
                 c = state.channels[ch]
                 v = max(0.0, float(data.get("value") or 0))
+                req = v
                 v = min(v, float(c["max"]))
                 c["sv"] = v
+                # 조용히 깎으면 화면 값과 실제 지령이 달라진 걸 모른다 — 클램프됐으면 알린다.
+                if req > v:
+                    await push_log(f"{c['id']}: SV {req:g} → {v:g} sccm (MAX 제한)", "warn")
                 await push_state()
 
         elif cmd == "set_max":
@@ -88,7 +92,10 @@ async def handle_command(data: dict):
                 c = state.channels[ch]
                 c["max"] = max(0.0, to_num(data.get("value")))
                 if to_num(c.get("sv")) > c["max"]:
+                    _old = to_num(c.get("sv"))
                     c["sv"] = c["max"]
+                    await push_log(
+                        f"{c['id']}: MAX 변경으로 SV {_old:g} → {c['max']:g} sccm", "warn")
                 # MAX가 MFC 하드웨어 풀스케일을 넘으면 SV가 포화돼 화면 값과 실제 유량이 달라진다.
                 # 운전 상한 자체는 사용자 판단이므로 막지 않고 경고만 남긴다.
                 fs = float((c.get("plc") or {}).get("fs_sccm") or 0)
