@@ -253,11 +253,16 @@ function drawBuses(){
 
   // 화면 축소 비율(sc): 모든 SVG 선 두께·점·글자를 이 비율로 줄여 작은 창에서도 비율 유지.
   const sc=(typeof lastScale==='number'&&lastScale>0)?lastScale:1;
-  const SW=(4*sc).toFixed(2);   // 메인 파이프 두께(sc 비례)
-  const BLUE='#2f72c4', RED='#c8384c', GREY='#b6c4d6';
+  // ★ 레인 파이프(.pipe)와 픽셀 파라미터를 맞춘다 — 한 화면에 두 언어가 섞이지 않게.
+  //   .pipe        : height 5px / 비활성 #bcc6d3 / 활성 var(--c)
+  //   .pipe.on::after: 흰 스트라이프 rgba(255,255,255,.7) 5px + 17px 간격(주기 22px), 1.1s linear
+  //   아래 SW·GREY·.stripe 값은 그 CSS와 1:1로 대응한다. 한쪽만 바꾸면 굵기·명도가 어긋난다.
+  const SW=(5*sc).toFixed(2);   // = .pipe 의 height 5px
+  const BLUE='#2f72c4', RED='#c8384c', GREY='#bcc6d3';   // GREY = .pipe 비활성 배경색
   // pipe look = solid colored base + white moving stripes (matches horizontal CSS pipes)
   let p=`<style>
     .stripe{stroke:rgba(255,255,255,.7);stroke-width:${SW};stroke-dasharray:5 17;stroke-linecap:butt;fill:none}
+    /* 주기 22px(=5+17)·1.1s — .pipe.on::after 의 background-size 22px / animation flow 1.1s 와 동일 */
     .sdn{animation:sdn 1.1s linear infinite}
     .sup{animation:sup 1.1s linear infinite}
     @keyframes sdn{to{stroke-dashoffset:-22}}

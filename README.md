@@ -63,6 +63,11 @@ python backend/server.py        # 프로젝트 루트에서
 `config.json` 은 **로컬 파일이라 저장소가 덮지 않는다**(git 추적 제외). 없으면 첫 실행에
 기본값으로 만들어지며, 참고용 예시는 [`config.example.json`](config.example.json) 에 있다.
 
+## 알려진 메시지
+
+실행/종료 시 `Chrome_WidgetWin_0 ... Error 1411` 로그는 내장 브라우저(Chromium)의 
+무해한 정리 메시지 — 무시해도 됩니다.
+
 ## 배포 구조
 
 PyInstaller(onedir)로 묶으면 폴더가 둘로 갈라진다.
