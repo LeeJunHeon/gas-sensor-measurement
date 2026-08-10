@@ -5,9 +5,11 @@
 // en은 전부 false로 시작한다 — 서버 state가 오기 전 첫 화면이 '채널이 켜진 것처럼'
 // 보이면 안 된다. pv도 null(=화면 '—')로 두고 실측이 올 때만 숫자를 그린다.
 let channels = [
-  {grp:'air', route:'pure', max:2000, sv:0, pv:null, en:false},  // VA1
-  {grp:'air', route:'pure', max:2000, sv:0, pv:null, en:false},  // VA2
-  {grp:'air', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA3
+  // 실배관: VA1=가스 매니폴드에 합류하는 혼합(희석) 라인, VA3=4-way로 직행하는 단독 라인.
+  //   route 값은 백엔드(state.py/config.json)와 반드시 같아야 한다 — 배관도 선이 이걸 따라 그려진다.
+  {grp:'air', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA1
+  {grp:'air', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA2
+  {grp:'air', route:'pure', max:2000, sv:0, pv:null, en:false},  // VA3
   {grp:'air', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA4
   {grp:'gas', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA5
   {grp:'gas', route:'mix',  max:200,  sv:0, pv:null, en:false},  // VA6
@@ -22,12 +24,14 @@ function deriveDisplay(){
     if(!c.id) c.id='VA'+(i+1);
     c.color = c.grp==='gas' ? 'var(--g1)' : 'var(--air)';
     if(c.grp==='gas'){ gasN++; c.label='Gas '+gasN; c.sub=''; }
-    else { c.label='Air'; c.sub = c.route==='pure'?'순수 (pure)':'혼합 (mix)'; }
+    else { c.label='Air'; c.sub = c.route==='pure'?'단독 (4-way 직행)':'혼합 (희석)'; }
   });
 }
 // 초기 로컬 기본값만 그룹 순으로 정렬(서버 연결 전 한 번). 서버 state 반영 시엔 정렬하지 않는다.
 function relabel(){
-  const rank=c=> c.grp==='gas' ? 2 : (c.route==='pure' ? 0 : 1);
+  // ★ air 안에서는 순서를 바꾸지 않는다 — route로 정렬하면 단독 라인(VA3)이 맨 앞으로
+  //   올라가 id가 VA1로 재부여된다(서버 state 도착 전 첫 화면이 실물과 어긋난다).
+  const rank=c=> c.grp==='gas' ? 1 : 0;
   channels.sort((a,b)=>rank(a)-rank(b));
   channels.forEach((c,i)=>{ c.id='VA'+(i+1); });
   deriveDisplay();
@@ -221,7 +225,7 @@ function updateWayToggle(){
 }
 
 /* ===================== manifold buses ===================== */
-let routeOut='sensor';
+let routeOut='vent';   // 기본은 vent — 서버 state가 오면 그 값으로 덮인다
 function drawBuses(){
   const svg=document.getElementById('wires'); if(!svg) return;
   const S=svg.parentElement.getBoundingClientRect();

@@ -11,9 +11,9 @@ function buildSetupRows(){
     tr.innerHTML=`
       <td class="chid">${c.id}</td>
       <td><input type="checkbox" ${c.en?'checked':''} data-sen="${i}"></td>
-      <td><select data-sgrp="${i}">
-        <option value="pure-air" ${gv==='pure-air'?'selected':''}>Air · 순수</option>
-        <option value="mix-air" ${gv==='mix-air'?'selected':''}>Air · 혼합</option>
+      <td><select data-sgrp="${i}" title="희석 계산에 포함되는지를 결정합니다 — 배관 실물과 일치해야 합니다">
+        <option value="pure-air" ${gv==='pure-air'?'selected':''}>Air · 단독(4-way 직행)</option>
+        <option value="mix-air" ${gv==='mix-air'?'selected':''}>Air · 혼합(희석)</option>
         <option value="gas" ${gv==='gas'?'selected':''}>Gas</option>
       </select></td>
       <td><input type="text" value="${c.max}" data-smax="${i}"></td>
