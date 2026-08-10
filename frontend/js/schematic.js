@@ -64,9 +64,24 @@ const tankSvg = c => `<svg width="30" height="40" viewBox="0 0 24 32">
 
 const lanesEl = document.getElementById('lanes');
 function dec(c){return c.max<=100?1:0;}
+/* 배관도의 '세로 표시 순서'. 실물 재배관(VA1=혼합, VA3=단독)에서 교차선이 생기지 않도록
+   단독(VA3)은 위, 혼합(VA1)은 가스군 바로 위에 둔다.
+   ★ 표시 순서일 뿐이다 — 채널 id·내부 인덱스·data-* 매핑은 그대로다(카드 조작은 원래 인덱스로 간다).
+     Setup 표·레시피·서버 데이터는 계속 ID 순서를 쓴다. */
+const LANE_ORDER=['VA2','VA3','VA1','VA4','VA5','VA6','VA7','VA8'];
+// 표시 순서 → [원래 채널 인덱스, 채널] 목록. 목록에 없는 채널은 뒤에 원래 순서대로 붙인다.
+function lanesInDisplayOrder(){
+  const used=new Set(), out=[];
+  LANE_ORDER.forEach(id=>{
+    const i=channels.findIndex((c,n)=>c.id===id&&!used.has(n));
+    if(i>=0){ used.add(i); out.push([i, channels[i]]); }
+  });
+  channels.forEach((c,i)=>{ if(!used.has(i)) out.push([i,c]); });
+  return out;
+}
 function renderLanes(){
   lanesEl.innerHTML='';
-  channels.forEach((c,idx)=>{
+  lanesInDisplayOrder().forEach(([idx,c])=>{
     const d=dec(c);
     const lane=document.createElement('div');
     lane.className='lane'+(flowing(c)&&c.pv>0?' lit':'')+(c.en?'':' off');
@@ -257,8 +272,10 @@ function drawBuses(){
   const Bbox=(x,y)=>`<rect x="${x-13*sc}" y="${y-13*sc}" width="${26*sc}" height="${26*sc}" rx="${6*sc}" fill="#f0ece2" stroke="#b9ad8e" stroke-width="${(1.6*sc).toFixed(2)}"/><text x="${x}" y="${y+4*sc}" text-anchor="middle" font-size="${(11*sc).toFixed(1)}" font-weight="700" fill="#8a7c55">B</text>`;
 
   /* ── Air supply left manifold ── */
-  const airTaps=[...document.querySelectorAll('.lane[data-grp="air"] .tap')];
-  const airChs=channels.filter(c=>c.grp==='air');
+  // ★ 레인 표시 순서와 채널 인덱스가 다르므로 DOM 위치가 아니라 data-idx로 짝짓는다.
+  const airLanes=[...document.querySelectorAll('.lane[data-grp="air"]')];
+  const airTaps=airLanes.map(l=>l.querySelector('.tap')).filter(Boolean);
+  const airChs=airLanes.map(l=>channels[+l.dataset.idx]).filter(Boolean);
   if(airTaps.length){
     const ax=cx(airTaps[0]); const ays=airTaps.map(cy);
     const enAirYs=ays.filter((_,i)=>airChs[i]&&airChs[i].en);
@@ -276,8 +293,9 @@ function drawBuses(){
   }
 
   /* ── Gas inlets: each lane = ONE continuous line from inlet cap to VA valve ── */
-  const gasTaps=[...document.querySelectorAll('.lane[data-grp="gas"] .tap')];
-  const gasChs=channels.filter(c=>c.grp==='gas');
+  const gasLanes=[...document.querySelectorAll('.lane[data-grp="gas"]')];
+  const gasTaps=gasLanes.map(l=>l.querySelector('.tap')).filter(Boolean);
+  const gasChs=gasLanes.map(l=>channels[+l.dataset.idx]).filter(Boolean);
   const flowC=c=>eff(c);   // 유효 열림(안전정지면 닫힘)
   const glayer=document.getElementById('gaslabels'); if(glayer) glayer.innerHTML='';
   const scG=(typeof lastScale==='number'&&lastScale>0)?lastScale:1;
@@ -302,9 +320,13 @@ function drawBuses(){
   });
 
   /* ── Right collection (flow only where valves pass) ── */
-  const caps=[...document.querySelectorAll('.lane .endcap')];
-  if(!caps.length){svg.innerHTML=p;return;}
-  const bx=cx(caps[0]); const bys=caps.map(cy);
+  const capLanes=[...document.querySelectorAll('.lane')].filter(l=>l.querySelector('.endcap'));
+  if(!capLanes.length){svg.innerHTML=p;return;}
+  const bx=cx(capLanes[0].querySelector('.endcap'));
+  // bys[채널 인덱스] = 그 채널이 '표시되고 있는 줄'의 y. 아래 계산은 전부 채널 인덱스 기준이라
+  // 레인을 재배치해도 route(혼합/단독)별 버스가 그대로 따라간다.
+  const bys=[];
+  capLanes.forEach(l=>{ bys[+l.dataset.idx]=cy(l.querySelector('.endcap')); });
   const flow=c=>eff(c);   // 유효 열림(안전정지면 닫힘) — 수집 버스 흐름도 함께 정지
   const pureRows=channels.map((c,i)=>c.route==='pure'?bys[i]:null).filter(v=>v!=null);
   const mixRows=channels.map((c,i)=>c.route==='mix'?bys[i]:null).filter(v=>v!=null);
@@ -360,8 +382,9 @@ function drawBuses(){
   }
 
   // endcap joints (coloured only where that channel actually flows)
-  caps.forEach((c,i)=>{
-    const ech=channels[i]; const col=ech.grp==='gas'?RED:BLUE;
+  channels.forEach((ech,i)=>{
+    if(bys[i]==null) return;
+    const col=ech.grp==='gas'?RED:BLUE;
     p+=`<rect x="${bx-6*sc}" y="${bys[i]-4*sc}" width="${12*sc}" height="${8*sc}" rx="${3*sc}" fill="#cfd8e3" stroke="${flow(ech)?col:GREY}" stroke-width="${(1.2*sc).toFixed(2)}"/>`;
   });
 
