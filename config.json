@@ -90,7 +90,7 @@
       "plc": {
         "sv_out": "DAC1_CH3",
         "pv_in": "ADC_CH5",
-        "fs_sccm": 200,
+        "fs_sccm": 300,
         "sv_full": 2000,
         "pv_zero": 0,
         "pv_full": 4000

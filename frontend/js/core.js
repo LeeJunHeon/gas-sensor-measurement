@@ -108,6 +108,7 @@ function _applyLocks(){
   set('.n-valve', R||P);
   set('[data-sv]', R||P);
   set('.svgo', R||P);
+  set('.svzero', R||P);
   document.getElementById('openSetup')?.classList.toggle('locked', R);
   document.querySelectorAll('.hbtn.purge').forEach(b=>b.classList.toggle('locked', R||P));
   // SMU \ud328\ub110\uc758 .pbtn.runbig\ub294 \ube44\ud65c\uc131(\ubbf8\uad6c\ud604)\uc774\ub77c \uc81c\uc678 \u2014 \ud5e4\ub354 .hbtn.run\ub9cc \uc7a0\uae08 \ud1a0\uae00.

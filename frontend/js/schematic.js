@@ -94,7 +94,7 @@ function renderLanes(){
       <div class="n-mfc ${eff(c)?'on':''}${c.en?'':' dis'}">
         <div class="mfc-read">
           <div class="mfchd"><span class="mfcid">${c.id} · MFC</span><span class="mfcrole" title="${roleLabel}">${roleLabel}</span></div>
-          <div class="pvrow"><span class="rlbl">PV</span><span class="pvb" data-pv="${idx}">${fmtPv(c)}</span><span class="un">sccm</span><span class="svgo-spacer" aria-hidden="true"></span></div>
+          <div class="pvrow"><span class="rlbl">PV</span><span class="pvb" data-pv="${idx}">${fmtPv(c)}</span><span class="un">sccm</span><button class="svzero" data-svzero="${idx}" ${c.en?'':'disabled'} title="SV를 0으로 즉시 적용">초기화</button></div>
           <div class="svrow"><span class="rlbl">SV</span><input class="svi" size="4" value="${c.sv.toFixed(d)}" data-sv="${idx}" title="MAX ${c.max} sccm — 변경은 System Setup" ${c.en?'':'disabled'}><span class="un">sccm</span><button class="svgo" data-svgo="${idx}" ${c.en?'':'disabled'} title="입력한 SV를 PLC로 보냅니다 (Enter도 동일)">적용</button></div>
         </div>
       </div>
@@ -126,7 +126,11 @@ function updateLaneValues(){
     const sv=lane.querySelector(`[data-sv="${idx}"]`);
     if(sv){
       // 포커스 중(편집 중)이면 값을 덮지 않는다 — 타이핑이 사라지지 않도록.
-      if(document.activeElement!==sv){ sv.value=c.sv.toFixed(d); sv.classList.remove('pending','over'); }
+      if(document.activeElement!==sv){
+        sv.value=c.sv.toFixed(d); sv.classList.remove('pending','over');
+        const go=lane.querySelector(`[data-svgo="${idx}"]`);   // 초과 해제 → [적용] 복구
+        if(go&&c.en) go.disabled=false;
+      }
       sv.title=`MAX ${c.max} sccm — 변경은 System Setup`;   // MAX는 Setup에서만 바뀐다
     }
   });
@@ -141,14 +145,26 @@ function bindLaneEvents(){
     const el=svInput(idx), c=channels[idx]; if(!el||!c) return;
     el.value=c.sv.toFixed(dec(c));
     el.classList.remove('pending','over');
+    svSyncGo(idx, false);
   };
   const svApply=idx=>{
     const el=svInput(idx), c=channels[idx]; if(!el||!c) return;
     const raw=(el.value||'').trim();
     const v=parseFloat(raw);
     if(raw==='' || isNaN(v)){ svRevert(idx); return; }   // 빈값·오타는 원값 복귀
+    // ★ MAX 초과는 전송하지 않는다 — 자동 클램프(예: 400→200)는 운전자가 의도하지 않은
+    //   값을 조용히 흘려보내므로 금지. 서버의 클램프는 백스톱으로만 남는다.
+    if(v > (+c.max||0)){
+      window.logMsg(`${c.id}: ${v} sccm — MAX ${c.max} 초과, 적용되지 않았습니다`, 'err');
+      return;
+    }
     el.classList.remove('pending');
-    window.cmdSetSv(idx, v);   // 서버가 MAX로 클램프하면 로그로 알리고 값을 에코한다
+    window.cmdSetSv(idx, v);
+  };
+  // 초과 여부에 따라 [적용] 버튼을 잠근다(잠금 상태의 disabled는 _applyLocks가 따로 관리).
+  const svSyncGo=(idx,over)=>{
+    const b=lanesEl.querySelector(`[data-svgo="${idx}"]`), c=channels[idx];
+    if(b&&c&&c.en) b.disabled=!!over;
   };
   document.querySelectorAll('[data-sv]').forEach(inp=>{
     inp.addEventListener('input',e=>{
@@ -157,6 +173,7 @@ function bindLaneEvents(){
       const over=v > (+c.max||0);
       e.target.classList.toggle('over', over);                    // 초과(빨강)가 우선
       e.target.classList.toggle('pending', !over && v!==c.sv);    // 미적용(주황)
+      svSyncGo(idx, over);   // 초과 동안 [적용] 비활성 → 해제되면 즉시 복구
     });
     inp.addEventListener('keydown',e=>{
       if(e.key==='Enter'){ e.preventDefault(); svApply(+e.target.dataset.sv); }
@@ -168,7 +185,17 @@ function bindLaneEvents(){
   //   실행돼 입력값이 사라진다. mousedown에서 포커스를 뺏지 않으면 그 경쟁이 없다.
   document.querySelectorAll('[data-svgo]').forEach(btn=>btn.addEventListener('mousedown',e=>{
     e.preventDefault();
+    if(e.currentTarget.disabled) return;   // MAX 초과 중에는 눌러도 전송하지 않는다
     svApply(+e.currentTarget.dataset.svgo);
+  }));
+  // [초기화] — SV 0을 즉시 적용. 적용 버튼과 같은 이유로 mousedown + preventDefault.
+  document.querySelectorAll('[data-svzero]').forEach(btn=>btn.addEventListener('mousedown',e=>{
+    e.preventDefault();
+    if(e.currentTarget.disabled) return;
+    const idx=+e.currentTarget.dataset.svzero, el=svInput(idx);
+    if(el){ el.classList.remove('pending','over'); }
+    svSyncGo(idx, false);
+    window.cmdSetSv(idx, 0);   // 값은 서버 에코로 0이 되어 돌아온다
   }));
   document.querySelectorAll('[data-v]').forEach(v=>v.addEventListener('click',()=>{
     const idx=+v.dataset.v.split('-')[0]; const c=channels[idx];
