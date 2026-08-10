@@ -385,14 +385,24 @@ document.getElementById('recNew')?.addEventListener('click',()=>window.cmdRecipe
 document.getElementById('recOpen')?.addEventListener('click',()=>window.cmdRecipeList());
 // 이름은 저장할 때만 묻는다(기본값=현재 레시피 이름) — 상단 이름칸은 없앴다.
 document.getElementById('recSave')?.addEventListener('click',()=>{
+  // backend storage.valid_recipe_name 과 같은 규칙 요약 — 창을 닫기 전에 걸러
+  //   '눌렀는데 아무 일도 없다'를 없앤다(서버 검증은 백스톱으로 그대로 남는다).
+  const nameErr = v=>{
+    const n=(v||'').trim();
+    if(!n) return '이름을 입력하세요';
+    if(/[<>:"|?*/\\]/.test(n)) return '다음 문자는 쓸 수 없습니다: < > : " | ? * / \\';
+    if(n!==n.replace(/[ .]+$/,'')) return '이름 끝에 공백이나 점(.)을 둘 수 없습니다';
+    if(/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)/i.test(n)) return 'Windows 예약어는 쓸 수 없습니다 (CON, PRN, AUX, NUL, COM1~9, LPT1~9)';
+    if(n.length>80) return '이름이 너무 깁니다 (80자 이내)';
+    return null;
+  };
   window.appPrompt('레시피 이름을 입력하세요', window._recipeName || '', v=>{
     const name=(v||'').trim();
-    if(!name){ window.logMsg('레시피 이름을 입력하세요','warn'); return; }
     const r=(typeof collectRecipe==='function')?collectRecipe():window.collectRecipe();
     r.name=name;
     // 이후는 기존 경로 그대로 — exists면 덮어쓰기 확인, invalid면 사유 표시(app.js ack).
     window.cmdRecipeSave(name, r, false);
-  }, '레시피 저장');
+  }, '레시피 저장', nameErr);
 });
 
 /* 현재 화면의 레시피 초안을 INTERFACE 3.3 형식으로 수집 */

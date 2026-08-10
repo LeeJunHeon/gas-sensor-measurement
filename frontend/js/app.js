@@ -133,7 +133,9 @@
       // 서버가 사유를 보내면 그대로 보여준다(무엇이 잘못됐는지 알 수 없으면 고칠 수 없다).
       window.logMsg(msg.msg ? ('레시피 저장 실패 — ' + msg.msg) : '레시피 저장 실패 — 잘못된 이름', 'err');
     } else {
-      window.logMsg('레시피 저장 실패', 'err');
+      // exists/invalid 외의 사유(io 오류 등)도 반드시 사유와 함께 남긴다 — 무음 실패 금지.
+      const why = msg.msg || msg.reason || '알 수 없는 오류';
+      window.logMsg('레시피 저장 실패 — ' + why, 'err');
     }
   }
 
@@ -257,12 +259,18 @@
 
   // ===================== 입력 창(appPrompt) =====================
   // appConfirm 과 같은 오버레이/버튼 스타일을 재사용한다. 확인=onOk(값), 취소/X=무동작.
-  let _promptCb = null;
-  window.appPrompt = function (message, defaultValue, onOk, title) {
+  // validator(value) → 문자열이면 창을 닫지 않고 입력 아래 인라인 에러로 보여준다(null=통과).
+  let _promptCb = null, _promptVal = null;
+  window.appPrompt = function (message, defaultValue, onOk, title, validator) {
     const ov = document.getElementById('saveNameModal');
     const inp = document.getElementById('saveNameInput');
     if (!ov || !inp) {                       // 폴백: 모달이 없으면 브라우저 prompt
-      const v = window.prompt(message, defaultValue || '');
+      let v = window.prompt(message, defaultValue || '');
+      while (v !== null && validator) {
+        const err = validator(v);
+        if (!err) break;
+        v = window.prompt(err + ' / ' + message, v);
+      }
       if (v !== null && onOk) onOk(v);
       return;
     }
@@ -271,18 +279,26 @@
     const w = document.getElementById('saveNameWarn'); if (w) w.textContent = '';
     inp.value = defaultValue || '';
     _promptCb = onOk || null;
+    _promptVal = validator || null;
     ov.classList.add('on');
     setTimeout(() => inp.focus(), 30);       // 전역 focusin 위임이 전체선택까지 처리
   };
   function bindPrompt() {
     const ov = document.getElementById('saveNameModal');
     const inp = document.getElementById('saveNameInput');
-    const close = () => { _promptCb = null; ov && ov.classList.remove('on'); };
+    const warn = document.getElementById('saveNameWarn');
+    const close = () => { _promptCb = null; _promptVal = null; ov && ov.classList.remove('on'); };
     const submit = () => {
       const cb = _promptCb, v = (inp.value || '');
-      ov && ov.classList.remove('on'); _promptCb = null;
+      if (_promptVal) {                      // 검증 실패면 창을 유지하고 사유만 보여준다
+        const err = _promptVal(v);
+        if (err) { if (warn) warn.textContent = err; inp.focus(); inp.select(); return; }
+      }
+      if (warn) warn.textContent = '';
+      ov && ov.classList.remove('on'); _promptCb = null; _promptVal = null;
       if (cb) cb(v);
     };
+    if (inp && warn) inp.addEventListener('input', () => { warn.textContent = ''; });
     document.getElementById('saveNameOk')?.addEventListener('click', submit);
     document.getElementById('saveNameCancel')?.addEventListener('click', close);
     document.getElementById('saveNameClose')?.addEventListener('click', close);
