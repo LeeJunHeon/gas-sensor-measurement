@@ -15,6 +15,10 @@ dist/
 # 런타임 생성 폴더
 logs/
 
+# 런타임 설정 — 현장마다 다르다(COM 포트·배정·스케일). 저장소가 덮어쓰지 않도록 제외.
+#   참고용 기본값은 config.example.json 에 있다.
+config.json
+
 # Editors / OS
 .vscode/
 .idea/

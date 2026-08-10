@@ -60,6 +60,9 @@ python backend/server.py        # 프로젝트 루트에서
 
 `127.0.0.1:8000`을 사용하며, 이미 점유 중이면 8001~8009 중 빈 포트를 자동으로 찾는다.
 
+`config.json` 은 **로컬 파일이라 저장소가 덮지 않는다**(git 추적 제외). 없으면 첫 실행에
+기본값으로 만들어지며, 참고용 예시는 [`config.example.json`](config.example.json) 에 있다.
+
 ## 배포 구조
 
 PyInstaller(onedir)로 묶으면 폴더가 둘로 갈라진다.

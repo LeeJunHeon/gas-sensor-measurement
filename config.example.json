@@ -1,4 +1,5 @@
 {
+  "_readme": "첫 실행 시 config.json 이 없으면 기본값으로 생성됩니다. 이 파일은 참고용 예시.",
   "channels": [
     {
       "id": "VA1",
@@ -147,7 +148,7 @@
     "logKeepDays": 30
   },
   "plc": {
-    "mode": "tcp",
+    "mode": "serial",
     "host": "127.0.0.1",
     "tcp_port": 502,
     "port": "",
