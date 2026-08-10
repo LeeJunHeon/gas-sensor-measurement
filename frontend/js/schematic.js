@@ -76,11 +76,12 @@ function renderLanes(){
     const roleLabel = c.label + (c.sub ? ' · ' + c.sub.replace(/\s*\(.*\)$/, '') : '')
                               + (hasTank ? ' · 가습' : '');
     const noSv = !!(c.plc && !c.plc.sv_out && c.en);
-    const noSvBadge = noSv
-      ? `<span title="config.json의 sv_out 미배정 — 유량 지령이 나가지 않습니다"
-              style="font-size:9px;color:#8b8b8b;border:1px solid #8b8b8b;border-radius:3px;
-                     padding:0 3px;margin-left:3px;white-space:nowrap;">SV 없음</span>`
-      : '';
+    // ★ 항상 렌더하고 표시/숨김만 토글한다 — 배정을 바꿔도 레인 구조키가 그대로라
+    //   재렌더가 일어나지 않는다. 뱃지를 조건부로 만들면 밸브를 건드릴 때까지 안 바뀐다.
+    const noSvBadge =
+      `<span data-nosv="${idx}" title="sv_out 미배정 — 유량 지령이 나가지 않습니다"
+             style="font-size:9px;color:#8b8b8b;border:1px solid #8b8b8b;border-radius:3px;
+                    padding:0 3px;margin-left:3px;white-space:nowrap;${noSv?'':'display:none;'}">SV 없음</span>`;
     lane.innerHTML=`
       <div class="n-src">
         <span class="srclbl">${showLabel}</span><span class="tap"></span>
@@ -123,6 +124,9 @@ function updateLaneValues(){
     const d=dec(c);
     lane.classList.toggle('lit', flowing(c)&&c.pv>0);   // 발광(글로우)은 파이프 애니메이션과 무관
     const pv=lane.querySelector(`[data-pv="${idx}"]`); if(pv) pv.textContent=fmtPv(c);
+    // 'SV 없음' 뱃지 — 배정 변경은 구조키를 바꾸지 않으므로 여기서 직접 갱신한다.
+    const nb=lane.querySelector(`[data-nosv="${idx}"]`);
+    if(nb) nb.style.display = (c.plc && !c.plc.sv_out && c.en) ? '' : 'none';
     const sv=lane.querySelector(`[data-sv="${idx}"]`);
     if(sv){
       // 포커스 중(편집 중)이면 값을 덮지 않는다 — 타이핑이 사라지지 않도록.
