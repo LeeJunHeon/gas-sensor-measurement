@@ -6,11 +6,12 @@
 // 보이면 안 된다. pv도 null(=화면 '—')로 두고 실측이 올 때만 숫자를 그린다.
 let channels = [
   // 실배관: VA1=가스 매니폴드에 합류하는 혼합(희석) 라인, VA3=4-way로 직행하는 단독 라인.
+  //   물 라인은 위치 기준 **잠정** 페어링 — VA2=단독측 가습, VA4=혼합측 가습(배관 확정 시 재검토).
   //   route 값은 백엔드(state.py/config.json)와 반드시 같아야 한다 — 배관도 선이 이걸 따라 그려진다.
   {grp:'air', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA1
-  {grp:'air', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA2
+  {grp:'air', route:'pure', max:2000, sv:0, pv:null, en:false},  // VA2 (물1, 잠정)
   {grp:'air', route:'pure', max:2000, sv:0, pv:null, en:false},  // VA3
-  {grp:'air', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA4
+  {grp:'air', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA4 (물2, 잠정)
   {grp:'gas', route:'mix',  max:2000, sv:0, pv:null, en:false},  // VA5
   {grp:'gas', route:'mix',  max:200,  sv:0, pv:null, en:false},  // VA6
   {grp:'gas', route:'mix',  max:200,  sv:0, pv:null, en:false},  // VA7
