@@ -125,7 +125,6 @@ document.querySelectorAll('.hbtn.stop').forEach(b=>b.addEventListener('click',()
 document.querySelector('.hbtn.purge')?.addEventListener('click',()=>window.cmdPurge());
 // PROGRAM END → 프로그램 실제 종료
 document.querySelector('.hbtn.end')?.addEventListener('click',()=>window.cmdExit());
-document.getElementById('recname').addEventListener('change',e=>{document.getElementById('hdrRecipe').textContent=(e.target.value||'').trim()||'\u2014';});
 
 /* ===================== system log ===================== */
 function logMsg(msg, level){
@@ -246,7 +245,7 @@ function applyState(s){
   if(s.recipe){
     procs.length=0;
     (s.recipe.procs||[]).forEach(p=>procs.push(Object.assign({}, p, {g:(p.g||[0,0,0,0]).slice()})));
-    const rn=document.getElementById('recname'); if(rn) rn.value=s.recipe.name||'';
+    window._recipeName = s.recipe.name || '';
     const hdr=document.getElementById('hdrRecipe'); if(hdr) hdr.textContent=s.recipe.name||'\u2014';
     const uh=document.getElementById('useHumidity'); if(uh) uh.checked=!!s.recipe.useHumidity;
     const lc=document.getElementById('loopCount'); if(lc&&s.recipe.loopCount!=null) lc.value=s.recipe.loopCount;

@@ -255,38 +255,42 @@
     if (overlay) overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('on'); });
   }
 
-  // ===================== 레시피 저장 이름 모달 (Save as) =====================
-  window.openSaveName = function (preset) {
+  // ===================== 입력 창(appPrompt) =====================
+  // appConfirm 과 같은 오버레이/버튼 스타일을 재사용한다. 확인=onOk(값), 취소/X=무동작.
+  let _promptCb = null;
+  window.appPrompt = function (message, defaultValue, onOk, title) {
     const ov = document.getElementById('saveNameModal');
     const inp = document.getElementById('saveNameInput');
-    const warn = document.getElementById('saveNameWarn');
-    if (!ov || !inp) return;
-    warn.textContent = '';
-    inp.value = preset || '';
+    if (!ov || !inp) {                       // 폴백: 모달이 없으면 브라우저 prompt
+      const v = window.prompt(message, defaultValue || '');
+      if (v !== null && onOk) onOk(v);
+      return;
+    }
+    const t = document.getElementById('promptTitle'); if (t) t.textContent = title || '입력';
+    const m = document.getElementById('promptMsg'); if (m) m.textContent = message || '';
+    const w = document.getElementById('saveNameWarn'); if (w) w.textContent = '';
+    inp.value = defaultValue || '';
+    _promptCb = onOk || null;
     ov.classList.add('on');
-    setTimeout(() => { inp.focus(); inp.select(); }, 30);
+    setTimeout(() => inp.focus(), 30);       // 전역 focusin 위임이 전체선택까지 처리
   };
-  function bindSaveName() {
+  function bindPrompt() {
     const ov = document.getElementById('saveNameModal');
     const inp = document.getElementById('saveNameInput');
-    const warn = document.getElementById('saveNameWarn');
-    const close = () => ov && ov.classList.remove('on');
+    const close = () => { _promptCb = null; ov && ov.classList.remove('on'); };
     const submit = () => {
-      const name = (inp.value || '').trim();
-      if (!name) { warn.textContent = '이름을 입력하세요.'; return; }
-      if (/[\\/:*?"<>|]/.test(name)) { warn.textContent = '사용할 수 없는 문자가 있습니다.'; return; }
-      // 이름을 표 상단 입력칸에도 반영 후 저장(중복이면 서버 ack로 덮어쓰기 확인)
-      const rn = document.getElementById('recname'); if (rn) rn.value = name;
-      const r = (typeof collectRecipe === 'function') ? collectRecipe() : window.collectRecipe();
-      r.name = name;
-      window.cmdRecipeSave(name, r, false);
-      close();
+      const cb = _promptCb, v = (inp.value || '');
+      ov && ov.classList.remove('on'); _promptCb = null;
+      if (cb) cb(v);
     };
     document.getElementById('saveNameOk')?.addEventListener('click', submit);
     document.getElementById('saveNameCancel')?.addEventListener('click', close);
     document.getElementById('saveNameClose')?.addEventListener('click', close);
     if (ov) ov.addEventListener('click', e => { if (e.target === ov) close(); });
-    if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') close(); });
+    if (inp) inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      if (e.key === 'Escape') { e.preventDefault(); close(); }
+    });
   }
 
   // ===================== 공용 알림/확인 모달 =====================
@@ -335,7 +339,7 @@
 
   // ===================== 시작 =====================
   bindPicker();
-  bindSaveName();
+  bindPrompt();
   bindCommonModals();
   // 초기엔 로그 없이 pill만 "연결 끊김"으로 표시(첫 연결/실패 시 로그가 남는다).
   const pill0 = document.getElementById('connStatus');

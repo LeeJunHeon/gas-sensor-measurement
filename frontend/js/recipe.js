@@ -359,24 +359,21 @@ document.getElementById('useHumidity').addEventListener('change',renderRecipe);
 /* 레시피 New/Open/Save as → app.js 명령 */
 document.getElementById('recNew')?.addEventListener('click',()=>window.cmdRecipeNew());
 document.getElementById('recOpen')?.addEventListener('click',()=>window.cmdRecipeList());
-// 이름은 상단 입력칸 하나로 받는다 — 별도 프롬프트로 두 번 묻지 않는다.
+// 이름은 저장할 때만 묻는다(기본값=현재 레시피 이름) — 상단 이름칸은 없앴다.
 document.getElementById('recSave')?.addEventListener('click',()=>{
-  const rn=document.getElementById('recname');
-  const name=(rn?.value||'').trim();
-  if(!name){
-    if(rn) rn.focus();
-    window.logMsg('레시피 이름을 입력하세요','warn');
-    return;
-  }
-  const r=(typeof collectRecipe==='function')?collectRecipe():window.collectRecipe();
-  r.name=name;
-  // 이후는 기존 경로 그대로 — exists면 덮어쓰기 확인, invalid면 사유 표시(app.js ack).
-  window.cmdRecipeSave(name, r, false);
+  window.appPrompt('레시피 이름을 입력하세요', window._recipeName || '', v=>{
+    const name=(v||'').trim();
+    if(!name){ window.logMsg('레시피 이름을 입력하세요','warn'); return; }
+    const r=(typeof collectRecipe==='function')?collectRecipe():window.collectRecipe();
+    r.name=name;
+    // 이후는 기존 경로 그대로 — exists면 덮어쓰기 확인, invalid면 사유 표시(app.js ack).
+    window.cmdRecipeSave(name, r, false);
+  }, '레시피 저장');
 });
 
 /* 현재 화면의 레시피 초안을 INTERFACE 3.3 형식으로 수집 */
 function collectRecipe(){
-  const name=(document.getElementById('recname').value||'').trim();
+  const name=(window._recipeName||'').trim();   // 이름은 Save as 에서만 정한다
   const useHumidity=document.getElementById('useHumidity').checked;
   const loopCount=+(document.getElementById('loopCount')?.value)||0;
   const num=id=>parseFloat(document.getElementById(id)?.value)||0;

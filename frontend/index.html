@@ -80,7 +80,8 @@
           <button class="pbtn new" id="recNew">New</button>
           <button class="pbtn open" id="recOpen">Open</button>
           <button class="pbtn save" id="recSave">Save as</button>
-          <input class="recname mono" id="recname" value="" placeholder="레시피 이름 — Save as 로 저장">
+          <button class="addbtn" id="addProc" title="행을 추가하면 P 번호가 자동 부여됩니다. 셀을 클릭해 값을 편집하세요.">+ Add Process</button>
+          <span class="ptbspace"></span>
           <label class="chk"><input type="checkbox" id="useHumidity">Humidity 사용</label>
         </div>
 
@@ -106,10 +107,6 @@
             </thead>
             <tbody id="recipeBody"></tbody>
           </table>
-        </div>
-        <div class="addrow">
-          <button class="addbtn" id="addProc">+ Add Process</button>
-          <span style="font-size:10.5px;color:var(--ink-faint)">행을 추가하면 P 번호가 자동 부여됩니다. 셀을 클릭해 값을 편집하세요.</span>
         </div>
         <!-- 레시피를 편집한 자리에서 바로 실행/중단 — 동선을 끊지 않는다. -->
         <div class="apv-actions">
@@ -335,11 +332,11 @@
     <div class="modal-overlay" id="saveNameModal">
       <div class="modal" style="width:420px">
         <div class="modal-head">
-          <h2>레시피 저장</h2>
+          <h2 id="promptTitle">레시피 저장</h2>
           <button class="x" id="saveNameClose">✕</button>
         </div>
         <div class="modal-body">
-          <div style="font-size:12px;color:var(--ink-faint);margin-bottom:8px">레시피 이름을 입력하세요. (recipes 폴더에 저장됩니다)</div>
+          <div id="promptMsg" style="font-size:12px;color:var(--ink-faint);margin-bottom:8px"></div>
           <input class="recname mono" id="saveNameInput" style="width:100%" placeholder="레시피 이름" autocomplete="off">
           <div id="saveNameWarn" style="font-size:11.5px;color:#b3261e;margin-top:6px;min-height:14px"></div>
         </div>
