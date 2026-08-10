@@ -291,21 +291,19 @@ function drawBuses(){
     const topY=has?Math.min(...enAirYs):Math.min(...ays);
     const botY=has?Math.max(...enAirYs):Math.max(...ays);
     const xIn=SRC_X;
-    // ★ 분기 커넥터의 '흐름' 판정은 en(사용)이 아니라 유효 열림(eff)이다.
-    //   그 구간을 경유해 Air 소스와 이어지는 열린 밸브가 하나라도 있으면 점선이 움직인다
-    //   — 예: VA1만 열려도 입구점부터 VA1 가지까지 전 구간이 활성.
-    const openAirYs=ays.filter((_,i)=>airChs[i]&&eff(airChs[i]));
-    const anyOpen=openAirYs.length>0;
-    const openBotY=anyOpen?Math.max(...openAirYs):topY;
+    // ★ 공급측(밸브 앞)은 밸브 개폐와 무관하게 '상시' 흐름으로 그린다 —
+    //   소스는 항상 가압돼 있고 공기는 밸브 앞까지 이미 도달해 있다.
+    //   b17aab9의 pre 구간 규칙("pre-segment flows whenever enabled")을 커넥터에 일반화한 것.
+    //   구간 활성 = 그 구간을 경유해 도달하는 가지 중 en=true 가 존재(=enAirYs 범위).
+    //   밸브 '뒤'부터(트렁크·버스·4-way)는 유효 열림(eff) 기준을 그대로 쓴다.
     // left inlet pipe + inlet cap (label sits at its left end)
-    p+=fL(xIn,topY,ax,topY,anyOpen?BLUE:GREY,'dn',anyOpen);
-    p+=`<circle cx="${xIn}" cy="${topY}" r="${(4.5*sc).toFixed(2)}" fill="#fff" stroke="${anyOpen?BLUE:GREY}" stroke-width="${(2.4*sc).toFixed(2)}"/>`;
-    // 세로 매니폴드: 구조선(회색)은 사용 중인 구간 전체 / 움직이는 선은 입구점~가장 깊은 열린 가지
-    if(has) p+=fL(ax,topY,ax,botY,GREY,'dn',false);
-    if(anyOpen&&openBotY>topY) p+=fL(ax,topY,ax,openBotY,BLUE,'dn',true);
+    p+=fL(xIn,topY,ax,topY,BLUE,'dn',has);
+    p+=`<circle cx="${xIn}" cy="${topY}" r="${(4.5*sc).toFixed(2)}" fill="#fff" stroke="${BLUE}" stroke-width="${(2.4*sc).toFixed(2)}"/>`;
+    // vertical manifold: flow across the enabled air span (밸브 개폐와 무관)
+    if(has) p+=fL(ax,topY,ax,botY,BLUE,'dn',true);
     {const al=document.getElementById('airsupply'); al.style.left=((xIn-8)/sc)+'px'; al.style.top=(topY/sc)+'px';}
-    airTaps.forEach((t,i)=>{const ch=airChs[i];const on=!!(ch&&ch.en);const flowing=!!(ch&&eff(ch));
-      p+=`<circle cx="${ax}" cy="${ays[i]}" r="${(3.5*sc).toFixed(2)}" fill="${flowing?BLUE:GREY}" opacity="${on?1:0.45}"/>`;});
+    airTaps.forEach((t,i)=>{const on=!!(airChs[i]&&airChs[i].en);
+      p+=`<circle cx="${ax}" cy="${ays[i]}" r="${(3.5*sc).toFixed(2)}" fill="${on?BLUE:GREY}" opacity="${on?1:0.45}"/>`;});
   }
 
   /* ── Gas inlets: each lane = ONE continuous line from inlet cap to VA valve ── */

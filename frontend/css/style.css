@@ -208,11 +208,12 @@
   .tank-ov{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3;display:flex;pointer-events:none}
   .tank-ov svg{display:block}
 
-  /* 세 줄(헤더·PV·SV)이 들어가도록 80px→92px. 레인 1칸(약 104px)보다 작아 배관과 어긋나지 않는다. */
-  .n-mfc{flex:0 0 auto;width:248px;display:flex;align-items:stretch;background:#fff;border:1px solid #222;border-radius:8px;height:92px}
+  /* 세 줄(헤더·PV·SV) + 세로 여유. 레인 1칸은 (1010-56-52-26-24-22-7)/8 ≈ 102.9px 이므로
+     97px 이 상한선에 가깝다 — 더 키우면 인접 카드와 배관선이 붙는다. */
+  .n-mfc{flex:0 0 auto;width:248px;display:flex;align-items:stretch;background:#fff;border:1px solid #222;border-radius:8px;height:97px}
   .n-mfc.on{border-color:#222}
   /* 카드 = 세로 3단(이름 / PV행 / SV행). 두 행은 카드 폭을 꽉 채운다. */
-  .mfc-read{flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:8px 10px;min-width:0}
+  .mfc-read{flex:1;display:flex;flex-direction:column;justify-content:center;gap:7px;padding:9px 10px;min-width:0}
   /* 카드 제목 줄: 좌 채널명·우 역할 */
   .mfchd{display:flex;align-items:baseline;justify-content:space-between;gap:8px;width:100%;min-width:0;margin-bottom:2px;padding-bottom:5px;border-bottom:1px solid rgba(0,0,0,.06)}
   .mfcid{font-size:12.5px;font-weight:700;color:#2a3645;white-space:nowrap}
