@@ -231,6 +231,34 @@ function updatePlcLive(live){
   if(_rc) _rc.classList.toggle('attn', !connected);   // stays clickable when connected
 }
 // \uc11c\ubc84 state \uba54\uc2dc\uc9c0 \u2192 \ub0b4\ubd80 \uc0c1\ud0dc \ubc18\uc601 \ud6c4 \uc7ac\ub80c\ub354
+// Setup modal fields are filled from server state ONLY while the modal is closed.
+//   Filling them every 0.7s push would overwrite what the operator is typing.
+function fillSetupForms(s){
+  if(!s) return;
+  if(s.settings){   // \ub85c\uae45 \uc124\uc815 \u2192 System Setup \ubaa8\ub2ec \uc785\ub825\uc5d0 \ubc18\uc601
+    const st=s.settings;
+    const setC=(id,v)=>{const e=document.getElementById(id); if(e) e.checked=!!v;};
+    const setV=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null) e.value=v;};
+    setC('logEnabled', st.logEnabled);
+    setV('logDir', st.logDir);
+    const ll=document.getElementById('logLevel'); if(ll&&st.logLevel) ll.value=st.logLevel;
+    setV('logKeepDays', st.logKeepDays);
+  }
+  if(s.plc){   // PLC 통신 설정 → System Setup 모달 입력에 반영
+    const p=s.plc;
+    const setV=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null) e.value=v;};
+    const setSel=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null) e.value=String(v);};
+    setSel('plcMode', p.mode); setV('plcHost', p.host); setV('plcTcpPort', p.tcp_port);
+    setV('plcPort', p.port);
+    setSel('plcBaud', p.baudrate); setSel('plcBytesize', p.bytesize);
+    setSel('plcStopbits', p.stopbits); setSel('plcParity', p.parity);
+    setV('plcUnitId', p.unit_id);
+    setV('plcTimeout', p.timeout_s); setV('plcGap', p.inter_cmd_gap_s);
+    setV('plcHeartbeat', p.heartbeat_s); setV('plcReconnect', p.reconnect_delay_s);
+    if(window.plcSyncModeFields) window.plcSyncModeFields();   // 방식에 맞는 필드만 표시
+  }
+}
+
 function applyState(s){
   if(!s) return;
   // 렌더 방식 판단용: 반영 전 레인 구조/흐름 키를 스냅샷(반영 후와 비교).
@@ -293,28 +321,10 @@ function applyState(s){
       av.title=(s.version.name||'')+' v'+(s.version.version||'')+' ('+(s.version.build||'')+')';
     }
   }
-  if(s.settings){   // \ub85c\uae45 \uc124\uc815 \u2192 System Setup \ubaa8\ub2ec \uc785\ub825\uc5d0 \ubc18\uc601
-    const st=s.settings;
-    const setC=(id,v)=>{const e=document.getElementById(id); if(e) e.checked=!!v;};
-    const setV=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null) e.value=v;};
-    setC('logEnabled', st.logEnabled);
-    setV('logDir', st.logDir);
-    const ll=document.getElementById('logLevel'); if(ll&&st.logLevel) ll.value=st.logLevel;
-    setV('logKeepDays', st.logKeepDays);
-  }
-  if(s.plc){   // PLC 통신 설정 → System Setup 모달 입력에 반영
-    const p=s.plc;
-    const setV=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null) e.value=v;};
-    const setSel=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null) e.value=String(v);};
-    setSel('plcMode', p.mode); setV('plcHost', p.host); setV('plcTcpPort', p.tcp_port);
-    setV('plcPort', p.port);
-    setSel('plcBaud', p.baudrate); setSel('plcBytesize', p.bytesize);
-    setSel('plcStopbits', p.stopbits); setSel('plcParity', p.parity);
-    setV('plcUnitId', p.unit_id);
-    setV('plcTimeout', p.timeout_s); setV('plcGap', p.inter_cmd_gap_s);
-    setV('plcHeartbeat', p.heartbeat_s); setV('plcReconnect', p.reconnect_delay_s);
-    if(window.plcSyncModeFields) window.plcSyncModeFields();   // 방식에 맞는 필드만 표시
-  }
+  // Guard: do not repaint Setup inputs while the modal is open (edits would roll back).
+  var _so=document.getElementById('setupOverlay');
+  window._lastStateForSetup = s;
+  if(!(_so&&_so.classList.contains('on'))) fillSetupForms(s);
   if(s.plc_live) updatePlcLive(s.plc_live);   // PLC \uc2e4\uce21(\uc5f0\uacb0\u00b7PV\u00b7\uc0c1\ud0dc) \u2192 window.plcLive + \uc0c1\ud0dc \ud328\ub110
   // \uad6c\uc870/\ud750\ub984(\ubc38\ube0c\u00b74way) \ubcc0\uacbd \u2192 \uc804\uccb4 \uc7ac\ub80c\ub354 / \uac12(PV\u00b7SV\u00b7MAX)\ub9cc \ubcc0\uacbd \u2192 \ubd80\ubd84 \uac31\uc2e0(\ud750\ub984 \uc560\ub2c8\uba54\uc774\uc158 \uc720\uc9c0).
   if(!lanesEl.querySelector('.lane') || lanesStructKey()!==_prevStruct || lanesFlowKey()!==_prevFlow)
@@ -367,7 +377,7 @@ window.clearLiveValues=clearLiveValues;
 window.channels=channels; window.procs=procs;
 window.renderLanes=renderLanes; window.renderRecipe=renderRecipe;
 window.drawBuses=drawBuses; window.updateSystem=updateSystem; window.logMsg=logMsg;
-window.applyState=applyState; window.applyTelemetry=applyTelemetry;
+window.applyState=applyState; window.fillSetupForms=fillSetupForms; window.applyTelemetry=applyTelemetry;
 window.applyPlcLock=applyPlcLock;
 window.collectRecipe=collectRecipe; window.collectSetup=collectSetup;
 

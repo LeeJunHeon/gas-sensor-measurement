@@ -7,12 +7,14 @@
 const PIPE_W = 5;                 // .pipe height:5px
 const PIPE_DASH = '5 17';         // 흰 5px / 주기 22px (.pipe.on::after 와 동일)
 const PIPE_PERIOD = '1.1s';       // .pipe.on::after animation 주기
-const COL_OFF = '#bcc6d3';        // .pipe 기본(비활성) 배경색
-const COL_AIR = '#2f72c4';        // style.css --air (레인 카드가 --c로 쓰는 값)
+// ★ 색은 CSS 변수를 그대로 참조한다 — inline SVG 는 문서의 CSS 변수를 상속하므로
+//   style.css 한 곳만 고치면 레인과 배관이 함께 바뀐다(값 복제 금지).
+const COL_OFF = 'var(--pipe-off)';   // = .pipe 기본(비활성) 배경
+const COL_AIR = 'var(--air)';        // 레인 카드가 --c 로 쓰는 값
 // 가스 레인은 deriveDisplay()가 전부 --g1 을 준다. 채널별로 색을 나누게 되면 여기만 고치면 된다.
-const COL_GAS = { VA5:'#c8384c', VA6:'#c8384c', VA7:'#c8384c', VA8:'#c8384c' };
-const COL_GAS_DEFAULT = '#c8384c';   // style.css --g1
-const COL_BLEND = '#8a4f9e';      // 공기+가스가 함께 흐르는 합류 구간
+const COL_GAS = { VA5:'var(--g1)', VA6:'var(--g1)', VA7:'var(--g1)', VA8:'var(--g1)' };
+const COL_GAS_DEFAULT = 'var(--g1)';
+const COL_BLEND = '#8a4f9e';      // 공기+가스가 함께 흐르는 합류 구간(레인에는 없는 색)
 const DOT_R = 4.5, DOT_SW = 2.4;  // 소스점·정션·탭 공통 규격
 const gasCol = id => COL_GAS[id] || COL_GAS_DEFAULT;
 
@@ -290,6 +292,8 @@ function drawBuses(){
     /* 주기 22px(=5+17)·1.1s — .pipe.on::after 의 background-size 22px / animation flow 1.1s 와 동일 */
     .sdn{animation:sdn ${PIPE_PERIOD} linear infinite}
     .sup{animation:sup ${PIPE_PERIOD} linear infinite}
+    /* PLC 미준비: .lane.notready .pipe.on::after{animation:none} 와 같은 룩(흰 틱은 남고 정지) */
+    .nostripe .stripe{animation:none}
     @keyframes sdn{to{stroke-dashoffset:-22}}
     @keyframes sup{to{stroke-dashoffset:22}}
   </style>`;
@@ -301,6 +305,12 @@ function drawBuses(){
     ? `<path d="${d}" fill="none" stroke="${col}" stroke-width="${SW}" stroke-linecap="butt" stroke-linejoin="round"/><path class="stripe sdn" d="${d}" stroke-linejoin="round"/>`
     : `<path d="${d}" fill="none" stroke="${col}" stroke-width="${SW}" stroke-linecap="butt" stroke-linejoin="round"/>`;
   const Bbox=(x,y)=>`<rect x="${x-13*sc}" y="${y-13*sc}" width="${26*sc}" height="${26*sc}" rx="${6*sc}" fill="#f0ece2" stroke="#b9ad8e" stroke-width="${(1.6*sc).toFixed(2)}"/><text x="${x}" y="${y+4*sc}" text-anchor="middle" font-size="${(11*sc).toFixed(1)}" font-weight="700" fill="#8a7c55">B</text>`;
+
+  // PLC 준비 여부 — 레인의 .lane.notready(투명도 .45 + 애니 정지)와 같은 표현을 SVG에도 적용한다.
+  //   plcSafeStop() 은 '연결 + SAFETY_STOP' 을 보므로 미연결까지 포함하려면 connected 도 함께 본다.
+  const ready = !!(window.plcLive && window.plcLive.connected) && !plcSafeStop();
+  //   공급측(en 기반 상시) 세그먼트만 감싼다 — eff 기반 구간은 미준비면 어차피 비활성 회색이다.
+  const dim = seg => ready ? seg : `<g opacity="0.45" class="nostripe">${seg}</g>`;
 
   /* ── 좌측 소스 열(라벨·시작점·수평선 시작 x) ──
      Air 와 Gas 가 각자 자기 탭에서 -42 하던 것을 한 값으로 묶는다. 탭 위치가 조금이라도
@@ -327,13 +337,14 @@ function drawBuses(){
     //   구간 활성 = 그 구간을 경유해 도달하는 가지 중 en=true 가 존재(=enAirYs 범위).
     //   밸브 '뒤'부터(트렁크·버스·4-way)는 유효 열림(eff) 기준을 그대로 쓴다.
     // left inlet pipe + inlet cap (label sits at its left end)
-    p+=fL(xIn,topY,ax,topY,BLUE,'dn',has);
-    p+=`<circle cx="${xIn}" cy="${topY}" r="${(DOT_R*sc).toFixed(2)}" fill="#fff" stroke="${BLUE}" stroke-width="${(DOT_SW*sc).toFixed(2)}"/>`;
+    let airSeg=fL(xIn,topY,ax,topY,BLUE,'dn',has)
+      +`<circle cx="${xIn}" cy="${topY}" r="${(DOT_R*sc).toFixed(2)}" fill="#fff" stroke="${BLUE}" stroke-width="${(DOT_SW*sc).toFixed(2)}"/>`;
     // vertical manifold: flow across the enabled air span (밸브 개폐와 무관)
-    if(has) p+=fL(ax,topY,ax,botY,BLUE,'dn',true);
+    if(has) airSeg+=fL(ax,topY,ax,botY,BLUE,'dn',true);
+    p+=dim(airSeg);
     {const al=document.getElementById('airsupply'); al.style.left=((xIn-8)/sc)+'px'; al.style.top=(topY/sc)+'px';}
     airTaps.forEach((t,i)=>{const on=!!(airChs[i]&&airChs[i].en);
-      p+=`<circle cx="${ax}" cy="${ays[i]}" r="${(DOT_R*sc).toFixed(2)}" fill="${on?BLUE:GREY}" opacity="${on?1:0.45}"/>`;});
+      p+=dim(`<circle cx="${ax}" cy="${ays[i]}" r="${(DOT_R*sc).toFixed(2)}" fill="${on?BLUE:GREY}" opacity="${on?1:0.45}"/>`);});
   }
 
   /* ── Gas inlets: each lane = ONE continuous line from inlet cap to VA valve ── */
@@ -355,7 +366,7 @@ function drawBuses(){
     // pre-segment flows whenever enabled (supply reaches the valve), like air
     let seg=fL(xIn,gy,vx,gy,col,'dn',on)+`<circle cx="${xIn}" cy="${gy}" r="${(DOT_R*sc).toFixed(2)}" fill="#fff" stroke="${col}" stroke-width="${(DOT_SW*sc).toFixed(2)}"/>`;
     if(!on) seg=`<g opacity="0.42">${seg}</g>`;   // match disabled air lanes (.lane.off opacity:.42)
-    p+=seg;
+    p+=dim(seg);   // PLC 미준비면 레인과 같은 45%·정지 표현
     if(glayer&&ch){
       const d=document.createElement('div'); d.className='gaslbl'+(ch.en?'':' off');
       d.textContent=ch.label; d.style.left=((xIn-8)/scG)+'px'; d.style.top=(gy/scG)+'px';

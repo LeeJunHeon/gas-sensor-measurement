@@ -203,6 +203,10 @@ function buildScaleRows(){
   });
 }
 function openSetup(){
+  // 모달이 열려 있는 동안에는 applyState 가 폼을 덮지 않는다(편집 롤백 방지) —
+  //   대신 여는 순간 1회만 최신 서버값으로 채운다. 게이트 스냅샷은 이 뒤에 찍힌다.
+  if(window.fillSetupForms && window._lastStateForSetup)
+    window.fillSetupForms(window._lastStateForSetup);
   buildSetupRows();
   // 카탈로그 도착 후 배정 표 렌더(드롭다운). 실패는 표에 명시한다(조용히 넘기지 않는다).
   hideMapErr();

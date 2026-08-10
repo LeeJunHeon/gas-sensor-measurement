@@ -6,6 +6,8 @@
     /* 레인 카드 우측 버튼([초기화]·[적용])이 공유하는 폭 — PV 줄과 SV 줄의 끝단 정렬 기준.
        글자수가 달라도(초기화 3자 / 적용 2자) 같은 x에서 끝나도록 고정 폭을 쓴다. */
     --lanebtn-w:56px; --lanebtn-pad:4px 6px;
+    /* 배관 비활성색 — .pipe 와 SVG(schematic.js)가 함께 참조하는 단일 출처. */
+    --pipe-off:#bcc6d3;
     /* 폰트: 오프라인 납품 환경을 전제로 Windows 기본 폰트만 쓴다.
        웹폰트(CDN)는 공장 PC에서 로드 실패 → 폴백 불일치로 화면이 깨진다.
        한글은 맑은 고딕이 주력이고, 숫자·영문 고정폭은 Consolas(Vista 이후 기본 탑재). */
@@ -184,7 +186,7 @@
 
   /* ★ 배관 비주얼의 원본 정의 — schematic.js 의 PIPE DESIGN TOKENS 와 동기(함께 수정).
      커넥터·트렁크·버스는 SVG로 그리면서 이 값을 그대로 따라간다. */
-  .pipe{height:5px;background:#bcc6d3;border-radius:2px;flex:1 1 auto;min-width:10px;max-width:104px;position:relative;overflow:hidden}
+  .pipe{height:5px;background:var(--pipe-off);border-radius:2px;flex:1 1 auto;min-width:10px;max-width:104px;position:relative;overflow:hidden}
   .pipe.grow{flex:1 1 auto;min-width:10px;max-width:104px}
   /* 소스→VA는 짧게(VA 왼쪽), VA→MFC(.midpipe)는 길게(MFC 오른쪽) → 물탱크가 가운데 여유있게 */
   .pipe[data-seg="pre"]{max-width:56px}
