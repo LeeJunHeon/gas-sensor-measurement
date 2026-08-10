@@ -202,17 +202,18 @@
 
   .n-mfc{flex:0 0 auto;width:248px;display:flex;align-items:stretch;background:#fff;border:1px solid #222;border-radius:8px;height:80px}
   .n-mfc.on{border-color:#222}
-  .mfc-read{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:9px;padding:10px;min-width:0;align-items:center}
+  /* 카드 = 세로 3단(이름 / PV행 / SV행). 두 행은 카드 폭을 꽉 채운다. */
+  .mfc-read{flex:1;display:flex;flex-direction:column;justify-content:center;gap:7px;padding:10px;min-width:0}
   /* TL */ .mfc-read .vid{font-size:13px;font-weight:700;color:#2a3645;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:center}
   /* BL */ .mfc-read .maxwrap{display:flex;align-items:center;justify-content:flex-start;gap:4px;font-size:10.5px;color:#5a7bb0;font-weight:700;align-self:center}
   .mfc-read .maxwrap input{width:48px;font-size:12px;font-weight:600;color:#3463b0;text-align:right;border:1px solid var(--line);border-radius:3px;background:#f3f6fb;padding:2px 4px;font-family:var(--font-mono)}
   .mfc-read .maxwrap input:focus{outline:none;border-color:var(--primary);background:#fff}
-  /* BL */ .pvrow{display:flex;align-items:center;gap:4px;min-width:0;align-self:center}
-  /* BR */ .svrow{display:flex;align-items:center;gap:4px;min-width:0;justify-content:flex-start;align-self:center}
-  .pvrow .rlbl,.svrow .rlbl{font-size:11px;font-weight:700;color:#7d899c;flex:0 0 20px}
-  .mfc-read .un{font-size:9px;font-weight:600;color:#9aa6b6;flex:0 0 24px;width:24px;text-align:left;letter-spacing:.2px}
-  .pvb{flex:0 0 52px;width:52px;text-align:right;font-family:var(--font-mono);font-size:14.5px;font-weight:700;padding:2px 6px;border-radius:3px;color:var(--pv);background:#eef6f4;border:1px solid #bfe0d8}
-  .svi{flex:0 0 52px;width:52px;text-align:right;font-family:var(--font-mono);font-size:14.5px;font-weight:700;padding:2px 6px;border-radius:3px;color:var(--sv);background:#fbf2e8;border:1px solid #ecd2b3}
+  .pvrow,.svrow{display:flex;align-items:center;gap:6px;width:100%;min-width:0}
+  .pvrow .rlbl,.svrow .rlbl{font-size:11px;font-weight:700;color:#7d899c;flex:0 0 auto;width:20px}
+  .mfc-read .un{font-size:9px;font-weight:600;color:#9aa6b6;flex:0 0 auto;text-align:left;letter-spacing:.2px}
+  /* 값 칸이 남는 폭을 먹는다 — 카드가 넓어져도 우측이 비지 않는다 */
+  .pvb{flex:1 1 auto;min-width:0;text-align:right;font-family:var(--font-mono);font-size:14.5px;font-weight:700;padding:2px 6px;border-radius:3px;color:var(--pv);background:#eef6f4;border:1px solid #bfe0d8}
+  .svi{flex:1 1 auto;min-width:0;width:auto;text-align:right;font-family:var(--font-mono);font-size:14.5px;font-weight:700;padding:2px 6px;border-radius:3px;color:var(--sv);background:#fbf2e8;border:1px solid #ecd2b3}
   .svi:focus{outline:none;border-color:var(--sv);background:#fff}
   .endcap{width:8px;height:8px;border-radius:50%;background:#9aa6b6;flex:0 0 auto;border:2px solid var(--bg2)}
   .lane[data-grp="air"].lit .endcap{background:var(--air)}   /* 파랑 */
@@ -248,7 +249,8 @@
   .svi.pending{border-color:#e69b00;box-shadow:0 0 0 2px rgba(230,155,0,.2)}
   .svi.over{border-color:#c0392b;box-shadow:0 0 0 2px rgba(192,57,43,.25)}
   /* SV 명시적 적용 버튼 — MAX 입력을 뺀 자리에 들어간다 */
-  .svgo{margin-left:4px;padding:2px 7px;font-size:10.5px;font-weight:700;cursor:pointer;
+  .svgo{flex:0 0 auto;min-width:46px;padding:4px 10px;white-space:nowrap;
+        font-size:10.5px;font-weight:700;cursor:pointer;
         border:1px solid var(--line2);border-radius:4px;background:#eef2fb;color:var(--primary)}
   .svgo:hover{background:#e0e8f8;border-color:var(--primary)}
   .svgo:disabled{opacity:.45;cursor:default;background:#f1f3f6;color:var(--ink-faint)}
