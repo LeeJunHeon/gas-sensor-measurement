@@ -20,7 +20,7 @@ import contextlib
 logging.getLogger("pymodbus").setLevel(logging.WARNING)
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import logger
@@ -101,9 +101,35 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
+# 정적 자산(css/js)에 붙일 버전 문자열 — "앱버전-자산최신mtime".
+# 파일을 고치면 값이 바뀌고 URL 이 바뀌므로 WebView2 가 옛 자산을 재사용하지 못한다
+# ("코드는 최신인데 화면은 과거" 사고 차단). 자산 자체의 캐시는 그대로 허용한다.
+_ASSET_FILES = [
+    os.path.join(FRONTEND_DIR, "css", "style.css"),
+    os.path.join(FRONTEND_DIR, "js", "schematic.js"),
+    os.path.join(FRONTEND_DIR, "js", "recipe.js"),
+    os.path.join(FRONTEND_DIR, "js", "core.js"),
+    os.path.join(FRONTEND_DIR, "js", "app.js"),
+]
+
+
+def _asset_version() -> str:
+    mtimes = []
+    for f in _ASSET_FILES:
+        with contextlib.suppress(OSError):
+            mtimes.append(os.path.getmtime(f))
+    return f"{version.APP_VERSION}-{int(max(mtimes)) if mtimes else 0}"
+
+
 @app.get("/")
 async def root():
-    return FileResponse(INDEX_PATH)
+    # index 는 매번 읽어 치환한다(파일이 작고, 캐시하면 버전 갱신이 막힌다).
+    try:
+        with open(INDEX_PATH, encoding="utf-8") as fh:
+            html = fh.read().replace("__ASSET_V__", _asset_version())
+    except OSError:
+        return FileResponse(INDEX_PATH)     # 읽기 실패 시 기존 동작으로 폴백
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/health")

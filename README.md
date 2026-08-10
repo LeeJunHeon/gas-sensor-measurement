@@ -68,6 +68,9 @@ python backend/server.py        # 프로젝트 루트에서
 실행/종료 시 `Chrome_WidgetWin_0 ... Error 1411` 로그는 내장 브라우저(Chromium)의 
 무해한 정리 메시지 — 무시해도 됩니다.
 
+화면이 옛 모습이면 캐시 문제였다 — 이 버전부터는 자산 URL에 버전이 붙어 **자동 무효화**된다
+(`Ctrl+F5` 없이 앱만 다시 켜면 최신 화면이 뜬다).
+
 ## 배포 구조
 
 PyInstaller(onedir)로 묶으면 폴더가 둘로 갈라진다.

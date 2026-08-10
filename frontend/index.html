@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gas Sensor Measurement System</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=__ASSET_V__">
 </head>
 <body>
 <div id="stage">
@@ -421,9 +421,11 @@
   </div>
 </div>
 
-<script src="js/schematic.js"></script>
-<script src="js/recipe.js"></script>
-<script src="js/core.js"></script>
-<script src="js/app.js"></script>
+<!-- 아래 버전 쿼리는 server.py 가 응답할 때 실제 값(앱 버전 + 자산 mtime)으로 치환한다.
+     파일이 바뀌면 URL 이 바뀌어 WebView2 가 옛 자산을 재사용하지 못한다. -->
+<script src="js/schematic.js?v=__ASSET_V__"></script>
+<script src="js/recipe.js?v=__ASSET_V__"></script>
+<script src="js/core.js?v=__ASSET_V__"></script>
+<script src="js/app.js?v=__ASSET_V__"></script>
 </body>
 </html>
