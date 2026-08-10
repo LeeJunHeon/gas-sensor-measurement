@@ -3,8 +3,9 @@
     --line:#cdd5e0; --line2:#b6c0ce; --ink:#1e2733; --ink-dim:#56627a; --ink-faint:#7d899c;
     --pv:#0d7a6a; --sv:#b5610c; --primary:#2a5bd0; --air:#2f72c4; --mix:#1f9450;
     --g1:#c8384c; --g2:#c46a1d; --g3:#7c4fbf; --g4:#1f9450; --ok:#1f9d4d; --stop:#c5343a;
-    /* SV '적용' 버튼과 PV 줄 스페이서가 공유하는 폭 — 둘의 열 정렬 기준값이다. */
-    --svgo-w:46px; --svgo-pad:4px 10px;
+    /* 레인 카드 우측 버튼([초기화]·[적용])이 공유하는 폭 — PV 줄과 SV 줄의 끝단 정렬 기준.
+       글자수가 달라도(초기화 3자 / 적용 2자) 같은 x에서 끝나도록 고정 폭을 쓴다. */
+    --lanebtn-w:56px; --lanebtn-pad:4px 6px;
     /* 폰트: 오프라인 납품 환경을 전제로 Windows 기본 폰트만 쓴다.
        웹폰트(CDN)는 공장 PC에서 로드 실패 → 폴백 불일치로 화면이 깨진다.
        한글은 맑은 고딕이 주력이고, 숫자·영문 고정폭은 Consolas(Vista 이후 기본 탑재). */
@@ -260,18 +261,18 @@
   .svi.pending{border-color:#e69b00;box-shadow:0 0 0 2px rgba(230,155,0,.2)}
   .svi.over{border-color:#c0392b;box-shadow:0 0 0 2px rgba(192,57,43,.25)}
   /* SV 명시적 적용 버튼 — MAX 입력을 뺀 자리에 들어간다.
-     ★ 폭 관련 값(--svgo-w/--svgo-pad/1px 테두리)은 .svgo-spacer와 공유한다.
-       한쪽만 바꾸면 PV 줄과 SV 줄의 열이 어긋난다. */
-  .svgo{flex:0 0 auto;min-width:var(--svgo-w);padding:var(--svgo-pad);white-space:nowrap;
+     ★ 폭 공유 — .svzero 와 --lanebtn-w/--lanebtn-pad/1px 테두리가 같아야 한다. 함께 수정할 것. */
+  .svgo{flex:0 0 auto;width:var(--lanebtn-w);min-width:var(--lanebtn-w);
+        padding:var(--lanebtn-pad);white-space:nowrap;
         font-size:10.5px;font-weight:700;cursor:pointer;
         border:1px solid var(--line2);border-radius:4px;background:#eef2fb;color:var(--primary)}
   .svgo:hover{background:#e0e8f8;border-color:var(--primary)}
   .svgo:disabled{opacity:.45;cursor:default;background:#f1f3f6;color:var(--ink-faint)}
   .svgo:disabled{cursor:not-allowed}
-  /* PV 줄 끝의 [초기화] — SV 0을 즉시 적용. '적용' 버튼과 같은 폭 변수를 써서
-     PV 줄과 SV 줄의 값칸·sccm 열이 같은 위치에서 끝나게 한다.
-     ★ 위 .svgo와 폭 값(--svgo-w/--svgo-pad/1px 테두리)을 반드시 함께 유지할 것. */
-  .svzero{flex:0 0 auto;min-width:var(--svgo-w);padding:var(--svgo-pad);white-space:nowrap;
+  /* PV 줄 끝의 [초기화] — SV 0을 즉시 적용.
+     ★ 폭 공유 — .svgo 와 --lanebtn-w/--lanebtn-pad/1px 테두리가 같아야 한다. 함께 수정할 것. */
+  .svzero{flex:0 0 auto;width:var(--lanebtn-w);min-width:var(--lanebtn-w);
+          padding:var(--lanebtn-pad);white-space:nowrap;
           font-size:10.5px;font-weight:700;cursor:pointer;
           border:1px solid var(--line2);border-radius:4px;background:#f4f6f9;color:var(--ink-dim)}
   .svzero:hover{background:#e8ecf3;border-color:var(--ink-dim);color:var(--ink)}

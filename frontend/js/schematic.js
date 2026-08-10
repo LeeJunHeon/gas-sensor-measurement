@@ -271,6 +271,13 @@ function drawBuses(){
     : `<path d="${d}" fill="none" stroke="${col}" stroke-width="${SW}" stroke-linecap="round" stroke-linejoin="round"/>`;
   const Bbox=(x,y)=>`<rect x="${x-13*sc}" y="${y-13*sc}" width="${26*sc}" height="${26*sc}" rx="${6*sc}" fill="#f0ece2" stroke="#b9ad8e" stroke-width="${(1.6*sc).toFixed(2)}"/><text x="${x}" y="${y+4*sc}" text-anchor="middle" font-size="${(11*sc).toFixed(1)}" font-weight="700" fill="#8a7c55">B</text>`;
 
+  /* ── 좌측 소스 열(라벨·시작점·수평선 시작 x) ──
+     Air 와 Gas 가 각자 자기 탭에서 -42 하던 것을 한 값으로 묶는다. 탭 위치가 조금이라도
+     다르면 라벨 열이 어긋난다 — Gas 쪽 기준으로 통일하고, 가스 레인이 없으면 Air 기준. */
+  const _allTaps=[...document.querySelectorAll('.lane .tap')];
+  const _gasTap0=document.querySelector('.lane[data-grp="gas"] .tap');
+  const SRC_X=(_gasTap0?cx(_gasTap0):(_allTaps.length?cx(_allTaps[0]):0))-42;
+
   /* ── Air supply left manifold ── */
   // ★ 레인 표시 순서와 채널 인덱스가 다르므로 DOM 위치가 아니라 data-idx로 짝짓는다.
   const airLanes=[...document.querySelectorAll('.lane[data-grp="air"]')];
@@ -282,7 +289,7 @@ function drawBuses(){
     const has=enAirYs.length>0;
     const topY=has?Math.min(...enAirYs):Math.min(...ays);
     const botY=has?Math.max(...enAirYs):Math.max(...ays);
-    const xIn=ax-42;
+    const xIn=SRC_X;
     // left inlet pipe + inlet cap (label sits at its left end)
     p+=fL(xIn,topY,ax,topY,BLUE,'dn',has);
     p+=`<circle cx="${xIn}" cy="${topY}" r="${(4.5*sc).toFixed(2)}" fill="#fff" stroke="${BLUE}" stroke-width="${(2.4*sc).toFixed(2)}"/>`;
@@ -303,7 +310,7 @@ function drawBuses(){
     const lane=t.closest('.lane');
     const valve=lane.querySelector('.n-valve');
     const gx=cx(t), gy=cy(t); const ch=gasChs[i]; const on=ch&&ch.en;
-    const xIn=gx-42;
+    const xIn=SRC_X;
     const vx=valve?(valve.getBoundingClientRect().left-S.left):gx+120;
     const col=on?RED:'#bcc6d3';
     // hide the HTML pre-pipe so this is a single SVG line
@@ -362,8 +369,10 @@ function drawBuses(){
   // GAS (mix) bus — air-dilution segment blue, gas segment red, combined feeder blends by what flows
   if(mixRows.length>0){
     const mtop=Math.min(...mixRows), mbot=Math.max(...mixRows);
-    const gas1Idx=channels.findIndex(c=>c.grp==='gas');
-    const gas1Y=(gas1Idx>=0)?bys[gas1Idx]:mtop;
+    // 합류점 = '표시상 가장 위에 있는 가스 행'. 채널 인덱스 순서가 아니라 y로 고른다
+    //   — 레인 표시 순서를 바꿔도 공기 구간/가스 구간 경계가 따라온다.
+    const gasRowYs=channels.map((c,i)=>c.grp==='gas'?bys[i]:null).filter(v=>v!=null);
+    const gas1Y=gasRowYs.length?Math.min(...gasRowYs):mtop;
     // Y's of channels that are ACTUALLY flowing (valves open), per group
     const airFlowY=channels.map((c,i)=>c.grp==='air'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
     const gasFlowY=channels.map((c,i)=>c.grp==='gas'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
@@ -382,8 +391,13 @@ function drawBuses(){
   }
 
   // endcap joints (coloured only where that channel actually flows)
+  // ★ 정션(탭)은 그 행의 채널이 실제로 이 버스에 합류할 때만 그린다.
+  //   단독(pure) 라인은 4-way로 직행하므로 혼합 버스 위를 '점 없이 통과'해야 한다 —
+  //   점을 찍으면 합류하는 것처럼 보인다(표시 순서가 바뀌며 pure 행이 버스 한가운데 온다).
   channels.forEach((ech,i)=>{
     if(bys[i]==null) return;
+    const onMixBus=ech.route==='mix', onPureBus=ech.route==='pure'&&pureRows.length>1;
+    if(!onMixBus&&!onPureBus) return;
     const col=ech.grp==='gas'?RED:BLUE;
     p+=`<rect x="${bx-6*sc}" y="${bys[i]-4*sc}" width="${12*sc}" height="${8*sc}" rx="${3*sc}" fill="#cfd8e3" stroke="${flow(ech)?col:GREY}" stroke-width="${(1.2*sc).toFixed(2)}"/>`;
   });
