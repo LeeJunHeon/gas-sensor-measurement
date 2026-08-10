@@ -310,6 +310,7 @@ class State:
             "rh": None,          # 측정 하드웨어 없음 → 화면 "—"
             "smu": None,         # 측정 하드웨어 없음 → 화면 "—"
             "safeStop": False,
+            "purging": False,   # PURGE 래치(재클릭 중단) — 트립·끊김·실행 시 자동 해제
             "phase": "idle",      # idle | prep | meas
             "stepIndex": 0,       # 현재 단계(1-base, 0=대기)
             "stepTotal": 0,       # 전체 단계 수

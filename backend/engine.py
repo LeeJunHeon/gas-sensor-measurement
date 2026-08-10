@@ -189,6 +189,7 @@ def start() -> bool:
         return False
     state.system["running"] = True
     state.system["safeStop"] = False
+    state.system["purging"] = False   # 레시피가 배관을 인수 — 퍼지 래치 해제
     _task = asyncio.create_task(_run_recipe())
     return True
 

@@ -147,6 +147,7 @@ async def handle_command(data: dict):
             await push_state()
 
         elif cmd == "emergency":
+            state.system["purging"] = False
             engine.emergency()
             await push_log("⛔ 비상정지 — 전 채널 차단", "err")
             await push_state()
@@ -162,8 +163,18 @@ async def handle_command(data: dict):
                 await push_log("자동 실행 중에는 PURGE 불가 (AUTO STOP 후)", "warn")
                 return
             # PLC 미연결·안전정지 거부는 위 잠금 게이트가 처리한다(중복 안내 금지).
-            # 가스 채널 닫고 SV=0, 마른 공기 채널을 열어 일정 유량으로 라인 청소
             from state import channel_role
+            if state.system.get("purging"):
+                # 재클릭 = 중단: 퍼지가 열었던 마른공기 채널만 닫는다
+                for c in state.channels:
+                    if channel_role(c) == "dry_air":
+                        c["valveIn"] = False
+                        c["sv"] = 0.0
+                state.system["purging"] = False
+                await push_log("PURGE 중단 — 마른공기 밸브 닫음", "info")
+                await push_state()
+                return
+            # 가스 채널 닫고 SV=0, 마른 공기 채널을 열어 일정 유량으로 라인 청소
             PURGE_DRY_FLOW = 1000.0   # 청소용 총 마른공기 유량(sccm)
             dry_idx = [i for i, c in enumerate(state.channels)
                        if channel_role(c) == "dry_air" and c.get("en")]
@@ -178,6 +189,7 @@ async def handle_command(data: dict):
                 elif role == "wet_air":
                     c["sv"] = 0.0
             state.system["routeOut"] = "sensor"
+            state.system["purging"] = True
             await push_log("PURGE — 순수 Air로 라인 청소", "info")
             await push_state()
 
@@ -397,6 +409,7 @@ async def handle_command(data: dict):
                     await push_log("종료 — 가스 차단(모든 밸브·유량 닫음)", "info")
             except Exception:  # noqa: BLE001
                 logger.write("warn", "종료 시 가스 차단 쓰기 실패 — 래더 3초 트립이 닫는다")
+            state.system["purging"] = False
             await push_log("프로그램 종료", "info")
             if _shutdown_handler is not None:
                 _shutdown_handler()

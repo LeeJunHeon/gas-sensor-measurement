@@ -120,6 +120,7 @@ async def plc_write_loop():
                     for ch in state.channels:
                         ch["valveIn"] = False
                         ch["sv"] = 0.0
+                    state.system["purging"] = False
                     await push_log("PLC 연결 끊김 — 밸브·유량 설정을 닫힘으로 정렬했습니다. "
                                    "재연결·리셋 후 다시 여세요", "warn")
                     with contextlib.suppress(Exception):
@@ -142,6 +143,7 @@ async def plc_write_loop():
                 for ch in state.channels:
                     ch["valveIn"] = False
                     ch["sv"] = 0.0
+                state.system["purging"] = False
                 await push_log("PLC 안전정지 감지 — 모든 밸브·유량을 닫았습니다. "
                                "복구 후 다시 열어야 합니다", "warn")
                 await push_state()

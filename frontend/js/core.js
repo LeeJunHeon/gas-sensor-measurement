@@ -263,6 +263,13 @@ function applyState(s){
     const mv=document.getElementById('measVal'); if(mv&&s.system.smu) mv.textContent=s.system.smu;
     // Soft e-stop is a latch toggle on the same button.
     var _es=!!s.system.safeStop;
+    // PURGE latch: same button stops it (server owns the flag).
+    var _pg=!!s.system.purging;
+    document.querySelectorAll('.hbtn.purge').forEach(function(b){
+      b.classList.toggle('active', _pg);
+      b.title=_pg?'\ud37c\uc9c0 \uc911 \u2014 \ub2e4\uc2dc \ub204\ub974\uba74 \uc911\ub2e8'
+                 :'\ub77c\uc778 \uccad\uc18c \u2014 \ub9c8\ub978\uacf5\uae30 1000 sccm. \ub2e4\uc2dc \ub204\ub974\uba74 \uc911\ub2e8';
+    });
     var _eb=document.getElementById('btnEstop');
     if(_eb){
       _eb.classList.toggle('active', _es);
