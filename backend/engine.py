@@ -8,7 +8,7 @@ P1→P2→… 순서로: 계산→SV적용→준비(prep)대기→측정(meas)�
 import asyncio
 
 import plc_catalog
-from state import state
+from state import state, channel_role
 from recipe_calc import compute_step_setpoints
 from connection import push_state, push_log
 
@@ -49,15 +49,19 @@ def precheck(recipe) -> list:
 def _apply_setpoints(sv: dict):
     """계산된 SV를 채널에 적용하고 밸브를 자동 개폐한다.
     유량이 필요한 채널(sv>0)은 열고, 0인 채널은 닫는다(비상정지로 닫혀 있어도 자동 복구).
-    꺼진 채널(en=False)은 항상 닫힘. 4-way는 측정 방향(sensor)으로."""
+    꺼진 채널(en=False)은 항상 닫힘.
+    ★ 단독(route=pure) 에어 라인은 건드리지 않는다 — 4-way로 직행하는 센서측 공급이라
+      레시피의 희석 소관이 아니다. 실행 전에 사람이 맞춰둔 SV·밸브를 그대로 유지한다.
+    4-way 방향은 단계 진행(_phase)이 준비=vent / 측정=sensor 로 전환한다."""
     for i, c in enumerate(state.channels):
+        if channel_role(c) in ("dry_air", "wet_air") and c.get("route") == "pure":
+            continue
         v = sv.get(i, 0.0)
         c["sv"] = v
         if c.get("en") and v > 0:
             c["valveIn"] = True
         else:
             c["valveIn"] = False
-    state.system["routeOut"] = "sensor"
 
 
 def _all_close():
@@ -66,6 +70,8 @@ def _all_close():
     for c in state.channels:
         c["sv"] = 0.0
         c["valveIn"] = False
+    # 진행이 끝나면 4-way도 안전 방향(vent)으로 되돌린다 — 다음 준비 단계의 기본 상태.
+    state.system["routeOut"] = "vent"
 
 
 def _emergency_off():
@@ -154,6 +160,12 @@ async def _phase(name: str, seconds: float, plc_abort=None):
     plc_abort: 중단 사유 문자열(없으면 None)을 돌려주는 콜백. 1초마다 확인한다.
     PLC 이상 중에 계속 진행하면 가스가 안 흐르는데 측정이 정상 완료된 것처럼 보인다."""
     state.system["phase"] = name
+    # 4-way 자동 전환: 준비는 혼합가스를 vent로 흘려 안정화하고(센서엔 단독 에어만),
+    #                 측정에 들어갈 때 혼합가스를 센서로 돌린다.
+    if name == "prep":
+        state.system["routeOut"] = "vent"
+    elif name == "meas":
+        state.system["routeOut"] = "sensor"
     remain = int(round(seconds))
     state.system["stepRemain"] = remain
     await push_state()          # 구간 시작만 즉시 알림(이후 카운트다운은 telemetry)

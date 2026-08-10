@@ -188,9 +188,9 @@ def _copy_channel(c: dict) -> dict:
 
 
 DEFAULT_CHANNELS = [
-    {"id": "VA1", "grp": "air", "route": "pure", "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA1")},
-    {"id": "VA2", "grp": "air", "route": "pure", "en": False, "max": 2000, "sv": 0, "plc": _default_channel_plc("VA2")},
-    {"id": "VA3", "grp": "air", "route": "mix",  "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA3")},
+    {"id": "VA1", "grp": "air", "route": "mix",  "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA1")},
+    {"id": "VA2", "grp": "air", "route": "mix",  "en": False, "max": 2000, "sv": 0, "plc": _default_channel_plc("VA2")},
+    {"id": "VA3", "grp": "air", "route": "pure", "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA3")},
     {"id": "VA4", "grp": "air", "route": "mix",  "en": False, "max": 2000, "sv": 0, "plc": _default_channel_plc("VA4")},
     {"id": "VA5", "grp": "gas", "route": "mix",  "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA5")},
     {"id": "VA6", "grp": "gas", "route": "mix",  "en": True,  "max": 200,  "sv": 0, "plc": _default_channel_plc("VA6")},
@@ -304,7 +304,9 @@ class State:
         self.startup_notices = []   # [{"msg": str, "level": "warn"|"info"}]
         self.system = {
             "running": False,
-            "routeOut": "sensor",
+            # 기본 방향은 vent — 준비 단계에서 센서에는 단독 에어만 가고,
+            # 혼합가스는 측정 단계에 들어가야 센서로 흐른다.
+            "routeOut": "vent",
             "loop": {"current": 0, "total": 1},
             "elapsed": 0,
             "rh": None,          # 측정 하드웨어 없음 → 화면 "—"
@@ -338,7 +340,7 @@ class State:
                 base.update({
                     "id": cid,
                     "grp": c.get("grp", base.get("grp", "air")),
-                    "route": c.get("route", base.get("route", "pure")),
+                    "route": c.get("route", base.get("route", "mix")),
                     "en": bool(c.get("en", base.get("en", False))),
                     "max": c.get("max", base.get("max", 2000)),
                     "sv": c.get("sv", base.get("sv", 0)),

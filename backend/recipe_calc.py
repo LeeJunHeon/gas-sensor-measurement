@@ -5,6 +5,9 @@ recipe_calc.py — 한 프로세스 단계 → 각 채널 목표 SV 계산 + MAX
   가스 SV = 전체유량 × (목표ppm / 봄베ppm)
   공기 = 전체유량 − 가스합  → 습도 비율로 젖은/마른 공기 분배(물탱크 통과=100%RH 가정)
 공기는 역할별 담당 채널(en=True)에 균등 분배. MAX 초과/구성 불가 시 위반 목록 반환.
+★ 희석에 쓰는 공기는 가스 매니폴드에 합류하는 혼합(route=mix) 라인만이다.
+  단독(route=pure) 에어는 4-way로 직행해 센서로만 가므로 희석 계산 소관 밖이다
+  (레시피가 건드리지 않고 사람이 설정한 값을 그대로 유지한다).
 가스는 봄베가 물리 배관에 고정돼 있어 G1~G4 ↔ 가스 채널 순서로 고정 대응한다(대체 없음).
 """
 
@@ -33,13 +36,16 @@ def compute_step_setpoints(channels, proc, bottle, use_humidity=True):
     any_gas = any(float(x or 0) > 0 for x in g[:4])
     if total <= 0:
         errors.append("전체 유량(Gas Flow)이 0")
-    if not any_gas and rh <= 0 and total > 0:
-        # 유량은 있는데 목표 가스도 습도도 없음 → 순수 건조공기만 흐르는 셈(측정 의미 없음일 수 있음). 경고성 안내.
-        errors.append("목표 가스 농도(G1~G4)와 습도가 모두 0 (흘릴 가스가 없음)")
+    # 가스도 습도도 0인 단계(에어만 흘리는 베이스라인/세정 단계)는 유효하다 —
+    # 혼합 마른공기가 total 을 그대로 받는다. 받을 채널이 없으면 아래 dry 검사가 잡는다.
 
     # 역할별 채널 인덱스(사용 중인 것만)
-    wet_idx = [i for i, c in enumerate(channels) if channel_role(c) == "wet_air" and c.get("en")]
-    dry_idx = [i for i, c in enumerate(channels) if channel_role(c) == "dry_air" and c.get("en")]
+    # ★ route=="pure"(4-way 직행 단독 라인)는 희석 배분에서 제외한다 — 실물 배관상
+    #   가스와 섞이지 않으므로, 여기에 유량을 나눠주면 실제 농도가 계산과 달라진다.
+    wet_idx = [i for i, c in enumerate(channels)
+               if channel_role(c) == "wet_air" and c.get("en") and c.get("route") != "pure"]
+    dry_idx = [i for i, c in enumerate(channels)
+               if channel_role(c) == "dry_air" and c.get("en") and c.get("route") != "pure"]
     # ★ 가스는 en을 보지 않는다 — 봄베가 물리적으로 특정 밸브에 연결돼 있으므로
     #   G(k)는 가스 역할 채널의 k번째에 고정 대응한다. 꺼져 있다고 다음 채널로
     #   밀면 다른 농도의 봄베가 열려 계산과 실제가 어긋난다(조용한 오측정).
@@ -83,9 +89,9 @@ def compute_step_setpoints(channels, proc, bottle, use_humidity=True):
     wet_total = air_total * (rh / 100.0)
     dry_total = air_total - wet_total
     if wet_total > 1e-9 and not wet_idx:
-        errors.append("젖은 공기가 필요한데 물탱크(습한 공기) 채널이 꺼져 있거나 없음")
+        errors.append("혼합용 젖은 공기(단독 제외)가 필요한데 물탱크 채널이 꺼져 있거나 없음")
     if dry_total > 1e-9 and not dry_idx:
-        errors.append("마른 공기가 필요한데 마른 공기 채널이 꺼져 있거나 없음")
+        errors.append("혼합용 마른 공기(단독 제외)가 필요한데 해당 채널이 꺼져 있거나 없음")
     if wet_idx and wet_total > 0:
         per = wet_total / len(wet_idx)
         for i in wet_idx:

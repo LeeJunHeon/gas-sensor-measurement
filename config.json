@@ -3,7 +3,7 @@
     {
       "id": "VA1",
       "grp": "air",
-      "route": "pure",
+      "route": "mix",
       "en": true,
       "max": 2000,
       "sv": 0.0,
@@ -19,7 +19,7 @@
     {
       "id": "VA2",
       "grp": "air",
-      "route": "pure",
+      "route": "mix",
       "en": false,
       "max": 2000,
       "sv": 0.0,
@@ -35,7 +35,7 @@
     {
       "id": "VA3",
       "grp": "air",
-      "route": "mix",
+      "route": "pure",
       "en": true,
       "max": 2000,
       "sv": 0.0,

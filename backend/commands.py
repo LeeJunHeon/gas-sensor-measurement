@@ -51,7 +51,10 @@ async def handle_command(data: dict):
                 return
 
         # 자동 실행 중에는 수동 채널 조작 차단(엔진과 충돌 방지)
-        if state.system.get("running") and cmd in ("set_valve", "set_sv", "set_max", "apply_setup"):
+        # ★ set_4way 포함 — 실행 중 방향을 바꾸면 엔진의 준비/측정 전환과 충돌해
+        #   측정 구간에 가스가 vent로 빠지는 조용한 오측정이 된다.
+        if state.system.get("running") and cmd in ("set_valve", "set_sv", "set_max",
+                                                   "apply_setup", "set_4way"):
             await push_log("자동 실행 중에는 수동 조작이 잠깁니다 (AUTO STOP 후 가능)", "warn")
             return
 
@@ -167,7 +170,7 @@ async def handle_command(data: dict):
             if state.system.get("purging"):
                 # 재클릭 = 중단: 퍼지가 열었던 마른공기 채널만 닫는다
                 for c in state.channels:
-                    if channel_role(c) == "dry_air":
+                    if channel_role(c) == "dry_air" and c.get("route") != "pure":
                         c["valveIn"] = False
                         c["sv"] = 0.0
                 state.system["purging"] = False
@@ -176,14 +179,17 @@ async def handle_command(data: dict):
                 return
             # 가스 채널 닫고 SV=0, 마른 공기 채널을 열어 일정 유량으로 라인 청소
             PURGE_DRY_FLOW = 1000.0   # 청소용 총 마른공기 유량(sccm)
+            # ★ 청소 대상은 가스 매니폴드에 합류하는 혼합(mix) 마른공기뿐이다.
+            #   단독(pure) 라인은 4-way로 직행해 가스라인을 지나지 않는다.
             dry_idx = [i for i, c in enumerate(state.channels)
-                       if channel_role(c) == "dry_air" and c.get("en")]
+                       if channel_role(c) == "dry_air" and c.get("en")
+                       and c.get("route") != "pure"]
             for i, c in enumerate(state.channels):
                 role = channel_role(c)
                 if role == "gas":
                     c["valveIn"] = False
                     c["sv"] = 0.0
-                elif role == "dry_air" and c.get("en"):
+                elif role == "dry_air" and c.get("en") and c.get("route") != "pure":
                     c["valveIn"] = True
                     c["sv"] = min(PURGE_DRY_FLOW / max(1, len(dry_idx)), float(c.get("max") or 0))
                 elif role == "wet_air":
@@ -244,8 +250,36 @@ async def handle_command(data: dict):
                     await push_log("설정 거부 — " + p, "err")
                 return
 
-            assign_changed = False   # 배정이 하나라도 바뀌면 루프 뒤에서 전체를 닫는다
             _by_id = {c["id"]: n for n, c in enumerate(state.channels)}
+            # ── 스케일 변경은 밸브가 모두 닫혀 있을 때만 ──────────────────────────
+            # 스케일이 바뀌면 같은 SV 숫자가 다른 카운트로 나간다. 흐르는 중에 바꾸면
+            # 유량이 순간 튄다 — 값이 실제로 달라지는 항목이 있을 때만 막는다.
+            def _scale_changing() -> bool:
+                for item in chans:
+                    sc = item.get("scale")
+                    if not isinstance(sc, dict):
+                        continue
+                    i = int(to_num(item.get("ch"), -1))
+                    if not (0 <= i < len(state.channels)):
+                        i = _by_id.get(item.get("id"), -1)
+                    if not (0 <= i < len(state.channels)):
+                        continue
+                    cur = state.channels[i].get("plc")
+                    if not isinstance(cur, dict):
+                        continue
+                    for k in ("fs_sccm", "sv_full", "pv_zero", "pv_full"):
+                        if k in sc and max(0, to_num(sc[k], cur.get(k, 0))) != cur.get(k, 0):
+                            return True
+                return False
+            if _scale_changing() and any(c.get("valveIn") for c in state.channels):
+                _p = ["밸브가 열려 있어 스케일을 변경할 수 없습니다 — 모든 밸브를 닫은 뒤 적용하세요"]
+                await manager.broadcast({"type": "ack", "of": "apply_setup",
+                                         "ok": False, "problems": _p})
+                for p in _p:
+                    await push_log("설정 거부 — " + p, "err")
+                return
+
+            assign_changed = False   # 배정이 하나라도 바뀌면 루프 뒤에서 전체를 닫는다
             for item in chans:
                 i = int(item.get("ch", -1))
                 if not (0 <= i < len(state.channels)):
