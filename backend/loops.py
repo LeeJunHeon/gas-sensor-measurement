@@ -75,6 +75,7 @@ async def telemetry_loop():
 # 연결/끊김 '전이'만 UI 로그에 한 번씩 남긴다(반복 도배 금지).
 async def plc_poll_loop():
     was_connected = False
+    prev_alm = {}
     async def _mark_disconnected():
         nonlocal was_connected
         if was_connected:
@@ -94,6 +95,19 @@ async def plc_poll_loop():
                 if not was_connected:
                     await push_log("PLC 연결됨", "ok")   # 끊김→연결 전이 1회
                     was_connected = True
+                # ── 상태 전이 로그: 알람 4종 + 운전 허가 (표시등 변화를 로그로도 남긴다) ──
+                st_now = (state.plc_live.get("status") or {})
+                for _k, _label in (("ALM_AIR", "공압 이상"), ("ALM_MFC", "MFC 입력 이상"),
+                                   ("ALM_IDD", "MFC 단선검출"), ("ALM_DAC", "아날로그 출력 모듈 이상")):
+                    _cur = st_now.get(_k) is True
+                    if _cur != prev_alm.get(_k, False):
+                        await push_log(f"{_label} 알람 {'발생' if _cur else '해제'}",
+                                       "warn" if _cur else "info")
+                    prev_alm[_k] = _cur
+                _rp = st_now.get("RUN_PERMIT") is True
+                if _rp and not prev_alm.get("_rp", False):
+                    await push_log("운전 허가 켜짐 — 수동 조작 가능", "ok")
+                prev_alm["_rp"] = _rp
                 await push_state()
             else:
                 await _mark_disconnected()
