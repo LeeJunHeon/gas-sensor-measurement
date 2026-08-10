@@ -189,7 +189,9 @@ def _copy_channel(c: dict) -> dict:
 
 DEFAULT_CHANNELS = [
     {"id": "VA1", "grp": "air", "route": "mix",  "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA1")},
-    {"id": "VA2", "grp": "air", "route": "mix",  "en": False, "max": 2000, "sv": 0, "plc": _default_channel_plc("VA2")},
+    # ★ 물1(VA2)=단독 라인측 가습 / 물2(VA4)=혼합 라인측 가습 — 위치 기준 **잠정** 페어링.
+    #   실배관 확정 시 route 를 재검토할 것(희석 계산·배관도 선이 이 값을 따라간다).
+    {"id": "VA2", "grp": "air", "route": "pure", "en": False, "max": 2000, "sv": 0, "plc": _default_channel_plc("VA2")},
     {"id": "VA3", "grp": "air", "route": "pure", "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA3")},
     {"id": "VA4", "grp": "air", "route": "mix",  "en": False, "max": 2000, "sv": 0, "plc": _default_channel_plc("VA4")},
     {"id": "VA5", "grp": "gas", "route": "mix",  "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA5")},

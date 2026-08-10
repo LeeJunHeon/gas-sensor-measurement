@@ -19,7 +19,7 @@
     {
       "id": "VA2",
       "grp": "air",
-      "route": "mix",
+      "route": "pure",
       "en": false,
       "max": 2000,
       "sv": 0.0,
@@ -70,7 +70,7 @@
       "route": "mix",
       "en": true,
       "max": 2000,
-      "sv": 0.0,
+      "sv": 100,
       "plc": {
         "sv_out": "DAC1_CH2",
         "pv_in": "ADC_CH4",
