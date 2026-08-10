@@ -134,11 +134,28 @@ function checkMapDup(){
       msgs.push(`${name}: ${ids.join('·')} 중복 — 적용 시 거부됩니다`);
     });
   });
+  _mapHasDup = msgs.length>0;
   if(msgs.length) showMapErr(msgs.join('\n')); else hideMapErr();
+  updateApplyGate();
+}
+/* ── 적용 버튼 게이트 ───────────────────────────────────────────────
+   바뀐 게 없거나 중복 배정이 남아 있으면 누를 수 없게 한다.
+   서버의 거부·배너는 백스톱으로 그대로 둔다(프론트 판정이 틀려도 안전하게). */
+let _setupSnap=null, _mapHasDup=false;
+function snapSetup(){ try{ return JSON.stringify(collectSetup()); }catch(e){ return null; } }
+function updateApplyGate(){
+  const b=document.getElementById('applySetup'); if(!b) return;
+  const dirty = _setupSnap!==null && snapSetup()!==_setupSnap;
+  b.disabled = !(dirty && !_mapHasDup);
+  b.title = _mapHasDup ? '중복 배정을 해소하세요'
+          : (!dirty ? '변경 사항 없음'
+                    : '변경한 설정을 저장합니다 — 통신 설정은 저장 후 재연결해야 적용됩니다');
 }
 document.addEventListener('change', e=>{
   if(e.target && e.target.closest && e.target.closest('#setupMapRows')) checkMapDup();
 });
+// 모달 안의 모든 입력 변화 → 게이트 재계산(위임이라 표가 다시 그려져도 유효하다).
+['input','change'].forEach(t=>setupOverlay.addEventListener(t, updateApplyGate));
 // 서버 판정(ack) 처리 — ok면 닫고, 거부면 모달을 유지한 채 사유를 보여준다.
 window.onSetupAck=function(msg){
   clearTimeout(window._setupPending);
@@ -146,6 +163,7 @@ window.onSetupAck=function(msg){
   const probs=(msg&&msg.problems)||[];
   showMapErr(probs.length?probs.join('\n'):'설정이 거부되었습니다 — System Log 를 확인하세요');
   buildMapRows();      // 드롭다운을 서버 상태(원래 값)로 되돌린다
+  checkMapDup();       // 되돌린 값 기준으로 중복·게이트 재판정
 };
 /* 아날로그 스케일 표(MFC ↔ PLC). plc 매핑 없는 채널은 행을 만들지 않는다. */
 function buildScaleRows(){
@@ -168,9 +186,15 @@ function openSetup(){
   buildSetupRows();
   // 카탈로그 도착 후 배정 표 렌더(드롭다운). 실패는 표에 명시한다(조용히 넘기지 않는다).
   hideMapErr();
-  loadPlcCatalog().then(()=>{ buildMapRows(); window.refreshMapStatus(undefined); checkMapDup(); }).catch(e=>{
+  // 스냅샷은 표가 모두 그려진 뒤에 찍는다 — 그 전에 찍으면 렌더 자체가 '변경'으로 잡힌다.
+  _setupSnap=null; _mapHasDup=false; updateApplyGate();
+  loadPlcCatalog().then(()=>{
+    buildMapRows(); window.refreshMapStatus(undefined);
+    _setupSnap=snapSetup(); checkMapDup();      // checkMapDup 안에서 게이트가 갱신된다
+  }).catch(e=>{
     console.error('[plc_catalog] 조회 실패 — 배정 표를 표시할 수 없습니다', e);
     showMapRowsError();
+    _setupSnap=snapSetup(); updateApplyGate();
   });
   buildScaleRows();
   if(window.cmdPlcPorts) window.cmdPlcPorts();   // 사용 가능한 시리얼 포트 목록 요청(드롭다운 채우기)

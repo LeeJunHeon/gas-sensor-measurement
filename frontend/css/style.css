@@ -286,6 +286,8 @@
   table.setup input[type=text]{width:70px;font-family:var(--font-mono);font-size:11.5px;text-align:right;border:1px solid var(--line2);border-radius:4px;padding:3px 6px}
   table.setup input:focus,table.setup select:focus{outline:none;border-color:var(--primary)}
   .setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin-bottom:6px}
+  /* 사용처가 없는 섹션 — 통째로 회색·조작 불가(개별 disabled와 중복이지만 눈으로도 구분되게). */
+  .setup-dis{opacity:.5;pointer-events:none}
   .setup-field{display:flex;align-items:center;justify-content:space-between;gap:8px}
   .setup-field label{font-size:11.5px;color:var(--ink-dim);font-weight:600}
   .setup-field input{width:92px;font-family:var(--font-mono);font-size:12px;text-align:right;border:1px solid var(--line2);border-radius:4px;padding:5px 8px}
