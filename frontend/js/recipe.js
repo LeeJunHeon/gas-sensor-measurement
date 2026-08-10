@@ -5,7 +5,6 @@ function buildSetupRows(){
   const tb=document.getElementById('setupRows'); tb.innerHTML='';
   channels.forEach((c,i)=>{
     const gv = c.grp==='gas'?'gas':(c.route==='pure'?'pure-air':'mix-air');
-    const dec=c.max<=100?1:0;
     const tr=document.createElement('tr');
     tr.className=c.en?'':'dis';
     tr.innerHTML=`
@@ -16,8 +15,7 @@ function buildSetupRows(){
         <option value="mix-air" ${gv==='mix-air'?'selected':''}>Air · 혼합(희석)</option>
         <option value="gas" ${gv==='gas'?'selected':''}>Gas</option>
       </select></td>
-      <td><input type="text" value="${c.max}" data-smax="${i}"></td>
-      <td><input type="text" value="${c.sv.toFixed(dec)}" data-ssv="${i}"></td>`;
+      <td><input type="text" value="${c.max}" data-smax="${i}"></td>`;
     tb.appendChild(tr);
   });
   // dim row toggle on checkbox
@@ -142,7 +140,26 @@ function checkMapDup(){
    바뀐 게 없거나 중복 배정이 남아 있으면 누를 수 없게 한다.
    서버의 거부·배너는 백스톱으로 그대로 둔다(프론트 판정이 틀려도 안전하게). */
 let _setupSnap=null, _mapHasDup=false;
-function snapSetup(){ try{ return JSON.stringify(collectSetup()); }catch(e){ return null; } }
+/* 스냅샷은 '사용자가 바꿀 수 있는 값'만 명시적으로 모은다.
+   collectSetup() 전체를 직렬화하면 상태 열·PV 같은 동적 표시가 섞여 들어와
+   0.7초 상태 푸시마다 dirty 로 잡힌다(오탐). 여기 나열한 필드만 비교한다. */
+function snapSetup(){
+  try{
+    const v=sel=>{const e=document.querySelector(sel); return e?(e.type==='checkbox'?!!e.checked:String(e.value)):null;};
+    const id=x=>{const e=document.getElementById(x); return e?(e.type==='checkbox'?!!e.checked:String(e.value)):null;};
+    const chans=channels.map((c,i)=>({
+      id:c.id,
+      en:v(`[data-sen="${i}"]`), grp:v(`[data-sgrp="${i}"]`), max:v(`[data-smax="${i}"]`),
+      sv_out:v(`[data-svout="${i}"]`), pv_in:v(`[data-pvin="${i}"]`),
+      fs:v(`[data-sfs="${i}"]`), svfull:v(`[data-svfull="${i}"]`),
+      pvzero:v(`[data-pvzero="${i}"]`), pvfull:v(`[data-pvfull="${i}"]`),
+    }));
+    return JSON.stringify({chans,
+      log:[id('logEnabled'),id('logDir'),id('logLevel'),id('logKeepDays')],
+      plc:['plcMode','plcHost','plcTcpPort','plcPort','plcBaud','plcBytesize','plcStopbits',
+           'plcParity','plcUnitId','plcTimeout','plcGap','plcHeartbeat','plcReconnect'].map(id)});
+  }catch(e){ return null; }
+}
 function updateApplyGate(){
   const b=document.getElementById('applySetup'); if(!b) return;
   const dirty = _setupSnap!==null && snapSetup()!==_setupSnap;
@@ -155,7 +172,10 @@ document.addEventListener('change', e=>{
   if(e.target && e.target.closest && e.target.closest('#setupMapRows')) checkMapDup();
 });
 // 모달 안의 모든 입력 변화 → 게이트 재계산(위임이라 표가 다시 그려져도 유효하다).
-['input','change'].forEach(t=>setupOverlay.addEventListener(t, updateApplyGate));
+// 사용자의 입력만 게이트를 다시 계산한다(서버 상태 푸시는 input/change 를 발생시키지 않는다).
+['input','change'].forEach(t=>setupOverlay.addEventListener(t, e=>{
+  if(e.target&&/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) updateApplyGate();
+}));
 // 서버 판정(ack) 처리 — ok면 닫고, 거부면 모달을 유지한 채 사유를 보여준다.
 window.onSetupAck=function(msg){
   clearTimeout(window._setupPending);
@@ -254,15 +274,16 @@ function collectSetup(){
     const enEl=document.querySelector(`[data-sen="${i}"]`);
     const gvEl=document.querySelector(`[data-sgrp="${i}"]`);
     const mxEl=document.querySelector(`[data-smax="${i}"]`);
-    const svEl=document.querySelector(`[data-ssv="${i}"]`);
-    if(!enEl||!gvEl||!mxEl||!svEl) return;
+    if(!enEl||!gvEl||!mxEl) return;
     const gv=gvEl.value;
     let grp='air', route='pure';
     if(gv==='gas'){grp='gas';route='mix';}
     else if(gv==='mix-air'){grp='air';route='mix';}
     else {grp='air';route='pure';}
+    // ★ sv 는 보내지 않는다 — 현재 유량은 배관도 카드에서 조작한다(Setup의 SV 칸은 레거시).
+    //   서버 apply_setup 은 키가 없으면 기존 값을 유지한다.
     const row={ch:i, en:enEl.checked, grp, route,
-      max:parseFloat(mxEl.value)||0, sv:parseFloat(svEl.value)||0};
+      max:parseFloat(mxEl.value)||0};
     // 스케일·배정은 plc 매핑이 있는 채널만. 밸브 코일은 서버(카탈로그)가 결정하므로 안 보낸다.
     if(c.plc){
       row.id=c.id;
