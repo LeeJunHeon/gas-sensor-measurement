@@ -71,6 +71,10 @@ function renderLanes(){
     // 물탱크(가습기): VA2·VA4 레인에만 그리고, 나머지는 같은 폭의 빈 자리로 둬 MFC 정렬을 맞춘다.
     const hasTank = (c.id==='VA2'||c.id==='VA4');
     // SV 출력 미배정 경고 배지: 밸브는 열려도 유량 지령이 나갈 곳이 없다(config.json의 sv_out).
+    // 역할 문구: deriveDisplay()가 만든 label/sub와 hasTank(물탱크)를 그대로 쓴다.
+    //   새 표를 만들면 핀맵·그룹이 바뀔 때 어긋나므로 파생값만 조합한다.
+    const roleLabel = c.label + (c.sub ? ' · ' + c.sub.replace(/\s*\(.*\)$/, '') : '')
+                              + (hasTank ? ' · 가습' : '');
     const noSv = !!(c.plc && !c.plc.sv_out && c.en);
     const noSvBadge = noSv
       ? `<span title="config.json의 sv_out 미배정 — 유량 지령이 나가지 않습니다"
@@ -89,7 +93,7 @@ function renderLanes(){
       </div>
       <div class="n-mfc ${eff(c)?'on':''}${c.en?'':' dis'}">
         <div class="mfc-read">
-          <span class="vid">${c.id} · MFC</span>
+          <div class="mfchd"><span class="mfcid">${c.id} · MFC</span><span class="mfcrole" title="${roleLabel}">${roleLabel}</span></div>
           <div class="pvrow"><span class="rlbl">PV</span><span class="pvb" data-pv="${idx}">${fmtPv(c)}</span><span class="un">sccm</span></div>
           <div class="svrow"><span class="rlbl">SV</span><input class="svi" size="4" value="${c.sv.toFixed(d)}" data-sv="${idx}" title="MAX ${c.max} sccm — 변경은 System Setup" ${c.en?'':'disabled'}><span class="un">sccm</span><button class="svgo" data-svgo="${idx}" ${c.en?'':'disabled'} title="입력한 SV를 PLC로 보냅니다 (Enter도 동일)">적용</button></div>
         </div>
