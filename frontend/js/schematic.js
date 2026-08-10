@@ -94,7 +94,7 @@ function renderLanes(){
       <div class="n-mfc ${eff(c)?'on':''}${c.en?'':' dis'}">
         <div class="mfc-read">
           <div class="mfchd"><span class="mfcid">${c.id} · MFC</span><span class="mfcrole" title="${roleLabel}">${roleLabel}</span></div>
-          <div class="pvrow"><span class="rlbl">PV</span><span class="pvb" data-pv="${idx}">${fmtPv(c)}</span><span class="un">sccm</span></div>
+          <div class="pvrow"><span class="rlbl">PV</span><span class="pvb" data-pv="${idx}">${fmtPv(c)}</span><span class="un">sccm</span><span class="svgo-spacer" aria-hidden="true"></span></div>
           <div class="svrow"><span class="rlbl">SV</span><input class="svi" size="4" value="${c.sv.toFixed(d)}" data-sv="${idx}" title="MAX ${c.max} sccm — 변경은 System Setup" ${c.en?'':'disabled'}><span class="un">sccm</span><button class="svgo" data-svgo="${idx}" ${c.en?'':'disabled'} title="입력한 SV를 PLC로 보냅니다 (Enter도 동일)">적용</button></div>
         </div>
       </div>

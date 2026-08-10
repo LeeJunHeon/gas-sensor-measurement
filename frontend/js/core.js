@@ -101,7 +101,7 @@ function uiSetRunning(on){
 // \uc7a0\uae08\uc740 \ub450 \ucd95\uc774\ub2e4: \uc790\ub3d9 \uc2e4\ud589 \uc911(_runLocked) / PLC \ubbf8\uc900\ube44(!_plcReady).
 // \uacb9\uce58\ub294 \ub300\uc0c1\uc740 '\ub458 \uc911 \ud558\ub098\ub77c\ub3c4 \uc7a0\uadf8\uba74 \uc7a0\uae40'. MAX \uc785\ub825\uacfc System Setup\uc740 PLC\uc640 \ubb34\uad00\ud558\ubbc0\ub85c
 // \uc2e4\ud589 \uc911\uc5d0\ub9cc \uc7a0\uadfc\ub2e4(\uc11c\ubc84\uc758 \uc7a0\uae08 \uac8c\uc774\ud2b8\ub3c4 apply_setup\u00b7set_max\ub294 \ud5c8\uc6a9\ud55c\ub2e4).
-let _runLocked=false, _plcReady=true;
+let _runLocked=false, _plcReady=true, _plcConn=true;
 function _applyLocks(){
   const R=_runLocked, P=!_plcReady;
   const set=(sel,on)=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle('locked',on));
@@ -112,12 +112,20 @@ function _applyLocks(){
   document.querySelectorAll('.hbtn.purge').forEach(b=>b.classList.toggle('locked', R||P));
   // SMU \ud328\ub110\uc758 .pbtn.runbig\ub294 \ube44\ud65c\uc131(\ubbf8\uad6c\ud604)\uc774\ub77c \uc81c\uc678 \u2014 \ud5e4\ub354 .hbtn.run\ub9cc \uc7a0\uae08 \ud1a0\uae00.
   document.querySelectorAll('.hbtn.run').forEach(b=>{b.disabled=R||P; b.classList.toggle('locked',R||P);});
+  // PLC not ready: values on screen are the last received ones, not what is going out now.
+  //   Values themselves are never rewritten here (server owns them) - only dimming + tooltip.
+  var _note = P ? (_plcConn ? '\uc548\uc804\uc815\uc9c0 \u2014 \ucd9c\ub825 \uc5c6\uc74c(\ub9c8\uc9c0\ub9c9 \uac12)' : 'PLC \ubbf8\uc5f0\uacb0 \u2014 \ud45c\uc2dc\ub294 \ub9c8\uc9c0\ub9c9 \uac12') : '';
+  document.querySelectorAll('.lane').forEach(function(l){ l.classList.toggle('notready', P); });
+  document.querySelectorAll('[data-sv]').forEach(function(el){
+    if(el.dataset.baseTitle===undefined) el.dataset.baseTitle = el.title || '';
+    el.title = _note ? (_note + ' \u2014 ' + el.dataset.baseTitle) : el.dataset.baseTitle;
+  });
   const w=document.getElementById('wayToggle');
   if(w){ w.disabled=P; w.classList.toggle('locked',P); }
 }
 function applyRunLock(run){ _runLocked=!!run; _applyLocks(); }
 // PLC\uac00 \uba85\ub839\uc744 \uc218\ud589\ud560 \uc218 \uc788\ub294 \uc0c1\ud0dc(\uc5f0\uacb0 + \uc548\uc804\uc815\uc9c0 \uc544\ub2d8)\uc77c \ub54c\ub9cc \ubb3c\ub9ac \uc870\uc791\uc744 \uc5f0\ub2e4.
-function applyPlcLock(ready){ _plcReady=!!ready; _applyLocks(); }
+function applyPlcLock(ready, conn){ _plcReady=!!ready; if(conn!==undefined) _plcConn=!!conn; _applyLocks(); }
 // 레시피 AUTO RUN/STOP은 헤더 버튼(.hbtn)만 — SMU 패널 .pbtn.runbig/.stopbig는 비활성이라 미연결.
 document.querySelectorAll('.hbtn.run').forEach(b=>b.addEventListener('click',()=>window.cmdRun()));
 // AUTO STOP(푸터 신설) + 도크 AUTO STOP → 시퀀스 정지
@@ -213,7 +221,7 @@ function updatePlcLive(live){
   setDot('stAlmDac', !(st.ALM_DAC===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
   setDot('stComm',   connected);                   // \uc5f0\uacb0\uc774\uba74 \ud1b5\uc2e0(\ud558\ud2b8\ube44\ud2b8) \uc815\uc0c1=\ucd08\ub85d
   // PLC \uc900\ube44 = \uc5f0\uacb0 + \uc548\uc804\uc815\uc9c0 \uc544\ub2d8. \ubbf8\uc900\ube44\uba74 \ubb3c\ub9ac \uc870\uc791 \ucee8\ud2b8\ub864\uc744 \uc7a0\uadfc\ub2e4.
-  applyPlcLock(connected && st.SAFETY_STOP!==true);
+  applyPlcLock(connected && st.SAFETY_STOP!==true, connected);
   // Highlight only the button that is actionable right now.
   var _rs=document.getElementById('plcReset');
   if(_rs){ var _need=connected && st.SAFETY_STOP===true;
