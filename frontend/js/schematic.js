@@ -1,5 +1,21 @@
 /* schematic.js — 배관도(채널/밸브) 렌더 + 이벤트 + drawBuses.
    다른 파일 함수는 window.* 노출분을 사용. 전역 노출/초기화는 core.js가 담당. */
+/* ── PIPE DESIGN TOKENS — style.css 의 .pipe 계열과 동기(★한쪽만 바꾸지 말 것) ──
+   .pipe{height:5px;background:#bcc6d3}
+   .pipe.on{background:var(--c)} / .pipe.on::after{ 흰 5px + 17px 간격(주기 22px), 1.1s linear }
+   레인은 CSS, 커넥터·트렁크·버스는 SVG로 그리므로 값이 갈라지면 한 화면에 두 언어가 섞인다. */
+const PIPE_W = 5;                 // .pipe height:5px
+const PIPE_DASH = '5 17';         // 흰 5px / 주기 22px (.pipe.on::after 와 동일)
+const PIPE_PERIOD = '1.1s';       // .pipe.on::after animation 주기
+const COL_OFF = '#bcc6d3';        // .pipe 기본(비활성) 배경색
+const COL_AIR = '#2f72c4';        // style.css --air (레인 카드가 --c로 쓰는 값)
+// 가스 레인은 deriveDisplay()가 전부 --g1 을 준다. 채널별로 색을 나누게 되면 여기만 고치면 된다.
+const COL_GAS = { VA5:'#c8384c', VA6:'#c8384c', VA7:'#c8384c', VA8:'#c8384c' };
+const COL_GAS_DEFAULT = '#c8384c';   // style.css --g1
+const COL_BLEND = '#8a4f9e';      // 공기+가스가 함께 흐르는 합류 구간
+const DOT_R = 4.5, DOT_SW = 2.4;  // 소스점·정션·탭 공통 규격
+const gasCol = id => COL_GAS[id] || COL_GAS_DEFAULT;
+
 /* ===================== channel model ===================== */
 // 초기값은 모두 0 / 비어 있음. 실제 값은 서버 state(또는 config 로드)가 채운다.
 // en은 전부 false로 시작한다 — 서버 state가 오기 전 첫 화면이 '채널이 켜진 것처럼'
@@ -68,16 +84,25 @@ function dec(c){return c.max<=100?1:0;}
 /* 배관도의 '세로 표시 순서'. 실물 재배관(VA1=혼합, VA3=단독)에서 교차선이 생기지 않도록
    단독(VA3)은 위, 혼합(VA1)은 가스군 바로 위에 둔다.
    ★ 표시 순서일 뿐이다 — 채널 id·내부 인덱스·data-* 매핑은 그대로다(카드 조작은 원래 인덱스로 간다).
-     Setup 표·레시피·서버 데이터는 계속 ID 순서를 쓴다. */
+     Setup 표·레시피·서버 데이터는 계속 ID 순서를 쓴다.
+   ★ 채널 셋은 하드웨어 계약(8채널 + 4way)으로 고정 — 이 배열은 '표시 순서'만 정의한다.
+     오타·누락이 있어도 카드가 사라지지 않도록 아래에서 방어한다. */
 const LANE_ORDER=['VA2','VA3','VA1','VA4','VA5','VA6','VA7','VA8'];
 // 표시 순서 → [원래 채널 인덱스, 채널] 목록. 목록에 없는 채널은 뒤에 원래 순서대로 붙인다.
 function lanesInDisplayOrder(){
-  const used=new Set(), out=[];
+  const used=new Set(), out=[], missing=[];
   LANE_ORDER.forEach(id=>{
     const i=channels.findIndex((c,n)=>c.id===id&&!used.has(n));
     if(i>=0){ used.add(i); out.push([i, channels[i]]); }
+    else missing.push(id);      // 오타·구성 변경 → 그 항목만 건너뛴다
   });
-  channels.forEach((c,i)=>{ if(!used.has(i)) out.push([i,c]); });
+  if(missing.length)
+    console.warn('[LANE_ORDER] 존재하지 않는 채널 id — 건너뜁니다:', missing.join(', '));
+  // LANE_ORDER 에 없는 채널은 맨 뒤에 원래 순서대로 이어 그린다(카드 누락 금지).
+  const extra=[];
+  channels.forEach((c,i)=>{ if(!used.has(i)){ out.push([i,c]); extra.push(c.id); } });
+  if(extra.length)
+    console.warn('[LANE_ORDER] 순서에 없는 채널 — 맨 뒤에 표시합니다:', extra.join(', '));
   return out;
 }
 function renderLanes(){
@@ -253,28 +278,28 @@ function drawBuses(){
 
   // 화면 축소 비율(sc): 모든 SVG 선 두께·점·글자를 이 비율로 줄여 작은 창에서도 비율 유지.
   const sc=(typeof lastScale==='number'&&lastScale>0)?lastScale:1;
-  // ★ 레인 파이프(.pipe)와 픽셀 파라미터를 맞춘다 — 한 화면에 두 언어가 섞이지 않게.
-  //   .pipe        : height 5px / 비활성 #bcc6d3 / 활성 var(--c)
-  //   .pipe.on::after: 흰 스트라이프 rgba(255,255,255,.7) 5px + 17px 간격(주기 22px), 1.1s linear
-  //   아래 SW·GREY·.stripe 값은 그 CSS와 1:1로 대응한다. 한쪽만 바꾸면 굵기·명도가 어긋난다.
-  const SW=(5*sc).toFixed(2);   // = .pipe 의 height 5px
-  const BLUE='#2f72c4', RED='#c8384c', GREY='#bcc6d3';   // GREY = .pipe 비활성 배경색
+  // ★ sc(=lastScale)를 곱하는 이유 — fit()은 #app 에 CSS **zoom** 을 건다.
+  //   zoom 아래에서 getBoundingClientRect()는 '화면 px'을 돌려주므로 viewBox 단위 = 화면 px 이고,
+  //   CSS px(.pipe 의 5px)은 화면에서 5*sc 로 보인다. 따라서 SVG 쪽에 sc 를 곱해야 둘이 같아진다
+  //   (sc 를 빼면 축소할수록 SVG 선만 굵어 보인다). 좌표를 HTML 라벨로 넘길 때 /sc 하는 것과 짝이다.
+  const SW=(PIPE_W*sc).toFixed(2);
+  const BLUE=COL_AIR, RED=COL_GAS_DEFAULT, GREY=COL_OFF;   // 토큰 별칭(아래 식들을 짧게 유지)
   // pipe look = solid colored base + white moving stripes (matches horizontal CSS pipes)
   let p=`<style>
-    .stripe{stroke:rgba(255,255,255,.7);stroke-width:${SW};stroke-dasharray:5 17;stroke-linecap:butt;fill:none}
+    .stripe{stroke:rgba(255,255,255,.7);stroke-width:${SW};stroke-dasharray:${PIPE_DASH};stroke-linecap:butt;fill:none}
     /* 주기 22px(=5+17)·1.1s — .pipe.on::after 의 background-size 22px / animation flow 1.1s 와 동일 */
-    .sdn{animation:sdn 1.1s linear infinite}
-    .sup{animation:sup 1.1s linear infinite}
+    .sdn{animation:sdn ${PIPE_PERIOD} linear infinite}
+    .sup{animation:sup ${PIPE_PERIOD} linear infinite}
     @keyframes sdn{to{stroke-dashoffset:-22}}
     @keyframes sup{to{stroke-dashoffset:22}}
   </style>`;
   // flow line: base + white stripe overlay; dir: 'dn' (toward 2nd point) or 'up' (toward 1st)
   const fL=(x1,y1,x2,y2,col,dir,on)=> on
-    ? `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${SW}" stroke-linecap="round"/><line class="stripe ${dir==='up'?'sup':'sdn'}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`
-    : `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${SW}" stroke-linecap="round"/>`;
+    ? `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${SW}" stroke-linecap="butt"/><line class="stripe ${dir==='up'?'sup':'sdn'}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`
+    : `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${SW}" stroke-linecap="butt"/>`;
   const fP=(d,col,on)=> on
-    ? `<path d="${d}" fill="none" stroke="${col}" stroke-width="${SW}" stroke-linecap="round" stroke-linejoin="round"/><path class="stripe sdn" d="${d}" stroke-linejoin="round"/>`
-    : `<path d="${d}" fill="none" stroke="${col}" stroke-width="${SW}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    ? `<path d="${d}" fill="none" stroke="${col}" stroke-width="${SW}" stroke-linecap="butt" stroke-linejoin="round"/><path class="stripe sdn" d="${d}" stroke-linejoin="round"/>`
+    : `<path d="${d}" fill="none" stroke="${col}" stroke-width="${SW}" stroke-linecap="butt" stroke-linejoin="round"/>`;
   const Bbox=(x,y)=>`<rect x="${x-13*sc}" y="${y-13*sc}" width="${26*sc}" height="${26*sc}" rx="${6*sc}" fill="#f0ece2" stroke="#b9ad8e" stroke-width="${(1.6*sc).toFixed(2)}"/><text x="${x}" y="${y+4*sc}" text-anchor="middle" font-size="${(11*sc).toFixed(1)}" font-weight="700" fill="#8a7c55">B</text>`;
 
   /* ── 좌측 소스 열(라벨·시작점·수평선 시작 x) ──
@@ -303,12 +328,12 @@ function drawBuses(){
     //   밸브 '뒤'부터(트렁크·버스·4-way)는 유효 열림(eff) 기준을 그대로 쓴다.
     // left inlet pipe + inlet cap (label sits at its left end)
     p+=fL(xIn,topY,ax,topY,BLUE,'dn',has);
-    p+=`<circle cx="${xIn}" cy="${topY}" r="${(4.5*sc).toFixed(2)}" fill="#fff" stroke="${BLUE}" stroke-width="${(2.4*sc).toFixed(2)}"/>`;
+    p+=`<circle cx="${xIn}" cy="${topY}" r="${(DOT_R*sc).toFixed(2)}" fill="#fff" stroke="${BLUE}" stroke-width="${(DOT_SW*sc).toFixed(2)}"/>`;
     // vertical manifold: flow across the enabled air span (밸브 개폐와 무관)
     if(has) p+=fL(ax,topY,ax,botY,BLUE,'dn',true);
     {const al=document.getElementById('airsupply'); al.style.left=((xIn-8)/sc)+'px'; al.style.top=(topY/sc)+'px';}
     airTaps.forEach((t,i)=>{const on=!!(airChs[i]&&airChs[i].en);
-      p+=`<circle cx="${ax}" cy="${ays[i]}" r="${(3.5*sc).toFixed(2)}" fill="${on?BLUE:GREY}" opacity="${on?1:0.45}"/>`;});
+      p+=`<circle cx="${ax}" cy="${ays[i]}" r="${(DOT_R*sc).toFixed(2)}" fill="${on?BLUE:GREY}" opacity="${on?1:0.45}"/>`;});
   }
 
   /* ── Gas inlets: each lane = ONE continuous line from inlet cap to VA valve ── */
@@ -324,11 +349,11 @@ function drawBuses(){
     const gx=cx(t), gy=cy(t); const ch=gasChs[i]; const on=ch&&ch.en;
     const xIn=SRC_X;
     const vx=valve?(valve.getBoundingClientRect().left-S.left):gx+120;
-    const col=on?RED:'#bcc6d3';
+    const col=on?gasCol(ch&&ch.id):COL_OFF;
     // hide the HTML pre-pipe so this is a single SVG line
     const pre=lane.querySelector('.pipe[data-seg="pre"]'); if(pre) pre.style.visibility='hidden';
     // pre-segment flows whenever enabled (supply reaches the valve), like air
-    let seg=fL(xIn,gy,vx,gy,col,'dn',on)+`<circle cx="${xIn}" cy="${gy}" r="${(4.5*sc).toFixed(2)}" fill="#fff" stroke="${col}" stroke-width="${(2.4*sc).toFixed(2)}"/>`;
+    let seg=fL(xIn,gy,vx,gy,col,'dn',on)+`<circle cx="${xIn}" cy="${gy}" r="${(DOT_R*sc).toFixed(2)}" fill="#fff" stroke="${col}" stroke-width="${(DOT_SW*sc).toFixed(2)}"/>`;
     if(!on) seg=`<g opacity="0.42">${seg}</g>`;   // match disabled air lanes (.lane.off opacity:.42)
     p+=seg;
     if(glayer&&ch){
@@ -389,7 +414,7 @@ function drawBuses(){
     const airFlowY=channels.map((c,i)=>c.grp==='air'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
     const gasFlowY=channels.map((c,i)=>c.grp==='gas'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
     const airMixFlow=airFlowY.length>0, gasFlow=gasFlowY.length>0;
-    const BLEND='#8a4f9e';   // blue + red mixed (both flowing)
+    const BLEND=COL_BLEND;
     const feedColor=(airMixFlow&&gasFlow)?BLEND:(airMixFlow?BLUE:(gasFlow?RED:GREY));
     // grey structural bus (always, full span)
     if(mixRows.length>1) p+=fL(bx,mtop,bx,mbot,GREY,'dn',false);
@@ -410,13 +435,13 @@ function drawBuses(){
     if(bys[i]==null) return;
     const onMixBus=ech.route==='mix', onPureBus=ech.route==='pure'&&pureRows.length>1;
     if(!onMixBus&&!onPureBus) return;
-    const col=ech.grp==='gas'?RED:BLUE;
+    const col=ech.grp==='gas'?gasCol(ech.id):COL_AIR;
     p+=`<rect x="${bx-6*sc}" y="${bys[i]-4*sc}" width="${12*sc}" height="${8*sc}" rx="${3*sc}" fill="#cfd8e3" stroke="${flow(ech)?col:GREY}" stroke-width="${(1.2*sc).toFixed(2)}"/>`;
   });
 
   /* ── 4-way 밸브 = 둥근 테두리 박스 + 스타일 C 대각선(반대 삼각형, 가운데 빔). 출력색 = 들어온 입력색. ── */
   // 입력 색: 위=순수공기(파랑), 아래=mix(실제 흐름 기준: 공기희석=파랑/가스=빨강/둘다=보라)
-  const BLEND='#8a4f9e';
+  const BLEND=COL_BLEND;
   const airMixFlowY=channels.map((c,i)=>c.grp==='air'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
   const gasMixFlowY=channels.map((c,i)=>c.grp==='gas'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
   const topFlow=pureF.length>0, topCol=BLUE;
@@ -433,7 +458,7 @@ function drawBuses(){
   const venSrcFlow=senOn?botFlow:topFlow, venSrcCol=senOn?botCol:topCol;
   p+=fL(vRight[0],vRight[1],cCx+r+L,cCy,senSrcFlow?senSrcCol:GREY,'dn',senSrcFlow);
   p+=fL(vLeft[0],vLeft[1],cCx-r-L,cCy,venSrcFlow?venSrcCol:GREY,'dn',venSrcFlow);
-  const dotC=(x,y,col)=>`<circle cx="${x}" cy="${y}" r="${(3.6*sc).toFixed(1)}" fill="${col}"/>`;
+  const dotC=(x,y,col)=>`<circle cx="${x}" cy="${y}" r="${(DOT_R*sc).toFixed(2)}" fill="${col}"/>`;
   p+=dotC(vTop[0],vTop[1],topFlow?topCol:GREY);
   p+=dotC(vBot[0],vBot[1],botFlow?botCol:GREY);
   p+=dotC(vRight[0],vRight[1],senSrcFlow?senSrcCol:GREY);

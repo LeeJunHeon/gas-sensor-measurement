@@ -182,6 +182,8 @@
   .n-src .srclbl{font-size:14px;font-weight:700;color:#2a3645;white-space:nowrap;text-align:right;line-height:1.05;padding-right:14px}
   .n-src .srclbl small{display:block;font-size:8px;font-weight:600;color:var(--ink-faint)}
 
+  /* ★ 배관 비주얼의 원본 정의 — schematic.js 의 PIPE DESIGN TOKENS 와 동기(함께 수정).
+     커넥터·트렁크·버스는 SVG로 그리면서 이 값을 그대로 따라간다. */
   .pipe{height:5px;background:#bcc6d3;border-radius:2px;flex:1 1 auto;min-width:10px;max-width:104px;position:relative;overflow:hidden}
   .pipe.grow{flex:1 1 auto;min-width:10px;max-width:104px}
   /* 소스→VA는 짧게(VA 왼쪽), VA→MFC(.midpipe)는 길게(MFC 오른쪽) → 물탱크가 가운데 여유있게 */
