@@ -6,12 +6,12 @@
       "grp": "air",
       "route": "mix",
       "en": true,
-      "max": 2000,
+      "max": 1000,
       "sv": 0.0,
       "plc": {
         "sv_out": "DAC1_CH0",
         "pv_in": "ADC_CH0",
-        "fs_sccm": 2000,
+        "fs_sccm": 1000,
         "sv_full": 2000,
         "pv_zero": 0,
         "pv_full": 4000
@@ -22,12 +22,12 @@
       "grp": "air",
       "route": "pure",
       "en": false,
-      "max": 2000,
+      "max": 1000,
       "sv": 0.0,
       "plc": {
         "sv_out": null,
         "pv_in": null,
-        "fs_sccm": 2000,
+        "fs_sccm": 1000,
         "sv_full": 2000,
         "pv_zero": 0,
         "pv_full": 4000
@@ -38,12 +38,12 @@
       "grp": "air",
       "route": "pure",
       "en": true,
-      "max": 2000,
+      "max": 1000,
       "sv": 0.0,
       "plc": {
         "sv_out": "DAC1_CH1",
         "pv_in": "ADC_CH2",
-        "fs_sccm": 2000,
+        "fs_sccm": 1000,
         "sv_full": 2000,
         "pv_zero": 0,
         "pv_full": 4000
@@ -54,12 +54,12 @@
       "grp": "air",
       "route": "mix",
       "en": false,
-      "max": 2000,
+      "max": 1000,
       "sv": 0.0,
       "plc": {
         "sv_out": null,
         "pv_in": null,
-        "fs_sccm": 2000,
+        "fs_sccm": 1000,
         "sv_full": 2000,
         "pv_zero": 0,
         "pv_full": 4000
@@ -70,12 +70,12 @@
       "grp": "gas",
       "route": "mix",
       "en": true,
-      "max": 2000,
+      "max": 1000,
       "sv": 100,
       "plc": {
         "sv_out": "DAC1_CH2",
         "pv_in": "ADC_CH4",
-        "fs_sccm": 2000,
+        "fs_sccm": 1000,
         "sv_full": 2000,
         "pv_zero": 0,
         "pv_full": 4000
@@ -86,12 +86,12 @@
       "grp": "gas",
       "route": "mix",
       "en": true,
-      "max": 200,
+      "max": 1000,
       "sv": 0.0,
       "plc": {
         "sv_out": "DAC1_CH3",
         "pv_in": "ADC_CH5",
-        "fs_sccm": 300,
+        "fs_sccm": 1000,
         "sv_full": 2000,
         "pv_zero": 0,
         "pv_full": 4000
@@ -102,12 +102,12 @@
       "grp": "gas",
       "route": "mix",
       "en": false,
-      "max": 200,
+      "max": 1000,
       "sv": 0.0,
       "plc": {
         "sv_out": null,
         "pv_in": null,
-        "fs_sccm": 200,
+        "fs_sccm": 1000,
         "sv_full": 2000,
         "pv_zero": 0,
         "pv_full": 4000
@@ -118,12 +118,12 @@
       "grp": "gas",
       "route": "mix",
       "en": false,
-      "max": 100,
+      "max": 1000,
       "sv": 0.0,
       "plc": {
         "sv_out": null,
         "pv_in": null,
-        "fs_sccm": 100,
+        "fs_sccm": 1000,
         "sv_full": 2000,
         "pv_zero": 0,
         "pv_full": 4000

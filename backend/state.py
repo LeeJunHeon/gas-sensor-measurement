@@ -14,9 +14,10 @@ from storage import atomic_write_json, safe_read_json, CONFIG_PATH
 # 채널별 PLC 주소(레벨1: 코드 수정 없이 config로 추가·변경). 매핑 있으면 dict, 없으면 None.
 # 채널별 PLC 주소 + 아날로그 스케일.
 # 주소: PLC 래더와 1:1 대응(변경 금지). 스케일: 장비마다 다르므로 System Setup에서 수정 가능.
-#   fs_sccm  = MFC 하드웨어 풀스케일(sccm). ★현장 명판 확인 필요 — 아래 값은 잠정치.
+#   fs_sccm  = MFC 하드웨어 풀스케일(sccm).
+#              ★명판 확인 완료 — HORIBA S48-BR221, 1000 sccm, 신호 0~5V, 4대 동일.
 #   sv_full  = 풀스케일에 해당하는 DAC 카운트. DV04A 0~10V/0~4000 기준,
-#              MFC 설정신호가 0~5V면 2000, 0~10V면 4000. ★명판 확인 필요.
+#              MFC 설정신호가 0~5V면 2000, 0~10V면 4000 → 이 장비는 0~5V이므로 2000.
 #   pv_zero  = 유량 0일 때의 ADC 카운트(4~20mA 장비를 0~20mA 범위로 읽으면 800).
 #   pv_full  = 풀스케일일 때의 ADC 카운트(AD08A 출력데이터타입 0~4000 기준 4000).
 # 주소가 아니라 plc_catalog의 '채널 이름'으로 배정한다(오타·종류혼동·오배정 차단).
@@ -27,21 +28,21 @@ from storage import atomic_write_json, safe_read_json, CONFIG_PATH
 #   VA2·4·7·8은 미배선 — 배선 후 여기와 config를 함께 갱신.
 DEFAULT_CHANNEL_PLC = {
     "VA1": {"sv_out": "DAC1_CH0", "pv_in": "ADC_CH0",
-            "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
     "VA2": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
     "VA3": {"sv_out": "DAC1_CH1", "pv_in": "ADC_CH2",
-            "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
     "VA4": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
     "VA5": {"sv_out": "DAC1_CH2", "pv_in": "ADC_CH4",
-            "fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
     "VA6": {"sv_out": "DAC1_CH3", "pv_in": "ADC_CH5",
-            "fs_sccm": 200,  "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
     "VA7": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 200,  "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
     "VA8": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 100,  "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
 }
 
 # 채널 무관 시스템 공통 주소(하트비트/안전리셋/4-way/상태·알람).
@@ -65,7 +66,7 @@ DEFAULT_PLC_HW = {
 }
 
 # 스케일 키 기본값(채널 기본값에도 없을 때의 최후 방어값).
-PLC_SCALE_DEFAULTS = {"fs_sccm": 2000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000}
+PLC_SCALE_DEFAULTS = {"fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000}
 
 
 def _default_channel_plc(cid: str):
@@ -187,16 +188,16 @@ def _copy_channel(c: dict) -> dict:
 
 
 DEFAULT_CHANNELS = [
-    {"id": "VA1", "grp": "air", "route": "mix",  "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA1")},
+    {"id": "VA1", "grp": "air", "route": "mix",  "en": True,  "max": 1000, "sv": 0, "plc": _default_channel_plc("VA1")},
     # ★ 물1(VA2)=단독 라인측 가습 / 물2(VA4)=혼합 라인측 가습 — 위치 기준 **잠정** 페어링.
     #   실배관 확정 시 route 를 재검토할 것(희석 계산·배관도 선이 이 값을 따라간다).
-    {"id": "VA2", "grp": "air", "route": "pure", "en": False, "max": 2000, "sv": 0, "plc": _default_channel_plc("VA2")},
-    {"id": "VA3", "grp": "air", "route": "pure", "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA3")},
-    {"id": "VA4", "grp": "air", "route": "mix",  "en": False, "max": 2000, "sv": 0, "plc": _default_channel_plc("VA4")},
-    {"id": "VA5", "grp": "gas", "route": "mix",  "en": True,  "max": 2000, "sv": 0, "plc": _default_channel_plc("VA5")},
-    {"id": "VA6", "grp": "gas", "route": "mix",  "en": True,  "max": 200,  "sv": 0, "plc": _default_channel_plc("VA6")},
-    {"id": "VA7", "grp": "gas", "route": "mix",  "en": False, "max": 200,  "sv": 0, "plc": _default_channel_plc("VA7")},
-    {"id": "VA8", "grp": "gas", "route": "mix",  "en": False, "max": 100,  "sv": 0, "plc": _default_channel_plc("VA8")},
+    {"id": "VA2", "grp": "air", "route": "pure", "en": False, "max": 1000, "sv": 0, "plc": _default_channel_plc("VA2")},
+    {"id": "VA3", "grp": "air", "route": "pure", "en": True,  "max": 1000, "sv": 0, "plc": _default_channel_plc("VA3")},
+    {"id": "VA4", "grp": "air", "route": "mix",  "en": False, "max": 1000, "sv": 0, "plc": _default_channel_plc("VA4")},
+    {"id": "VA5", "grp": "gas", "route": "mix",  "en": True,  "max": 1000, "sv": 0, "plc": _default_channel_plc("VA5")},
+    {"id": "VA6", "grp": "gas", "route": "mix",  "en": True,  "max": 1000, "sv": 0, "plc": _default_channel_plc("VA6")},
+    {"id": "VA7", "grp": "gas", "route": "mix",  "en": False, "max": 1000, "sv": 0, "plc": _default_channel_plc("VA7")},
+    {"id": "VA8", "grp": "gas", "route": "mix",  "en": False, "max": 1000, "sv": 0, "plc": _default_channel_plc("VA8")},
 ]
 
 DEFAULT_PARAMS = {
@@ -343,7 +344,7 @@ class State:
                     "grp": c.get("grp", base.get("grp", "air")),
                     "route": c.get("route", base.get("route", "mix")),
                     "en": bool(c.get("en", base.get("en", False))),
-                    "max": c.get("max", base.get("max", 2000)),
+                    "max": c.get("max", base.get("max", 1000)),
                     "sv": c.get("sv", base.get("sv", 0)),
                     "plc": plc_val,
                 })
