@@ -94,8 +94,9 @@ plc_live — PLC 실측(읽기 폴링 결과). state 메시지에 항상 포함�
     "connected": true,
     "pv":     { "VA1": 1000.0 },     // 유량(sccm) — 채널 스케일로 환산한 값
     "pv_raw": { "VA1": 2000 },       // ADC 원시 카운트(스케일 진단용)
-    "status": { "AIR_OK": true, "SAFETY_STOP": false, "RUN_PERMIT": true,
-                "ALM_AIR": false, "ALM_MFC": false, "ALM_IDD": false, "ALM_DAC": false } } }
+    "status": { "SAFETY_STOP": false, "RUN_PERMIT": true,
+                "ALM_MFC": false, "ALM_IDD": false, "ALM_DAC": false } } }
+                // AIR_OK·ALM_AIR 은 공압 인터록 제거로 사라졌다(CONFIG.md ⑥-2).
 ```
 
 (2) telemetry — 실시간 측정값 (초당 5회)
