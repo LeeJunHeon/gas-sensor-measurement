@@ -35,9 +35,10 @@ COILS_W = [("VA1 (에어1)", 160), ("VA2 (물1·미배선)", 161), ("VA3 (에어
            ("VA7 (가스3·미배선)", 166), ("VA8 (가스4·미배선)", 167),
            ("4WAY (배선 미확인)", 168)]                    # 쓰기: 밸브 출력 지령
 HB_COIL, RESET_COIL = 176, 178                            # 하트비트 / 안전리셋(펄스)
-STATUS = [("AIR_OK  (공압정상)", 320), ("SAFETY_STOP(안전정지)", 321),
+# 320 (M00200) · 336 (M00210) — 공압 인터록 제거로 미사용. 복원 시 재사용 예약.
+STATUS = [("SAFETY_STOP(안전정지)", 321),
           ("RUN_PERMIT (운전허가)", 323),
-          ("ALM_AIR (공압알람)", 336), ("ALM_MFC (MFC입력이상)", 337),
+          ("ALM_MFC (MFC입력이상)", 337),
           ("ALM_IDD (입력단선검출)", 338), ("ALM_DAC (출력모듈이상)", 339)]  # 읽기: 상태
 SV_REGS = [("VA1 SV (에어1)", 100), ("VA3 SV (에어2)", 101),
            ("VA5 SV (가스1)", 102), ("VA6 SV (가스2)", 103)]   # DAC1 CH0~3 = 실배선 4대
@@ -184,19 +185,18 @@ def status_bar(plc):
         # 무응답 상태에서는 항목마다 타임아웃(1초)을 물지 않고 즉시 메뉴를 띄운다.
         print("=" * 72)
         print(" ※ 실기 연결 시 주의 — 밸브가 실제로 열립니다")
-        print(" 운전허가:-- (응답 없음)   공압:--   안전정지:--   MFC:--  단선:--  DAC:--   통신HB:자동")
+        print(" 운전허가:-- (응답 없음)   안전정지:--   MFC:--  단선:--  DAC:--   통신HB:자동")
         print(" (PLC 응답이 없습니다 — 전원·배선·속도·국번 확인. 응답이 돌아오면 자동 복구됩니다)")
         print("=" * 72)
         return
     stop = plc.read_coil(321)   # SAFETY_STOP
-    air = plc.read_coil(320)
     almm = plc.read_coil(337)
     idd = plc.read_coil(338)
     dac = plc.read_coil(339)
     run = "?" if stop is None else ("OFF (정지)" if stop else "ON")
     print("=" * 72)
     print(" ※ 실기 연결 시 주의 — 밸브가 실제로 열립니다")
-    print(f" 운전허가:{run}   공압:{fmt(air,'O','X')}   안전정지:{fmt(stop,'ON','x')}   "
+    print(f" 운전허가:{run}   안전정지:{fmt(stop,'ON','x')}   "
           f"MFC:{fmt(almm,'O','x')}  단선:{fmt(idd,'O','x')}  DAC:{fmt(dac,'O','x')}   통신HB:자동")
     print("=" * 72)
 
@@ -210,7 +210,7 @@ def menu_coils(plc):
             v = plc.read_coil(addr)
             print(f"   {i}) {name:<12} [{fmt(v)}]   (coil {addr})")
         print(" [읽기 · 상태 코일]")
-        print("   s) 상태 코일 7종 읽기 (공압/안전정지/운전허가/알람4)")
+        print("   s) 상태 코일 5종 읽기 (안전정지/운전허가/알람3)")
         print("   0) 뒤로")
         s = ask("선택 > ")
         if s == "0":
@@ -311,7 +311,7 @@ def menu_safety(plc):
     while True:
         status_bar(plc)
         print(" 안전 / 운전허가")
-        print("   1) 리셋(arm) — SAFETY_RESET 펄스 (공압·통신 정상이면 운전허가 ON)")
+        print("   1) 리셋(arm) — SAFETY_RESET 펄스 (통신 정상이면 운전허가 ON)")
         print("   2) 상태 다시 읽기")
         print("   0) 뒤로")
         s = ask("선택 > ")
@@ -326,7 +326,7 @@ def menu_safety(plc):
             if stop is False:
                 print("\n   → 운전허가 ON (arm 성공)")
             else:
-                print("\n   → 아직 운전허가 OFF. 공압(P00)·통신 상태를 확인하세요.")
+                print("\n   → 아직 운전허가 OFF. 통신(하트비트) 상태를 확인하세요.")
             ask("\nEnter로 계속 > ")
 
 

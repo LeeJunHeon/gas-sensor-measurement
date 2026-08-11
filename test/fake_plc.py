@@ -15,7 +15,6 @@ HMI가 Modbus '마스터'이므로, 붙을 '슬레이브'를 이 스크립트가
 그리고 HMI는 TCP 모드로 host 127.0.0.1, port 502(또는 지정한 값), 국번 1로 연결.
 
 콘솔 명령(실행 중 입력):
-    air  → 공압 센서 있음/없음 토글(없으면 10초 뒤 운전허가 트립)
     mfc  → MFC 입력 이상 알람 토글
     idd  → MFC 입력 단선검출(ALM_IDD) 토글
     dac  → 아날로그 출력 모듈 이상(ALM_DAC) 토글
@@ -41,10 +40,9 @@ CMD_COILS   = [160, 161, 162, 163, 164, 165, 166, 167]  # VA1~VA8 밸브 지령 
 V4W_COIL    = 168                    # 4-way (쓰기)   ★164에서 이동
 HB_COIL     = 176                    # HEARTBEAT (HMI가 토글, 쓰기)
 RESET_COIL  = 178                    # SAFETY_RESET (M112 펄스, 쓰기)
-AIR_OK      = 320                    # 공압 정상 (읽기)
+# 320 (M00200) · 336 (M00210) — 공압 인터록 제거로 미사용. 복원 시 재사용 예약.
 SAFETY_STOP = 321                    # 안전정지 = NOT RUN_PERMIT (읽기)
 RUN_PERMIT  = 323                    # 운전 허가 래치 (읽기) — 항상 NOT SAFETY_STOP
-ALM_AIR     = 336                    # 공압 알람 (읽기)
 ALM_MFC     = 337                    # MFC 입력 이상 알람 (읽기)
 ALM_IDD     = 338                    # MFC 입력 단선검출 알람 (읽기)
 ALM_DAC     = 339                    # 아날로그 출력 모듈 이상 알람 (읽기)
@@ -62,8 +60,7 @@ WIRED = [
     ("VA6", 165, 103, 205),
 ]
 
-PRESS_TIMEOUT = 10.0   # 공압 상실 10초 → 트립 (PLC PRESS_TMR)
-COMM_TIMEOUT  = 3.0    # 하트비트 두절 3초 → 트립 (PLC COMM_TMR)
+COMM_TIMEOUT  = 3.0    # 하트비트 두절 3초 → 트립 (PLC COMM_TMR) — 유일한 자동 트립 조건
 
 # ★ SV와 PV는 풀스케일 카운트가 2배 다르다. 여기를 틀리면 HMI에 절반 유량으로 보인다.
 #   SV(DV04A): 모듈은 0~10V/0~4000이지만 래더가 0~2000으로 클램프해 5V까지만 낸다.
@@ -87,7 +84,6 @@ class PlcSim:
         )
         self.ctx = ModbusServerContext(slaves=self.store, single=True)
 
-        self.air_present = True     # 공압 센서(기본: 있음)
         self.mfc_alarm = False
         self.idd_alarm = False      # MFC 입력 단선검출
         self.dac_alarm = False      # 아날로그 출력 모듈 이상
@@ -95,7 +91,6 @@ class PlcSim:
         self.run_permit = False
         self.last_hb = None
         self.last_hb_time = time.time()
-        self.air_lost_since = None
         self.prev_reset = 0
         self.pv = [0.0] * len(WIRED)   # 배선된 채널만 유량이 생긴다(WIRED와 같은 순서)
 
@@ -122,27 +117,17 @@ class PlcSim:
             self.last_hb_time = now
         comm_alive = (now - self.last_hb_time) < COMM_TIMEOUT
 
-        if self.air_present:
-            self.air_lost_since = None
-        elif self.air_lost_since is None:
-            self.air_lost_since = now
-        air_tripped = (
-            self.air_lost_since is not None
-            and (now - self.air_lost_since) >= PRESS_TIMEOUT
-        )
-
         reset = self._co(RESET_COIL)
         reset_edge = (reset == 1 and self.prev_reset == 0)
         self.prev_reset = reset
-        if air_tripped or not comm_alive:
+        # ★ 공압 인터록 제거 후 자동 트립은 하트비트 두절 하나뿐이다.
+        if not comm_alive:
             self.run_permit = False
-        if reset_edge and self.air_present and comm_alive:
+        if reset_edge and comm_alive:
             self.run_permit = True
 
-        self._set_co(AIR_OK, self.air_present)
         self._set_co(SAFETY_STOP, not self.run_permit)
         self._set_co(RUN_PERMIT, self.run_permit)   # 래더와 동일: 항상 SAFETY_STOP의 반전
-        self._set_co(ALM_AIR, not self.air_present)
         self._set_co(ALM_MFC, self.mfc_alarm)
         self._set_co(ALM_IDD, self.idd_alarm)
         self._set_co(ALM_DAC, self.dac_alarm)
@@ -162,7 +147,6 @@ class PlcSim:
         valves = "".join(str(self._co(a)) for a in CMD_COILS) + str(self._co(V4W_COIL))
         return (
             f"[PLC] 운전허가={'ON ' if self.run_permit else 'off'} "
-            f"공압={'O' if self.air_present else 'X'} "
             f"통신={'O' if comm else 'X'} "
             f"MFC={'O' if self.mfc_alarm else 'x'} "
             f"단선={'O' if self.idd_alarm else 'x'} "
@@ -189,16 +173,13 @@ async def logic_loop():
 
 
 def console_thread():
-    print("명령: air(공압) / mfc(MFC알람) / idd(단선검출) / dac(DAC이상) / s(상태) / q(종료)")
+    print("명령: mfc(MFC알람) / idd(단선검출) / dac(DAC이상) / s(상태) / q(종료)")
     while True:
         try:
             cmd = input().strip().lower()
         except EOFError:
             return
-        if cmd == "air":
-            sim.air_present = not sim.air_present
-            print(f"  공압 → {'있음' if sim.air_present else '없음(10초 뒤 트립)'}")
-        elif cmd == "mfc":
+        if cmd == "mfc":
             sim.mfc_alarm = not sim.mfc_alarm
             print(f"  MFC 입력 이상 알람 → {'ON' if sim.mfc_alarm else 'off'}")
         elif cmd == "idd":
@@ -224,7 +205,8 @@ async def main():
     asyncio.create_task(logic_loop())
 
     print(f"가짜 PLC 시작: TCP {args.host}:{args.port} (Modbus TCP 슬레이브, 국번 무관)")
-    print("HMI를 TCP 모드로 이 host/port에 연결하세요. 공압 기본 '있음' → 리셋 누르면 arm 됩니다.")
+    print("HMI를 TCP 모드로 이 host/port에 연결하세요. 리셋(운전 준비)을 누르면 arm 됩니다.")
+    print("자동 트립은 하트비트 3초 두절 하나뿐입니다(공압 인터록 제거).")
     await StartAsyncTcpServer(context=sim.ctx, address=(args.host, args.port))
 
 
