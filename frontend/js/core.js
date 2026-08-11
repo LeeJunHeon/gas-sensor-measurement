@@ -368,6 +368,9 @@ function applyTelemetry(tl){
     _runInfo={phase:tl.phase,i:tl.stepIndex||0,n:tl.stepTotal||0,r:tl.stepRemain||0};
     refreshHdrStatus();
   }
+  // Post-MFC flow now follows measured PV, which arrives here (not on state pushes).
+  // Repaints only when the flow key actually flips, so pipe animations are not reset.
+  if(typeof refreshLaneFlow==='function') refreshLaneFlow();
   if(tl.running!=null) applyRunLock(!!tl.running);   // \uc2e4\ud589\uc911 \uc218\ub3d9\uc870\uc791 \uc7a0\uae08 \uc720\uc9c0
   updateSystem();  // activeCh / totalFlow \ud14d\uc2a4\ud2b8\ub9cc \uac31\uc2e0(\uac00\ubcbc\uc6c0)
 }

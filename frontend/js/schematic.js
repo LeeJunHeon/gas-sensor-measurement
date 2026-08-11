@@ -62,10 +62,16 @@ function plcSafeStop(){ const L=window.plcLive; return !!(L&&L.connected&&L.stat
 // 유효 열림 = 명령(valveIn) ON 이고 안전정지 아님 → 래더의 'valve = CMD AND RUN_PERMIT'와 동일.
 const eff=c=>c.en&&c.valveIn&&!plcSafeStop();
 const flowing=c=>eff(c);
-// ★ MFC 이후(레인 후단·트렁크·버스)는 유량 지령이 0이면 흐르지 않는다 —
-//   밸브만 열려 있고 SV=0이면 MFC가 닫아버리므로, 후단을 흐르는 것으로 그리면 거짓 표시다.
+// ★ MFC 이후(레인 후단·트렁크·버스)는 '실제로 흐를 때'만 그린다 — 실측 PV 기준.
+//   PV를 읽을 수 없는 경우(미배정·통신 두절 등 pv가 숫자가 아님)에는 지령(SV)으로 물러선다.
+//   물러서지 않으면 PV 배선/설정 문제일 때 화면이 통째로 죽어 원인 파악이 어려워진다.
 //   밸브 앞(en 기반 상시)·밸브→MFC(eff) 구간은 그대로 둔다.
-const svOn=c=>eff(c)&&(+c.sv>0);
+const PV_ON_MIN = 1;                      // sccm — 잡음 무시 문턱
+const svOn = c => {
+  if (!eff(c)) return false;
+  const pv = (c && c.pv != null && isFinite(+c.pv)) ? +c.pv : null;
+  return pv != null ? (pv >= PV_ON_MIN) : (+c.sv > 0);
+};
 
 const valveSvg = `<svg width="34" height="22" viewBox="0 0 34 22">
   <line class="vstem" x1="17" y1="11" x2="17" y2="4"/><rect class="vact" x="12" y="0" width="10" height="5" rx="1"/>
@@ -157,6 +163,7 @@ function renderLanes(){
   bindLaneEvents();
   drawBuses();
   updateSystem();
+  _lastFlowKey=lanesFlowKey();   // 방금 그린 상태를 기준선으로 (telemetry 재렌더 중복 방지)
 }
 
 /* 폴링처럼 '값만' 바뀔 때 레인을 통째로 재생성하지 않고 값만 in-place 갱신한다.
@@ -166,9 +173,24 @@ function lanesStructKey(){
   return channels.map(c=>`${c.id}|${c.en?1:0}|${c.grp}|${c.route}|${c.max<=100?1:0}`).join(',');
 }
 function lanesFlowKey(){
-  // ★ SV 0↔양수도 흐름키에 넣는다 — 후단 표시가 SV에 달려 있으므로 값만 바뀌어도 재렌더해야 한다.
+  // ★ 후단(svOn)도 흐름키에 넣는다 — PV/SV 값만 바뀌어도 후단 표시가 달라지므로 재렌더해야 한다.
   return (plcSafeStop()?'S':'-')+';'+routeOut+';'
        + channels.map(c=>(eff(c)?1:0)+''+(svOn(c)?1:0)).join('');
+}
+/* PV는 state push가 아니라 telemetry(초당 5회)로 들어온다. 후단 표시가 실측 PV 기준이 된
+   이상, telemetry 틱에서도 흐름키가 바뀌면 다시 그려야 한다 — 안 그리면 PV가 올라와도
+   다음 state push 때까지 후단이 꺼진 채로 남는다. 키가 그대로면 아무 것도 하지 않으므로
+   흐름 애니메이션은 리셋되지 않는다(0↔1 전이에서만 재렌더). */
+let _lastFlowKey='';
+function refreshLaneFlow(){
+  if(!lanesEl.querySelector('.lane')) return;
+  const k=lanesFlowKey();
+  if(k===_lastFlowKey) return;
+  // 레인 안의 입력(SV)에 포커스가 있으면 미룬다 — 재렌더는 DOM을 갈아끼워 입력 중인 값을 날린다.
+  if(lanesEl.contains(document.activeElement)
+     && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+  _lastFlowKey=k;
+  renderLanes();
 }
 function updateLaneValues(){
   channels.forEach((c,idx)=>{
@@ -361,7 +383,6 @@ function drawBuses(){
   const gasLanes=[...document.querySelectorAll('.lane[data-grp="gas"]')];
   const gasTaps=gasLanes.map(l=>l.querySelector('.tap')).filter(Boolean);
   const gasChs=gasLanes.map(l=>channels[+l.dataset.idx]).filter(Boolean);
-  const flowC=c=>svOn(c);   // MFC 이후 기준(유효 열림 + SV>0)
   const glayer=document.getElementById('gaslabels'); if(glayer) glayer.innerHTML='';
   const scG=(typeof lastScale==='number'&&lastScale>0)?lastScale:1;
   gasTaps.forEach((t,i)=>{
@@ -392,12 +413,12 @@ function drawBuses(){
   // 레인을 재배치해도 route(혼합/단독)별 버스가 그대로 따라간다.
   const bys=[];
   capLanes.forEach(l=>{ bys[+l.dataset.idx]=cy(l.querySelector('.endcap')); });
-  // 수집 버스는 MFC 이후 구간이다 — 유효 열림 + SV>0 이어야 흐른다(SV 0이면 버스도 비활성).
-  const flow=c=>svOn(c);
+  // ★ 수집 버스·정션·4-way 입력은 전부 MFC '이후' 구간이다 — 판정은 svOn 하나로 통일한다.
+  //   (별칭을 두면 한쪽만 고쳐져 선은 회색인데 탭만 색이 남는 어긋남이 생긴다.)
   const pureRows=channels.map((c,i)=>c.route==='pure'?bys[i]:null).filter(v=>v!=null);
   const mixRows=channels.map((c,i)=>c.route==='mix'?bys[i]:null).filter(v=>v!=null);
-  const pureF=channels.map((c,i)=>c.route==='pure'&&flow(c)?bys[i]:null).filter(v=>v!=null);
-  const mixF=channels.map((c,i)=>c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
+  const pureF=channels.map((c,i)=>c.route==='pure'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
+  const mixF=channels.map((c,i)=>c.route==='mix'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
   const vcR=24, vcX=bx+186*sc, jx=bx+93*sc;
   const pureMidRow=pureRows.length?(Math.min(...pureRows)+Math.max(...pureRows))/2:S.height*0.25;
   const mixMidRow=mixRows.length?(Math.min(...mixRows)+Math.max(...mixRows))/2:S.height*0.6;
@@ -433,8 +454,8 @@ function drawBuses(){
     const gasRowYs=channels.map((c,i)=>c.grp==='gas'?bys[i]:null).filter(v=>v!=null);
     const gas1Y=gasRowYs.length?Math.min(...gasRowYs):mtop;
     // Y's of channels that are ACTUALLY flowing (valves open), per group
-    const airFlowY=channels.map((c,i)=>c.grp==='air'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
-    const gasFlowY=channels.map((c,i)=>c.grp==='gas'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
+    const airFlowY=channels.map((c,i)=>c.grp==='air'&&c.route==='mix'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
+    const gasFlowY=channels.map((c,i)=>c.grp==='gas'&&c.route==='mix'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
     const airMixFlow=airFlowY.length>0, gasFlow=gasFlowY.length>0;
     const BLEND=COL_BLEND;
     const feedColor=(airMixFlow&&gasFlow)?BLEND:(airMixFlow?BLUE:(gasFlow?RED:GREY));
@@ -458,14 +479,14 @@ function drawBuses(){
     const onMixBus=ech.route==='mix', onPureBus=ech.route==='pure'&&pureRows.length>1;
     if(!onMixBus&&!onPureBus) return;
     const col=ech.grp==='gas'?gasCol(ech.id):COL_AIR;
-    p+=`<rect x="${bx-6*sc}" y="${bys[i]-4*sc}" width="${12*sc}" height="${8*sc}" rx="${3*sc}" fill="#cfd8e3" stroke="${flow(ech)?col:GREY}" stroke-width="${(1.2*sc).toFixed(2)}"/>`;
+    p+=`<rect x="${bx-6*sc}" y="${bys[i]-4*sc}" width="${12*sc}" height="${8*sc}" rx="${3*sc}" fill="#cfd8e3" stroke="${svOn(ech)?col:GREY}" stroke-width="${(1.2*sc).toFixed(2)}"/>`;
   });
 
   /* ── 4-way 밸브 = 둥근 테두리 박스 + 스타일 C 대각선(반대 삼각형, 가운데 빔). 출력색 = 들어온 입력색. ── */
   // 입력 색: 위=순수공기(파랑), 아래=mix(실제 흐름 기준: 공기희석=파랑/가스=빨강/둘다=보라)
   const BLEND=COL_BLEND;
-  const airMixFlowY=channels.map((c,i)=>c.grp==='air'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
-  const gasMixFlowY=channels.map((c,i)=>c.grp==='gas'&&c.route==='mix'&&flow(c)?bys[i]:null).filter(v=>v!=null);
+  const airMixFlowY=channels.map((c,i)=>c.grp==='air'&&c.route==='mix'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
+  const gasMixFlowY=channels.map((c,i)=>c.grp==='gas'&&c.route==='mix'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
   const topFlow=pureF.length>0, topCol=BLUE;
   const botFlow=mixF.length>0;
   const botCol=(airMixFlowY.length>0&&gasMixFlowY.length>0)?BLEND:(airMixFlowY.length>0?BLUE:(gasMixFlowY.length>0?RED:GREY));
