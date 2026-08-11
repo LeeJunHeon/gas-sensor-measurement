@@ -14,6 +14,8 @@ test_plc.py — 가스센서 PLC 하드웨어 테스트 (터미널 메뉴, 단�
     python test/test_plc.py --port COM3       (PLC가 연결된 COM 포트, 115200 8N1, 국번 1)
 실행(가짜 PLC 검증 — TCP):
     python test/test_plc.py --tcp 127.0.0.1:502
+실행(대화형 — VSCode에서 인자 없이 실행):
+    python test/test_plc.py       (연결 방식·포트·통신 속도·국번을 순서대로 물어본다)
 
 주의:
   ⚠️ 이 도구는 실제 PLC 출력을 구동합니다. 밸브/DAC 출력은 '운전허가(arm)'가 켜져야 실제로 동작합니다
@@ -49,6 +51,8 @@ PV_SPAN = PV_REGS[-1][1] - PV_BASE + 1
 SV_MAX_COUNT = 2000   # DV04A를 래더가 0~2000(0~5V)으로 클램프
 PV_MAX_COUNT = 4000   # AD08A 출력데이터타입 0~4000
 
+DEAD_AFTER = 5        # 연속 실패 이 횟수부터 '응답 없음'으로 보고 상태읽기를 건너뛴다
+
 
 class PLC:
     """PLC와의 Modbus 통신 래퍼 (스레드 안전)."""
@@ -59,6 +63,8 @@ class PLC:
         self.lock = threading.Lock()
         self._hb_val = False
         self._running = True
+        self.offline = False    # 접속 직후 응답 확인에 실패했는가
+        self.fails = 0          # 연속 실패 횟수 (성공 1회면 리셋)
 
     def connect(self):
         return self.cli.connect()
@@ -66,41 +72,58 @@ class PLC:
     def _err(self, r):
         return (r is None) or (hasattr(r, "isError") and r.isError())
 
+    def _mark(self, ok):
+        """통신 성패를 연속 실패 카운터에 반영한다."""
+        self.fails = 0 if ok else self.fails + 1
+        return ok
+
+    @property
+    def dead(self):
+        """연속 실패가 임계치를 넘어 '무응답'으로 판단되는 상태."""
+        return self.fails >= DEAD_AFTER
+
     def read_coil(self, addr):
         with self.lock:
             r = self.cli.read_coils(addr, 1, slave=self.unit)
-        return None if self._err(r) else bool(r.bits[0])
+        if not self._mark(not self._err(r)):
+            return None
+        return bool(r.bits[0])
 
     def write_coil(self, addr, value):
         with self.lock:
             r = self.cli.write_coil(addr, bool(value), slave=self.unit)
-        return not self._err(r)
+        return self._mark(not self._err(r))
 
     def read_reg(self, addr):
         with self.lock:
             r = self.cli.read_holding_registers(addr, 1, slave=self.unit)
-        return None if self._err(r) else r.registers[0]
+        if not self._mark(not self._err(r)):
+            return None
+        return r.registers[0]
 
     def read_regs(self, addr, count):
         """홀딩 레지스터 블록 읽기(FC03 1회). 실패하면 None."""
         with self.lock:
             r = self.cli.read_holding_registers(addr, count, slave=self.unit)
-        return None if self._err(r) else list(r.registers)
+        if not self._mark(not self._err(r)):
+            return None
+        return list(r.registers)
 
     def write_reg(self, addr, value):
         with self.lock:
             r = self.cli.write_register(addr, int(value), slave=self.unit)
-        return not self._err(r)
+        return self._mark(not self._err(r))
 
     def heartbeat_loop(self):
-        """HEARTBEAT 코일을 1초마다 토글 → PLC 통신 감시(3초) 유지."""
+        """HEARTBEAT 코일을 1초마다 토글 → PLC 통신 감시(3초) 유지.
+        무응답이 이어지면 주기를 2초로 늘려 락 경합을 줄인다(성공하면 원복)."""
         while self._running:
             self._hb_val = not self._hb_val
             try:
                 self.write_coil(HB_COIL, self._hb_val)
             except Exception:
                 pass
-            time.sleep(1.0)
+            time.sleep(2.0 if self.dead else 1.0)
 
     def close(self):
         self._running = False
@@ -117,11 +140,54 @@ def ask(prompt=""):
         return "0"
 
 
+def ask_int(prompt, default):
+    """정수를 물어본다. 빈 입력이면 기본값, 잘못된 입력이면 다시 묻는다."""
+    while True:
+        s = ask(prompt)
+        if not s:
+            return default
+        try:
+            return int(s)
+        except ValueError:
+            print("   숫자를 입력하세요.")
+
+
+def ask_connection(args):
+    """--port/--tcp 가 모두 없을 때 접속 파라미터를 대화형으로 받는다."""
+    while True:
+        mode = ask("연결 방식 [1] 시리얼(실제 PLC) / [2] TCP(가짜 PLC) (기본 1) > ") or "1"
+        if mode in ("1", "2"):
+            break
+        if mode == "0":     # ask()는 EOF/Ctrl+C에서 "0"을 준다 — 무한 루프 방지
+            raise SystemExit("취소되었습니다.")
+        print("   1 또는 2를 입력하세요.")
+    if mode == "2":
+        args.tcp = ask("주소 (기본 127.0.0.1:502) > ") or "127.0.0.1:502"
+    else:
+        while True:
+            args.port = ask("COM 포트 (예: COM3) > ")
+            if args.port:
+                break
+            print("   포트를 입력하세요.")
+        args.baud = ask_int("통신 속도 (기본 115200) > ", 115200)
+        print("   ※ XG5000 → 파라미터 → Cnet 설정과 같아야 합니다(공장 기본 9600)")
+    args.unit = ask_int("국번 (기본 1) > ", 1)
+    return args
+
+
 def fmt(v, t="ON", f="OFF"):
     return "?" if v is None else (t if v else f)
 
 
 def status_bar(plc):
+    if plc.dead:
+        # 무응답 상태에서는 항목마다 타임아웃(1초)을 물지 않고 즉시 메뉴를 띄운다.
+        print("=" * 72)
+        print(" ※ 실기 연결 시 주의 — 밸브가 실제로 열립니다")
+        print(" 운전허가:-- (응답 없음)   공압:--   안전정지:--   MFC:--  단선:--  DAC:--   통신HB:자동")
+        print(" (PLC 응답이 없습니다 — 전원·배선·속도·국번 확인. 응답이 돌아오면 자동 복구됩니다)")
+        print("=" * 72)
+        return
     stop = plc.read_coil(321)   # SAFETY_STOP
     air = plc.read_coil(320)
     almm = plc.read_coil(337)
@@ -314,6 +380,9 @@ def main():
     ap.add_argument("--unit", type=int, default=1, help="국번(기본 1)")
     args = ap.parse_args()
 
+    if not args.port and not args.tcp:
+        args = ask_connection(args)
+
     if args.tcp:
         host, _, p = args.tcp.partition(":")
         client = ModbusTcpClient(host, port=int(p or 502), timeout=1.0)
@@ -330,7 +399,13 @@ def main():
     if not plc.connect():
         print("연결 실패 — 포트/전원/배선을 확인하세요.")
         return
-    print("연결 성공.\n")
+    print("연결 성공.")
+    if plc.read_coil(320) is None:      # 포트만 열리고 PLC가 응답하지 않는 경우
+        plc.offline = True
+        plc.fails = DEAD_AFTER   # 항목마다 1초씩 기다리지 않고 곧바로 메뉴를 띄운다
+        print("⚠️ 포트는 열렸지만 PLC 응답이 없습니다 — 전원·배선·속도·국번을 확인하세요.")
+        print("   (메뉴는 계속 사용할 수 있으나 값은 -- 로 표시됩니다)")
+    print()
     print("⚠️ 이 도구는 실제 PLC 출력을 구동합니다. 밸브/DAC는 운전허가(메뉴4 arm)가 켜져야 동작합니다.")
     print("   가스/공압이 연결된 환경이면 안전에 유의하세요.\n")
 
