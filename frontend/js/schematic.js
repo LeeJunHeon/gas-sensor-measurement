@@ -62,6 +62,10 @@ function plcSafeStop(){ const L=window.plcLive; return !!(L&&L.connected&&L.stat
 // 유효 열림 = 명령(valveIn) ON 이고 안전정지 아님 → 래더의 'valve = CMD AND RUN_PERMIT'와 동일.
 const eff=c=>c.en&&c.valveIn&&!plcSafeStop();
 const flowing=c=>eff(c);
+// ★ MFC 이후(레인 후단·트렁크·버스)는 유량 지령이 0이면 흐르지 않는다 —
+//   밸브만 열려 있고 SV=0이면 MFC가 닫아버리므로, 후단을 흐르는 것으로 그리면 거짓 표시다.
+//   밸브 앞(en 기반 상시)·밸브→MFC(eff) 구간은 그대로 둔다.
+const svOn=c=>eff(c)&&(+c.sv>0);
 
 const valveSvg = `<svg width="34" height="22" viewBox="0 0 34 22">
   <line class="vstem" x1="17" y1="11" x2="17" y2="4"/><rect class="vact" x="12" y="0" width="10" height="5" rx="1"/>
@@ -146,7 +150,7 @@ function renderLanes(){
           <div class="svrow"><span class="rlbl">SV</span><input class="svi" size="4" value="${c.sv.toFixed(d)}" data-sv="${idx}" title="MAX ${c.max} sccm — 변경은 System Setup" ${c.en?'':'disabled'}><span class="un">sccm</span><button class="svgo" data-svgo="${idx}" ${c.en?'':'disabled'} title="입력한 SV를 PLC로 보냅니다 (Enter도 동일)">적용</button></div>
         </div>
       </div>
-      <i class="pipe grow ${eff(c)?'on':''}" data-seg="post" style="--c:${c.color}"></i>
+      <i class="pipe grow ${svOn(c)?'on':''}" data-seg="post" style="--c:${c.color}"></i>
       <span class="endcap"></span>`;
     lanesEl.appendChild(lane);
   });
@@ -162,7 +166,9 @@ function lanesStructKey(){
   return channels.map(c=>`${c.id}|${c.en?1:0}|${c.grp}|${c.route}|${c.max<=100?1:0}`).join(',');
 }
 function lanesFlowKey(){
-  return (plcSafeStop()?'S':'-')+';'+routeOut+';'+channels.map(c=>eff(c)?1:0).join('');
+  // ★ SV 0↔양수도 흐름키에 넣는다 — 후단 표시가 SV에 달려 있으므로 값만 바뀌어도 재렌더해야 한다.
+  return (plcSafeStop()?'S':'-')+';'+routeOut+';'
+       + channels.map(c=>(eff(c)?1:0)+''+(svOn(c)?1:0)).join('');
 }
 function updateLaneValues(){
   channels.forEach((c,idx)=>{
@@ -343,15 +349,19 @@ function drawBuses(){
     if(has) airSeg+=fL(ax,topY,ax,botY,BLUE,'dn',true);
     p+=dim(airSeg);
     {const al=document.getElementById('airsupply'); al.style.left=((xIn-8)/sc)+'px'; al.style.top=(topY/sc)+'px';}
+    // 소스 접점: 가스·버스 정션과 같은 규격(흰 속 + 색 테두리)으로 그린다.
+    //   HTML .tap 은 CSS로 숨겨져 있고 여기가 유일한 표시다 — 규격은 DOT_R·DOT_SW로 통일.
     airTaps.forEach((t,i)=>{const on=!!(airChs[i]&&airChs[i].en);
-      p+=dim(`<circle cx="${ax}" cy="${ays[i]}" r="${(DOT_R*sc).toFixed(2)}" fill="${on?BLUE:GREY}" opacity="${on?1:0.45}"/>`);});
+      p+=dim(`<circle cx="${ax}" cy="${ays[i]}" r="${(DOT_R*sc).toFixed(2)}" fill="#fff"`
+            +` stroke="${on?BLUE:GREY}" stroke-width="${(DOT_SW*sc).toFixed(2)}"`
+            +` opacity="${on?1:0.45}"/>`);});
   }
 
   /* ── Gas inlets: each lane = ONE continuous line from inlet cap to VA valve ── */
   const gasLanes=[...document.querySelectorAll('.lane[data-grp="gas"]')];
   const gasTaps=gasLanes.map(l=>l.querySelector('.tap')).filter(Boolean);
   const gasChs=gasLanes.map(l=>channels[+l.dataset.idx]).filter(Boolean);
-  const flowC=c=>eff(c);   // 유효 열림(안전정지면 닫힘)
+  const flowC=c=>svOn(c);   // MFC 이후 기준(유효 열림 + SV>0)
   const glayer=document.getElementById('gaslabels'); if(glayer) glayer.innerHTML='';
   const scG=(typeof lastScale==='number'&&lastScale>0)?lastScale:1;
   gasTaps.forEach((t,i)=>{
@@ -382,7 +392,8 @@ function drawBuses(){
   // 레인을 재배치해도 route(혼합/단독)별 버스가 그대로 따라간다.
   const bys=[];
   capLanes.forEach(l=>{ bys[+l.dataset.idx]=cy(l.querySelector('.endcap')); });
-  const flow=c=>eff(c);   // 유효 열림(안전정지면 닫힘) — 수집 버스 흐름도 함께 정지
+  // 수집 버스는 MFC 이후 구간이다 — 유효 열림 + SV>0 이어야 흐른다(SV 0이면 버스도 비활성).
+  const flow=c=>svOn(c);
   const pureRows=channels.map((c,i)=>c.route==='pure'?bys[i]:null).filter(v=>v!=null);
   const mixRows=channels.map((c,i)=>c.route==='mix'?bys[i]:null).filter(v=>v!=null);
   const pureF=channels.map((c,i)=>c.route==='pure'&&flow(c)?bys[i]:null).filter(v=>v!=null);

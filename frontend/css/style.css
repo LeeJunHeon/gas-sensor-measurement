@@ -178,9 +178,12 @@
   .n-src .en{position:absolute;left:0;display:flex;align-items:center;gap:4px;cursor:pointer}
   .n-src .en input{width:14px;height:14px;accent-color:var(--primary);cursor:pointer}
   .n-src .tap{width:8px;height:8px;border-radius:50%;background:#9aa6b6;position:absolute;right:0;border:2px solid var(--bg2)}
-  .lane[data-grp="air"] .n-src .tap{background:var(--air)}
+  /* 소스 접점은 전부 SVG(drawBuses)가 표준 규격(DOT_R·DOT_SW, 흰 속+색 테두리)으로 그린다.
+     HTML .tap 은 위치 기준점으로만 남기고 숨긴다 — 속 채운 원과 섞이면 점 모양이 달라 보인다.
+     ★ visibility:hidden 이어야 한다(display:none 이면 좌표를 잃어 SVG가 어긋난다). */
+  .lane[data-grp="air"] .n-src .tap{visibility:hidden}
   .lane[data-grp="gas"] .n-src .tap{visibility:hidden}
-  .lane[data-grp="airmix"] .n-src .tap{background:var(--mix)}
+  .lane[data-grp="airmix"] .n-src .tap{visibility:hidden}
   .n-src .srclbl{font-size:14px;font-weight:700;color:#2a3645;white-space:nowrap;text-align:right;line-height:1.05;padding-right:14px}
   .n-src .srclbl small{display:block;font-size:8px;font-weight:600;color:var(--ink-faint)}
 
