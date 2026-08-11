@@ -347,10 +347,10 @@ async def handle_command(data: dict):
             await manager.broadcast({"type": "plc_ports", "ports": plc.list_serial_ports()})
 
         elif cmd == "plc_reset":
-            # 안전리셋(M112) 순간 펄스. 공압·통신 정상이면 PLC가 운전허가를 재가동.
+            # 안전리셋(M112) 순간 펄스. 통신 정상이면 PLC가 운전허가를 재가동.
             try:
                 await plc.safety_reset()
-                await push_log("안전리셋 펄스 전송 — 공압·통신 정상이면 운전허가 재가동", "ok")
+                await push_log("운전 준비 신호 전송 — 통신 정상이면 운전허가 재가동", "ok")
             except Exception as e:  # noqa: BLE001
                 await push_log(f"안전리셋 실패 — PLC 미연결/통신오류 ({e})", "err")
 

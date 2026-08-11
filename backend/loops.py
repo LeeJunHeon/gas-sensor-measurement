@@ -97,7 +97,7 @@ async def plc_poll_loop():
                     was_connected = True
                 # ── 상태 전이 로그: 알람 4종 + 운전 허가 (표시등 변화를 로그로도 남긴다) ──
                 st_now = (state.plc_live.get("status") or {})
-                for _k, _label in (("ALM_AIR", "공압 이상"), ("ALM_MFC", "MFC 입력 이상"),
+                for _k, _label in (("ALM_MFC", "MFC 입력 이상"),
                                    ("ALM_IDD", "MFC 단선검출"), ("ALM_DAC", "아날로그 출력 모듈 이상")):
                     _cur = st_now.get(_k) is True
                     if _cur != prev_alm.get(_k, False):

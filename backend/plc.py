@@ -441,14 +441,18 @@ class PlcClient:
                 raw[n] = int(await self.read_register(a))
         return {"pv": {n: self._pv_to_sccm(n, v) for n, v in raw.items()}, "pv_raw": raw}
 
+    # 320 (M00200) · 336 (M00210) — 공압 인터록 제거로 미사용. 복원 시 재사용 예약.
+    # ★ 키에서는 빠졌지만 블록 읽기 범위에는 남긴다(요청 rc 320,20 불변).
+    _STATUS_RESERVED = (320, 336)
+
     async def read_status(self) -> dict:
         """상태 코일을 블록 1회 읽기 →
-        {"AIR_OK","SAFETY_STOP","RUN_PERMIT","ALM_AIR","ALM_MFC","ALM_IDD","ALM_DAC"} (bool)."""
-        keys = (("AIR_OK", "air_ok"), ("SAFETY_STOP", "safety_stop"),
-                ("RUN_PERMIT", "run_permit"), ("ALM_AIR", "alm_air"),
+        {"SAFETY_STOP","RUN_PERMIT","ALM_MFC","ALM_IDD","ALM_DAC"} (bool)."""
+        keys = (("SAFETY_STOP", "safety_stop"),
+                ("RUN_PERMIT", "run_permit"),
                 ("ALM_MFC", "alm_mfc"), ("ALM_IDD", "alm_idd"), ("ALM_DAC", "alm_dac"))
         pairs = [(out_key, self._sys_addr(sys_key)) for out_key, sys_key in keys]
-        addrs = [a for _, a in pairs]
+        addrs = [a for _, a in pairs] + list(self._STATUS_RESERVED)
         base, count = min(addrs), max(addrs) - min(addrs) + 1
         if count > 64:
             return {k: bool(await self.read_coil(a)) for k, a in pairs}
@@ -514,10 +518,9 @@ PLC_COIL_MAP = {
     "V4W_CMD": 168,       # M00108 4-way 지령
     "HEARTBEAT": 176,     # M00110 (쓰기) 통신 생존 토글
     "SAFETY_RESET": 178,  # M00112 (쓰기, 펄스) 안전리셋
-    "AIR_OK": 320,        # M00200 (읽기) 공압 정상
+    # 320 (M00200) · 336 (M00210) — 공압 인터록 제거로 미사용. 복원 시 재사용 예약.
     "SAFETY_STOP": 321,   # M00201 (읽기) 안전정지 상태
     "RUN_PERMIT": 323,    # M00203 (읽기) 운전 허가 래치
-    "ALM_AIR": 336,       # M00210 (읽기) 공압 알람
     "ALM_MFC": 337,       # M00211 (읽기) MFC 입력 이상 알람
     "ALM_IDD": 338,       # M00212 (읽기) MFC 입력 단선검출 알람
     "ALM_DAC": 339,       # M00213 (읽기) 아날로그 출력 모듈 이상 알람
@@ -535,10 +538,8 @@ _FALLBACK_SYS = {
     "heartbeat": PLC_COIL_MAP["HEARTBEAT"],
     "safety_reset": PLC_COIL_MAP["SAFETY_RESET"],
     "v4w_cmd": PLC_COIL_MAP["V4W_CMD"],
-    "air_ok": PLC_COIL_MAP["AIR_OK"],
     "safety_stop": PLC_COIL_MAP["SAFETY_STOP"],
     "run_permit": PLC_COIL_MAP["RUN_PERMIT"],
-    "alm_air": PLC_COIL_MAP["ALM_AIR"],
     "alm_mfc": PLC_COIL_MAP["ALM_MFC"],
     "alm_idd": PLC_COIL_MAP["ALM_IDD"],
     "alm_dac": PLC_COIL_MAP["ALM_DAC"],
