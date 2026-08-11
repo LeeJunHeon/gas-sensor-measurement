@@ -215,8 +215,6 @@ function updatePlcLive(live){
     if(!connected) return;               // \ubbf8\uc5f0\uacb0 \u2192 \ud68c\uc0c9 \uc720\uc9c0
     e.classList.add(ok?'ok':'bad');
   };
-  setDot('stAir',    st.AIR_OK===true);            // \uacf5\uc555 \uc815\uc0c1=\ucd08\ub85d
-  setDot('stAlmAir', !(st.ALM_AIR===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
   setDot('stAlmMfc', !(st.ALM_MFC===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
   setDot('stAlmIdd', !(st.ALM_IDD===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
   setDot('stAlmDac', !(st.ALM_DAC===true));        // \uc54c\ub78c \uc5c6\uc74c=\ucd08\ub85d
