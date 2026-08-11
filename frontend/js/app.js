@@ -353,6 +353,29 @@
   // PLC 재연결 요청.
   document.getElementById('plcReconnectBtn')?.addEventListener('click', () => window.cmdPlcReconnect());
 
+  // 측정 프로그램 런처 — 경로/자동실행은 디바운스 저장, [실행]은 즉시 전송.
+  // ★ 가스 제어와 무관한 부가 기능이다. 실패는 서버가 로그로만 알린다.
+  {
+    const mp = document.getElementById('measPath');
+    const mc = document.getElementById('measAuto');
+    let t = null;
+    const saveSoon = () => {
+      clearTimeout(t);
+      t = setTimeout(() => send({
+        cmd: 'set_measure_app',
+        path: mp ? mp.value : '',
+        autoLaunch: !!(mc && mc.checked),
+      }), 500);
+    };
+    mp?.addEventListener('input', saveSoon);
+    mc?.addEventListener('change', saveSoon);
+    document.getElementById('measRun')?.addEventListener('click', () => {
+      clearTimeout(t);                       // 경로를 막 고쳤다면 저장부터 하고 실행
+      send({ cmd: 'set_measure_app', path: mp ? mp.value : '', autoLaunch: !!(mc && mc.checked) });
+      send({ cmd: 'launch_measure' });
+    });
+  }
+
   // ===================== 시작 =====================
   bindPicker();
   bindPrompt();

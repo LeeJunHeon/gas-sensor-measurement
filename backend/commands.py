@@ -28,6 +28,24 @@ def set_shutdown_handler(fn):
     _shutdown_handler = fn
 
 
+def _launch_measure_app() -> tuple[bool, str]:
+    """측정 프로그램(외부 exe)을 띄운다. 성공하면 (True, 파일명), 실패하면 (False, 사유).
+    ★ 가스 제어를 방해하면 안 된다 — 절대 기다리지 않고(Popen만), shell=True도 쓰지 않는다.
+      실패는 예외로 올리지 않고 사유 문자열로 돌려준다(호출부가 로그만 남기고 계속 진행)."""
+    import subprocess
+    # ★ 실패 문구는 호출부가 "측정 프로그램 " 을 앞에 붙여 쓰므로 주어를 넣지 않는다.
+    p = (state.settings.get("measureApp") or {}).get("path", "").strip()
+    if not p:
+        return False, "경로가 설정되지 않았습니다"
+    if not os.path.isfile(p):
+        return False, f"실행 파일을 찾을 수 없습니다 — {p}"
+    try:
+        subprocess.Popen([p], close_fds=True)   # 대기하지 않음
+        return True, os.path.basename(p)
+    except Exception as e:  # noqa: BLE001
+        return False, f"실행 실패 — {e}"
+
+
 async def handle_command(data: dict):
     try:
         cmd = data.get("cmd")
@@ -135,6 +153,15 @@ async def handle_command(data: dict):
                 if engine.is_running():
                     await push_log("이미 자동 실행 중입니다", "warn")
                 else:
+                    # 측정 프로그램 자동 실행(옵션) — 기동 후 첫 AUTO RUN 때 1회만.
+                    # ★ 실패해도 return 하지 않는다: 레시피는 계속 진행한다.
+                    ma = state.settings.get("measureApp") or {}
+                    if ma.get("autoLaunch") and not state.system.get("measureLaunched"):
+                        ok, msg = _launch_measure_app()
+                        await push_log(("측정 프로그램 실행 — " + msg) if ok
+                                       else ("측정 프로그램 " + msg + " (레시피는 계속 진행)"),
+                                       "ok" if ok else "warn")
+                        state.system["measureLaunched"] = True   # 성공·실패 무관 1회만 시도
                     state._elapsed_f = 0.0
                     state.system["elapsed"] = 0
                     started = engine.start()
@@ -143,6 +170,24 @@ async def handle_command(data: dict):
                     else:
                         await push_log("이미 자동 실행 중입니다", "warn")
                 await push_state()
+
+        elif cmd == "set_measure_app":
+            # 측정 프로그램 경로·자동실행 여부 저장. 실행은 하지 않는다.
+            ma = dict(state.settings.get("measureApp") or {})
+            if "path" in data:
+                ma["path"] = str(data.get("path") or "").strip()
+            if "autoLaunch" in data:
+                ma["autoLaunch"] = bool(data.get("autoLaunch"))
+            state.settings["measureApp"] = ma
+            state.save_config()
+            await push_state()
+
+        elif cmd == "launch_measure":
+            # 수동 실행. ★ measureLaunched는 건드리지 않는다 —
+            #   이 플래그는 'AUTO RUN 자동 실행을 썼는가'만 뜻한다.
+            ok, msg = _launch_measure_app()
+            await push_log(("측정 프로그램 실행 — " + msg) if ok
+                           else ("측정 프로그램 " + msg), "ok" if ok else "err")
 
         elif cmd == "stop":
             engine.stop()

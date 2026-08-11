@@ -213,6 +213,9 @@ DEFAULT_SETTINGS = {
     "logDir": "logs",             # 저장 폴더(프로젝트 루트 기준 상대경로 또는 절대경로)
     "logLevel": "info",           # info | warn | err (이 레벨 이상만 파일 기록)
     "logKeepDays": 30,            # 보관 일수(이보다 오래된 로그 파일 삭제)
+    # 측정 프로그램(외부 exe) 런처. path가 비면 아무 것도 하지 않는다.
+    #   autoLaunch — 프로그램 기동 후 '첫' AUTO RUN 때만 자동 실행(세션 1회).
+    "measureApp": {"path": "", "autoLaunch": False},
 }
 
 # PLC 통신(LS XGB 내장 Cnet Modbus). 전송은 시리얼(RTU) 또는 TCP.
@@ -319,6 +322,9 @@ class State:
             "stepIndex": 0,       # 현재 단계(1-base, 0=대기)
             "stepTotal": 0,       # 전체 단계 수
             "stepRemain": 0,      # 현재 단계 남은 초
+            # 측정 프로그램 자동 실행을 이번 세션에 이미 시도했는가(저장하지 않는 세션 플래그).
+            # 서버가 다시 뜨면 False로 돌아간다 — STOP·완료로는 되돌리지 않는다.
+            "measureLaunched": False,
         }
         self.recipe = default_recipe()
         self._elapsed_f = 0.0    # 내부 누적 경과시간(float)
@@ -354,6 +360,10 @@ class State:
             self.params = {**DEFAULT_PARAMS, **data["params"]}
             self.recipe["params"] = dict(self.params)
         self.settings = {**DEFAULT_SETTINGS, **(data.get("settings") or {})}
+        # measureApp은 중첩 dict라 통째로 덮이므로 빠진 키를 기본값으로 보강한다.
+        ma = self.settings.get("measureApp")
+        self.settings["measureApp"] = {**DEFAULT_SETTINGS["measureApp"],
+                                       **(ma if isinstance(ma, dict) else {})}
         self.plc = {**DEFAULT_PLC, **(data.get("plc") or {})}
         self.plc_system = {**DEFAULT_PLC_SYSTEM, **(data.get("plc_system") or {})}
         self.plc_hw = {**DEFAULT_PLC_HW, **(data.get("plc_hw") or {})}

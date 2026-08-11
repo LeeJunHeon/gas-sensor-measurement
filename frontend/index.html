@@ -143,6 +143,15 @@
               <div style="height:1px;background:var(--line);margin:2px 0"></div>
               <div class="frow"><label style="font-weight:700;color:var(--mix)">RH (%) 현재값</label><span class="mono" id="rhProc" style="font-weight:700;color:var(--mix);font-size:15px">—</span></div>
             </div>
+            <!-- 측정 프로그램 런처 (외부 exe). 위 .b는 uidis(비활성)라 별도 블록으로 둔다. -->
+            <div class="b measapp">
+              <label class="measapp-h">측정 프로그램</label>
+              <div class="measapp-row">
+                <input class="fin mono" id="measPath" placeholder="측정 프로그램 경로 (.exe)">
+                <button class="pbtn open" id="measRun" title="측정 프로그램을 지금 실행합니다(가스 제어와 무관 — 실패해도 레시피는 진행됩니다)">실행</button>
+              </div>
+              <label class="measapp-auto"><input type="checkbox" id="measAuto"><span>첫 AUTO RUN 시 자동 실행</span><small id="measAutoNote"></small></label>
+            </div>
           </div>
 
           <!-- SMU + run -->

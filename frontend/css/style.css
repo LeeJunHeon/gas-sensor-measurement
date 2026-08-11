@@ -345,6 +345,15 @@
   .plcstat .d{width:11px;height:11px;border-radius:50%;background:#b7c0cc;flex:0 0 11px}
   .plcstat.ok .d{background:#28a745}
   .plcstat.bad .d{background:#c5343a}
+  /* 측정 프로그램 런처 — Measurement/Graph 카드 하단(위 .b 는 uidis 라 여기만 조작 가능) */
+  .measapp{border-top:1px solid var(--line);gap:7px}
+  .measapp-h{font-size:12px;font-weight:700;color:var(--ink-faint)}
+  .measapp-row{display:flex;gap:6px;align-items:center}
+  .measapp-row .fin{flex:1;min-width:0}
+  .measapp-row .pbtn{padding:5px 11px;flex:none}
+  .measapp-auto{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#5a6678;cursor:pointer}
+  .measapp-auto input{cursor:pointer}
+  .measapp-auto small{color:var(--ink-faint);font-size:11px}
   .pp-btns{display:flex;gap:8px}
   .plc-panel .plcreset,.plc-panel .plcrecon{flex:1;border-radius:6px;padding:7px 6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
   .plcreset{border:1px solid #c58f1f;background:#fff8e8;color:#8a6d1f}

@@ -319,6 +319,17 @@ function applyState(s){
       av.title=(s.version.name||'')+' v'+(s.version.version||'')+' ('+(s.version.build||'')+')';
     }
   }
+  // Measure-app launcher: never overwrite an input the user is focused on (same guard as Setup).
+  if(s.settings){
+    var _ma=s.settings.measureApp||{}, _mp=document.getElementById('measPath'), _mc=document.getElementById('measAuto');
+    if(_mp && document.activeElement!==_mp) _mp.value=_ma.path||'';
+    if(_mc && document.activeElement!==_mc) _mc.checked=!!_ma.autoLaunch;
+  }
+  if(s.system){
+    var _mn=document.getElementById('measAutoNote');
+    // "launched during this session"
+    if(_mn) _mn.textContent = s.system.measureLaunched ? '이번 실행에서 시작됨' : '';
+  }
   // Guard: do not repaint Setup inputs while the modal is open (edits would roll back).
   var _so=document.getElementById('setupOverlay');
   window._lastStateForSetup = s;
