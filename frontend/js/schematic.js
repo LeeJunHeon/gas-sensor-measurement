@@ -8,13 +8,20 @@ window.strictNum = function(s){
   s = String(s==null?'':s).trim();
   return /^[+-]?(\d+\.?\d*|\.\d+)$/.test(s) ? parseFloat(s) : null;
 };
-/* ── PIPE DESIGN TOKENS — style.css 의 .pipe 계열과 동기(★한쪽만 바꾸지 말 것) ──
-   .pipe{height:5px;background:#bcc6d3}
-   .pipe.on{background:var(--c)} / .pipe.on::after{ 흰 5px + 17px 간격(주기 22px), 1.1s linear }
+/* ── PIPE DESIGN TOKENS — 파이프 규격의 단일 출처 ──
+   CSS 는 여기서 주입한 변수(--pipe-w / --pipe-on / --pipe-cycle / --pipe-period)를 읽고,
+   SVG(fL/fP)는 아래 토큰을 직접 쓴다. 값을 바꾸려면 이 파일만 고치면 된다.
    레인은 CSS, 커넥터·트렁크·버스는 SVG로 그리므로 값이 갈라지면 한 화면에 두 언어가 섞인다. */
-const PIPE_W = 5;                 // .pipe height:5px
-const PIPE_DASH = '5 17';         // 흰 5px / 주기 22px (.pipe.on::after 와 동일)
-const PIPE_PERIOD = '1.1s';       // .pipe.on::after animation 주기
+const PIPE_W = 5;                 // .pipe height
+const PIPE_DASH = '5 17';         // 흰 5px / 주기 22px
+const PIPE_PERIOD = '1.1s';       // 줄무늬 애니메이션 주기
+// CSS 파이프 규격을 JS 토큰에서 주입 — style.css 는 var() 만 읽는다(단일 출처).
+//   값은 기존 리터럴과 동일해야 한다(동작 불변): 5px / 5·22px / 1.1s
+{ const R=document.documentElement.style;
+  R.setProperty('--pipe-w', PIPE_W+'px');
+  R.setProperty('--pipe-on', '5px');        // 줄무늬 흰 구간(PIPE_DASH 의 앞 값)
+  R.setProperty('--pipe-cycle', '22px');    // 주기(PIPE_DASH 5+17)
+  R.setProperty('--pipe-period', PIPE_PERIOD); }
 // ★ 색은 CSS 변수를 그대로 참조한다 — inline SVG 는 문서의 CSS 변수를 상속하므로
 //   style.css 한 곳만 고치면 레인과 배관이 함께 바뀐다(값 복제 금지).
 const COL_OFF = 'var(--pipe-off)';   // = .pipe 기본(비활성) 배경
