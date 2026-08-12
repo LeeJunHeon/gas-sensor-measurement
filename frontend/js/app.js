@@ -369,6 +369,13 @@
     };
     mp?.addEventListener('input', saveSoon);
     mc?.addEventListener('change', saveSoon);
+    // 파일 선택 창은 서버(pywebview)가 연다. 결과 경로는 push_state 로 입력칸에 반영된다.
+    document.getElementById('measPick')?.addEventListener('click', () => {
+      // 직접 입력하던 값이 있으면 먼저 확정 저장한다(취소해도 타이핑이 사라지지 않게).
+      clearTimeout(t);
+      send({ cmd: 'set_measure_app', path: mp ? mp.value : '', autoLaunch: !!(mc && mc.checked) });
+      send({ cmd: 'pick_measure_app' });
+    });
     document.getElementById('measRun')?.addEventListener('click', () => {
       clearTimeout(t);                       // 경로를 막 고쳤다면 저장부터 하고 실행
       send({ cmd: 'set_measure_app', path: mp ? mp.value : '', autoLaunch: !!(mc && mc.checked) });

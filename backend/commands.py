@@ -182,6 +182,37 @@ async def handle_command(data: dict):
             state.save_config()
             await push_state()
 
+        elif cmd == "pick_measure_app":
+            # pywebview 파일 선택 대화상자. 창 객체는 window.WINDOW 가 들고 있다
+            # (server.py 가 진입점이라 window 는 일반 모듈로 import 돼 있다).
+            path = ""
+            try:
+                import window as _win
+                w = getattr(_win, "WINDOW", None)
+                if w is None:
+                    raise RuntimeError("창이 없습니다(브라우저 모드)")
+                # ★ create_file_dialog 는 사용자가 닫을 때까지 블로킹한다 —
+                #   이벤트 루프에서 직접 부르면 폴링·하트비트가 멈춘다. 반드시 스레드로.
+                res = await asyncio.get_running_loop().run_in_executor(
+                    None,
+                    lambda: w.create_file_dialog(
+                        10,                     # webview.OPEN_DIALOG
+                        allow_multiple=False,
+                        file_types=("실행 파일 (*.exe)", "모든 파일 (*.*)")),
+                )
+                if res:
+                    path = res[0]
+            except Exception as e:  # noqa: BLE001 — 브라우저 모드 등 대화상자 불가
+                await push_log(f"파일 선택 창을 열 수 없습니다 — 경로를 직접 입력하세요 ({e})",
+                               "warn")
+            if path:
+                ma = dict(state.settings.get("measureApp") or {})
+                ma["path"] = path
+                state.settings["measureApp"] = ma
+                state.save_config()
+                await push_log(f"측정 프로그램 경로 설정 — {path}", "ok")
+                await push_state()
+
         elif cmd == "launch_measure":
             # 수동 실행. ★ measureLaunched는 건드리지 않는다 —
             #   이 플래그는 'AUTO RUN 자동 실행을 썼는가'만 뜻한다.
