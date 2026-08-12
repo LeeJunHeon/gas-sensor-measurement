@@ -91,6 +91,14 @@ def config_from_dict(d: dict) -> PlcConfig:
     return out
 
 
+def _s16(v: int) -> int:
+    """Modbus 레지스터(무부호 16비트) → 부호 있는 값.
+    AD08A는 개방/잡음에서 음수(-48 등)를 내며, 무부호로 읽으면 65488이 되어
+    스케일 변환에서 16372 sccm 같은 허수 유량이 표시된다."""
+    v = int(v) & 0xFFFF
+    return v - 0x10000 if v > 0x7FFF else v
+
+
 # ===================== Modbus 클라이언트(최소 골격) =====================
 class PlcClient:
     """동기 pymodbus 클라이언트를 감싼 비동기 직렬화 래퍼. 실제 IO는 read_*/write_* 로."""
@@ -422,7 +430,8 @@ class PlcClient:
     async def read_pv_all(self) -> dict:
         """켜진 매핑 채널의 PV를 블록 1회 읽기 → {"pv": {id: sccm}, "pv_raw": {id: 카운트}}.
         주소 범위가 32워드를 넘으면 안전하게 개별 읽기로 폴백한다.
-        원시 카운트를 함께 돌려주는 이유: 현장에서 MFC 스케일을 진단하려면 카운트가 필요."""
+        원시 카운트를 함께 돌려주는 이유: 현장에서 MFC 스케일을 진단하려면 카운트가 필요.
+        ★ pv_raw 는 부호 변환된 값이다(개방·잡음에서 -48 등 음수가 나온다)."""
         items = [(n, a) for n, a in self._pv_reg_items()
                  if not self._enabled or self._enabled.get(n)]
         if not items:
@@ -435,10 +444,10 @@ class PlcClient:
             regs = regs if isinstance(regs, list) else [regs]
             for n, a in items:
                 i = a - base
-                raw[n] = int(regs[i]) if 0 <= i < len(regs) else 0
+                raw[n] = _s16(regs[i]) if 0 <= i < len(regs) else 0
         else:
             for n, a in items:                   # 폴백: 개별 읽기
-                raw[n] = int(await self.read_register(a))
+                raw[n] = _s16(await self.read_register(a))
         return {"pv": {n: self._pv_to_sccm(n, v) for n, v in raw.items()}, "pv_raw": raw}
 
     # 320 (M00200) · 336 (M00210) — 공압 인터록 제거로 미사용. 복원 시 재사용 예약.

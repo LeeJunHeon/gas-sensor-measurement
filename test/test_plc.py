@@ -176,6 +176,14 @@ def ask_connection(args):
     return args
 
 
+def _s16(v):
+    """무부호 16비트 → 부호 있는 값. 표시 전용 — 주소·프레임은 건드리지 않는다.
+    AD08A는 입력 개방·잡음에서 음수(-48 등)를 내는데, 그대로 두면 65488로 읽혀
+    '엄청난 유량'처럼 보인다. 현장 판정 기준(≈0 / ≈800 / 정체 / 4000 비례)은 양수라 그대로 유효."""
+    v = int(v) & 0xFFFF
+    return v - 0x10000 if v > 0x7FFF else v
+
+
 def fmt(v, t="ON", f="OFF"):
     return "?" if v is None else (t if v else f)
 
@@ -249,7 +257,7 @@ def menu_adc(plc):
         if s in [str(i) for i in range(1, len(PV_REGS) + 1)]:
             name, addr = PV_REGS[int(s) - 1]
             v = plc.read_reg(addr)
-            print(f"\n   {name} (D{addr}) = {v if v is not None else '읽기 실패'} (raw)")
+            print(f"\n   {name} (D{addr}) = {_s16(v) if v is not None else '읽기 실패'} (raw)")
             ask("\nEnter로 계속 > ")
         elif s == "d":
             vals = plc.read_regs(PV_BASE, PV_SPAN)
@@ -258,7 +266,7 @@ def menu_adc(plc):
                 print("   읽기 실패")
             else:
                 for name, addr in PV_REGS:
-                    print(f"     {name} (D{addr}) = {vals[addr - PV_BASE]:>5}  (raw)")
+                    print(f"     {name} (D{addr}) = {_s16(vals[addr - PV_BASE]):>5}  (raw)")
             ask("\nEnter로 계속 > ")
         elif s == "m":
             print("\n   연속 모니터 raw (Ctrl+C로 중단)")
@@ -268,7 +276,7 @@ def menu_adc(plc):
                     if vals is None:
                         print("   읽기 실패")
                     else:
-                        print("   " + "  ".join(f"{n.split()[0]}={vals[a - PV_BASE]}"
+                        print("   " + "  ".join(f"{n.split()[0]}={_s16(vals[a - PV_BASE])}"
                                                 for n, a in PV_REGS))
                     time.sleep(0.5)
             except KeyboardInterrupt:
@@ -341,7 +349,7 @@ def menu_snapshot(plc):
     pv = plc.read_regs(PV_BASE, PV_SPAN)
     sv = plc.read_regs(SV_REGS[0][1], len(SV_REGS)) or ["?"] * len(SV_REGS)
     print(" [PV (ADC, D200·202·204·205, raw 카운트)]")
-    print("   " + "  ".join(f"{n.split()[0]}={pv[a - PV_BASE] if pv else '?'}"
+    print("   " + "  ".join(f"{n.split()[0]}={_s16(pv[a - PV_BASE]) if pv else '?'}"
                             for n, a in PV_REGS))
     print(" [SV (DAC, D100~103, raw 카운트)]")
     print("   " + "  ".join(f"{n.split()[0]}={v}" for (n, _), v in zip(SV_REGS, sv)))
