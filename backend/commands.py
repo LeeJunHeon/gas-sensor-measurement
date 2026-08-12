@@ -40,7 +40,8 @@ def _launch_measure_app() -> tuple[bool, str]:
     if not os.path.isfile(p):
         return False, f"실행 파일을 찾을 수 없습니다 — {p}"
     try:
-        subprocess.Popen([p], close_fds=True)   # 대기하지 않음
+        # cwd 는 exe 자기 폴더 — 상대경로로 설정·리소스를 읽는 측정 프로그램이 많다.
+        subprocess.Popen([p], close_fds=True, cwd=os.path.dirname(p) or None)   # 대기하지 않음
         return True, os.path.basename(p)
     except Exception as e:  # noqa: BLE001
         return False, f"실행 실패 — {e}"
@@ -98,6 +99,8 @@ async def handle_command(data: dict):
             ch = int(data.get("ch", -1))
             if 0 <= ch < len(state.channels):
                 c = state.channels[ch]
+                if not c["en"]:
+                    return  # 비활성 채널 SV 잠김(밸브와 대칭)
                 v = max(0.0, float(data.get("value") or 0))
                 req = v
                 v = min(v, float(c["max"]))
@@ -260,14 +263,21 @@ async def handle_command(data: dict):
             dry_idx = [i for i, c in enumerate(state.channels)
                        if channel_role(c) == "dry_air" and c.get("en")
                        and c.get("route") != "pure"]
+            # ★ 청소할 채널이 하나도 없으면 아무 것도 만지지 않고 거부한다.
+            #   그냥 두면 가스만 닫고 purging=True·routeOut=sensor 로 바꿔놓아
+            #   '청소 중'으로 보이지만 실제로는 아무것도 흐르지 않는다.
+            if not dry_idx:
+                await push_log("PURGE 불가 — 혼합(mix) 마른공기 채널이 없거나 꺼져 있습니다 "
+                               "(System Setup에서 VA1 사용을 확인하세요)", "err")
+                return
             for i, c in enumerate(state.channels):
                 role = channel_role(c)
                 if role == "gas":
                     c["valveIn"] = False
                     c["sv"] = 0.0
-                elif role == "dry_air" and c.get("en") and c.get("route") != "pure":
+                elif i in dry_idx:
                     c["valveIn"] = True
-                    c["sv"] = min(PURGE_DRY_FLOW / max(1, len(dry_idx)), float(c.get("max") or 0))
+                    c["sv"] = min(PURGE_DRY_FLOW / len(dry_idx), float(c.get("max") or 0))
                 elif role == "wet_air":
                     c["sv"] = 0.0
             state.system["routeOut"] = "sensor"
@@ -400,6 +410,12 @@ async def handle_command(data: dict):
                 incoming = {**state.plc, **data["plc"]}
                 # 방어적 보정: unit_id 1~247, heartbeat는 PLC COMM_TMR(3초) 미만이어야 안전
                 incoming["unit_id"] = min(247, max(1, int(to_num(incoming.get("unit_id"), 1)) or 1))
+                # ★ config.json 자체도 정상 범위로 유지한다(값은 plc.config_from_dict 와 동일 —
+                #   한쪽만 바꾸면 저장값과 실효값이 갈라진다).
+                incoming["heartbeat_s"] = min(2.5, max(0.1, to_num(incoming.get("heartbeat_s"), 1.0)))
+                incoming["inter_cmd_gap_s"] = min(1.0, max(0.0, to_num(incoming.get("inter_cmd_gap_s"), 0.1)))
+                incoming["timeout_s"] = min(2.5, max(0.1, to_num(incoming.get("timeout_s"), 1.5)))
+                incoming["reconnect_delay_s"] = min(60.0, max(0.1, to_num(incoming.get("reconnect_delay_s"), 1.0)))
                 # ★ 실효 설정 비교: 프론트는 plc dict를 항상 통째로 보내므로 '존재 여부'로
                 #   판정하면 매 적용마다 재연결된다. 재연결 중 수 ms~수백 ms의 미연결 창을
                 #   write 루프가 관측하면 열린 밸브를 전부 닫는다(간헐 사고). 값이 정말
@@ -515,6 +531,10 @@ async def handle_command(data: dict):
                 if plc.plc.is_connected():
                     sv_map, valve_map = {}, {}
                     for c in state.channels:
+                        # ★ write 루프와 같은 필터 — plc=null 채널이 config 에 있으면
+                        #   _valve_coil_of 에 키가 없어 KeyError 로 차단 쓰기 전체가 무산된다.
+                        if not c.get("plc"):
+                            continue
                         p = c.get("plc") or {}
                         if plc_catalog.valve_coil(c["id"]) is not None:
                             valve_map[c["id"]] = False

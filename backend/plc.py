@@ -88,6 +88,15 @@ def config_from_dict(d: dict) -> PlcConfig:
     if out.mode not in ("serial", "tcp"):
         out.mode = "serial"
     out.tcp_port = min(65535, max(1, out.tcp_port))
+    # 방어적 클램프 — config.json 손편집으로도 통신 붕괴 값이 들어오지 못하게 한다.
+    #   heartbeat_s: PLC COMM_TMR(3초)보다 길면 연결하자마자 반복 트립된다.
+    #   gap/timeout: 요청 1건이 락을 (timeout+gap) 만큼 잡는다 — 크면 하트비트가
+    #   밀려 같은 증상. 프론트 검증(recipe.js collectSetup)과 이중 방어이며,
+    #   commands.py apply_setup 도 저장 전에 같은 값으로 클램프한다(범위 동기 유지).
+    out.heartbeat_s = min(2.5, max(0.1, out.heartbeat_s))
+    out.inter_cmd_gap_s = min(1.0, max(0.0, out.inter_cmd_gap_s))
+    out.timeout_s = min(2.5, max(0.1, out.timeout_s))
+    out.reconnect_delay_s = min(60.0, max(0.1, out.reconnect_delay_s))
     return out
 
 
