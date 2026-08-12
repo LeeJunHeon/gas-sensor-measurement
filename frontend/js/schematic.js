@@ -331,6 +331,7 @@ function bindLaneEvents(){
 }
 // 4-Way "방향 전환" 토글: 누르면 기본(sensor)↔전환(vent) 반전. 명령 이름·상태값은 그대로.
 document.getElementById('wayToggle')?.addEventListener('click',()=>{
+  if(window.ctlLocked&&window.ctlLocked()) return;   // 잠금 상태에서는 전송하지 않는다
   window.cmdSet4way(routeOut==='sensor' ? 'vent' : 'sensor');
 });
 
@@ -339,8 +340,10 @@ function updateWayToggle(){
   const b=document.getElementById('wayToggle'); if(!b) return;
   const sen=routeOut==='sensor';          // sen = 혼합(가스)이 센서로 간다
   b.classList.toggle('vent', !sen);
-  b.title = sen ? 'Gas→Sensor / Air→Vent  (클릭: Gas를 Vent로)'
-                : 'Gas→Vent / Air→Sensor · 무전원 기본 위치  (클릭: Gas를 Sensor로)';
+  // 잠금 중이면 접두로 알린다(사유는 PLC 상태 패널·System Log 가 안내).
+  const lk=(window.ctlLocked&&window.ctlLocked())?'[잠김] ':'';
+  b.title = lk + (sen ? 'Gas→Sensor / Air→Vent  (클릭: Gas를 Vent로)'
+                      : 'Gas→Vent / Air→Sensor · 무전원 기본 위치  (클릭: Gas를 Sensor로)');
 }
 
 /* ===================== manifold buses ===================== */

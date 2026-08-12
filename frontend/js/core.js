@@ -124,7 +124,18 @@ function _applyLocks(){
   const w=document.getElementById('wayToggle');
   if(w){ w.disabled=P; w.classList.toggle('locked',P); }
 }
-function applyRunLock(run){ _runLocked=!!run; _applyLocks(); }
+function applyRunLock(run){ _runLocked=!!run; _applyLocks(); refreshCtlLock(); }
+// 수동 조작 잠금(시각) — 서버 게이트와 같은 조건을 화면에 비춘다. 단일 출처.
+//   ★ E-STOP·AUTO STOP·PURGE(중단용)·PROGRAM END 는 이 잠금 대상이 아니다(항상 눌린다).
+window.plcAlarmLock = () => { const L=window.plcLive;
+  const st=(L&&L.status)||{}; return !!(L&&L.connected)&&(st.ALM_MFC===true||st.ALM_DAC===true); };
+window.ctlLocked = () => { const S=window._sys||{};
+  return !!( running || S.safeStop || S.purging || plcSafeStop()
+          || !(window.plcLive&&window.plcLive.connected) || window.plcAlarmLock() ); };
+function refreshCtlLock(){
+  document.getElementById('app')?.classList.toggle('ctl-locked', window.ctlLocked());
+}
+window.refreshCtlLock=refreshCtlLock;
 // PLC\uac00 \uba85\ub839\uc744 \uc218\ud589\ud560 \uc218 \uc788\ub294 \uc0c1\ud0dc(\uc5f0\uacb0 + \uc548\uc804\uc815\uc9c0 \uc544\ub2d8)\uc77c \ub54c\ub9cc \ubb3c\ub9ac \uc870\uc791\uc744 \uc5f0\ub2e4.
 function applyPlcLock(ready, conn){ _plcReady=!!ready; if(conn!==undefined) _plcConn=!!conn; _applyLocks(); }
 // 레시피 AUTO RUN/STOP은 헤더 버튼(.hbtn)만 — SMU 패널 .pbtn.runbig/.stopbig는 비활성이라 미연결.
@@ -289,6 +300,7 @@ function applyState(s){
   }
   }
   if(s.system){
+    window._sys = s.system;        // ctlLocked() 가 참조(safeStop·purging·running)
     if(s.system.routeOut) routeOut=s.system.routeOut;
     uiSetRunning(!!s.system.running);
     if(typeof updateWayToggle==='function') updateWayToggle();   // 4-Way 토글 버튼 모드 표시 갱신
@@ -343,6 +355,7 @@ function applyState(s){
   if(!_recipeEditing) renderRecipe();  // \ub808\uc2dc\ud53c \ud45c \uc7ac\ub80c\ub354
   updateSystem();  // \uc0c1\ub2e8 \ud1b5\uacc4
   applyRunLock(running);   // \uc7ac\ub80c\ub354\ub41c \ubc30\uad00\ub3c4\uc5d0 \uc2e4\ud589\uc911 \uc7a0\uae08 \uc7ac\uc801\uc6a9
+  refreshCtlLock();        // \uc7a0\uae08 \uc2dc\uac01\ud654(\uc2e4\ud589\u00b7E-STOP\u00b7PURGE\u00b7PLC\uc0c1\ud0dc\u00b7\uc54c\ub78c) \uc7ac\uc801\uc6a9
   if(window.refreshMapStatus) window.refreshMapStatus(s.plc_live||null);
 }
 // \ube60\ub978 \uce21\uc815\uac12\ub9cc \uac00\ubccd\uac8c \ubc18\uc601 \u2014 \ubc30\uad00 SVG/\ub808\uc2dc\ud53c\ub97c \uc7ac\ub80c\ub354\ud558\uc9c0 \uc54a\ub294\ub2e4.
@@ -371,7 +384,11 @@ function applyTelemetry(tl){
   // Post-MFC flow now follows measured PV, which arrives here (not on state pushes).
   // Repaints only when the flow key actually flips, so pipe animations are not reset.
   if(typeof refreshLaneFlow==='function') refreshLaneFlow();
-  if(tl.running!=null) applyRunLock(!!tl.running);   // \uc2e4\ud589\uc911 \uc218\ub3d9\uc870\uc791 \uc7a0\uae08 \uc720\uc9c0
+  if(tl.running!=null){
+    if(window._sys) window._sys.running = !!tl.running;
+    applyRunLock(!!tl.running);   // \uc2e4\ud589\uc911 \uc218\ub3d9\uc870\uc791 \uc7a0\uae08 \uc720\uc9c0
+  }
+  refreshCtlLock();
   updateSystem();  // activeCh / totalFlow \ud14d\uc2a4\ud2b8\ub9cc \uac31\uc2e0(\uac00\ubcbc\uc6c0)
 }
 
