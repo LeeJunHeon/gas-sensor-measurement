@@ -128,6 +128,7 @@ async def plc_poll_loop():
 async def plc_write_loop():
     last = None   # (밸브 튜플, SV 튜플, 4way) — 통째로 비교해 바뀔 때만 전송
     prev_plc_safe = False   # PLC 안전정지의 직전 값(전이 감지용)
+    prev_alarm = False      # MFC·DAC 알람의 직전 값(전이 감지용)
     prev_connected = False   # 연결의 직전 값(전이 감지) — 끊김 시 앱 상태도 닫힘으로 정렬
     while True:
         await asyncio.sleep(PLC_WRITE_INTERVAL_S)
@@ -157,6 +158,8 @@ async def plc_write_loop():
             # PLC 안전정지와 파이썬 비상정지(system.safeStop) 둘 다 닫힘 조건이다.
             plc_safe = (state.plc_live.get("status") or {}).get("SAFETY_STOP") is True
             safe = plc_safe or bool(state.system.get("safeStop"))
+            alarm = state.alarm_lock()
+            locked = safe or alarm     # 밸브·SV·4-way 게이트는 알람도 잠근다
             # ★ 전이 감지는 PLC의 SAFETY_STOP에만 반응한다.
             #   파이썬 비상정지는 engine._emergency_off가 이미 valveIn을 닫으므로 중복 처리 불필요.
             # ★ 안전정지 전이(False→True) 시점에 앱 상태(valveIn/sv)도 닫는다.
@@ -176,13 +179,27 @@ async def plc_write_loop():
                                "복구 후 다시 열어야 합니다", "warn")
                 await push_state()
             prev_plc_safe = plc_safe
+            # 알람 전이(False→True): 안전정지와 같은 방식으로 전 채널을 닫는다.
+            #   해제되어도 자동으로 다시 열지 않는다(수동 재투입 원칙).
+            if alarm and not prev_alarm:
+                for ch in state.channels:
+                    ch["valveIn"] = False
+                    ch["sv"] = 0.0
+                state.system["purging"] = False
+                state.system["routeOut"] = "vent"
+                await push_log(f"PLC 알람 활성({state.alarm_names()}) — 전 채널을 닫았습니다"
+                               f"(해제 후에도 자동으로 다시 열리지 않습니다)", "err")
+                await push_state()
+            if (not alarm) and prev_alarm:
+                await push_log("PLC 알람 해제 — 밸브는 닫힘 유지(수동으로 다시 여세요)", "info")
+            prev_alarm = alarm
             valve_map, sv_map = {}, {}
             for ch in state.channels:
                 p = ch.get("plc")
                 if not p:
                     continue                          # 매핑 없는 채널은 제외
                 cid = ch["id"]
-                closed = safe or not ch.get("en")
+                closed = locked or not ch.get("en")
                 # 밸브: 카탈로그에 코일이 있으면 항상 포함.
                 #   ★ en=False여도 반드시 넣어야 한다. 빼면 False가 안 써져서 열린 채로 남는다.
                 if cat.valve_coil(cid) is not None:
@@ -193,11 +210,11 @@ async def plc_write_loop():
             # 4-way: 앱의 측정 방향(routeOut=='sensor')을 반영. 안전정지면 닫기(False).
             # 극성은 config(plc_hw.v4w_on_is_sensor)로 뺐다 — 실기에서 반대로 밝혀져도
             # 코드 수정·재빌드 없이 현장에서 뒤집을 수 있다.
-            # ★ 안전정지 시에는 극성과 무관하게 코일을 끈다(무전원 = 안전 위치라는 가정).
+            # ★ 안전정지·알람 시에는 극성과 무관하게 코일을 끈다(무전원 = 안전 위치라는 가정).
             #   이 가정이 실제 밸브 배관과 맞는지는 실기에서 확인이 필요하다.
             on_is_sensor = bool(state.plc_hw.get("v4w_on_is_sensor", True))
             to_sensor = (state.system.get("routeOut") == "sensor")
-            want_4w = (not safe) and (to_sensor if on_is_sensor else not to_sensor)
+            want_4w = (not locked) and (to_sensor if on_is_sensor else not to_sensor)
             want = (tuple(valve_map.items()), tuple(sv_map.items()), want_4w)
             if last != want:
                 # 순서 중요: SV 먼저 → 밸브 나중.

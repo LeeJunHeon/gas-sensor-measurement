@@ -112,6 +112,12 @@ async def _run_recipe():
             if plc_was_connected and not live.get("connected"):
                 return (f"P{step_no} 진행 중 PLC 통신 두절 — "
                         f"자동 실행을 중단하고 전 채널을 닫았습니다(자동 재개 없음)")
+            # MFC·DAC 알람도 중단 사유다 — 가스가 안 나가거나 지령이 안 실리는 상태에서
+            # 계속 진행하면 측정이 정상 완료된 것처럼 보인다(IDD 단선은 제외).
+            st = (live.get("status") or {})
+            if st.get("ALM_MFC") is True or st.get("ALM_DAC") is True:
+                return (f"P{step_no} 진행 중 PLC 알람 활성 — "
+                        f"자동 실행을 중단하고 전 채널을 닫았습니다(자동 재개 없음)")
             return None
         return check
 

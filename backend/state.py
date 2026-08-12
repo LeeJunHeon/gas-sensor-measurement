@@ -395,6 +395,25 @@ class State:
             # 여기는 동기 컨텍스트라 push_log(async)를 쓸 수 없다 → 파일 로그로 남긴다.
             logger.write("warn", f"config 저장 실패: {e}")
 
+    # ---- 알람 인터록 판정(조작 게이트의 단일 출처) ----
+    # ★ commands·loops 가 state.alarm_lock() 으로 부른다(둘 다 State 인스턴스를 import).
+    def alarm_lock(self) -> bool:
+        """MFC·DAC 알람 활성 여부(연결 중일 때만) — 조작 인터록의 단일 판정.
+        IDD(단선)는 제외: 0~5V 배선에서 4~20mA 단선검출은 오검출 여지가 있어
+        로깅만 한다(실기 신뢰 확인 후 승격 검토)."""
+        st = (self.plc_live.get("status") or {})
+        return bool(self.plc_live.get("connected")) and (
+            st.get("ALM_MFC") is True or st.get("ALM_DAC") is True)
+
+    def alarm_names(self) -> str:
+        st = (self.plc_live.get("status") or {})
+        out = []
+        if st.get("ALM_MFC") is True:
+            out.append("MFC 입력 이상")
+        if st.get("ALM_DAC") is True:
+            out.append("아날로그 출력 이상")
+        return "·".join(out) or "알람"
+
     # ---- 외부로 내보낼 상태 스냅샷 ----
     # 레시피는 "권위 있는 변경"(연결 직후/New/Open/Save) 때만 포함한다.
     # 밸브·4-way·RUN 등 일상 push에는 recipe를 빼서, 편집 중인 레시피 초안을 덮어쓰지 않는다.

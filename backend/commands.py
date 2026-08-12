@@ -69,6 +69,17 @@ async def handle_command(data: dict):
                 await push_log(locked_reason, "warn")
                 return
 
+        # MFC·DAC 알람 인터록 — '신규 조작'만 막는다.
+        #   닫기·SV 0·비상정지·해제·리셋·종료는 통과해야 사람이 상황을 정리할 수 있다.
+        #   (IDD 단선검출은 제외 — state.alarm_lock() 주석 참고)
+        if state.alarm_lock():
+            blocked = (cmd in ("run", "purge", "set_4way")
+                       or (cmd == "set_valve" and bool(data.get("open")))
+                       or (cmd == "set_sv" and to_num(data.get("value"), 0) > 0))
+            if blocked:
+                await push_log(f"PLC 알람 활성({state.alarm_names()}) — 조작이 잠겨 있습니다", "warn")
+                return
+
         # 자동 실행 중에는 수동 채널 조작 차단(엔진과 충돌 방지)
         # ★ set_4way 포함 — 실행 중 방향을 바꾸면 엔진의 준비/측정 전환과 충돌해
         #   측정 구간에 가스가 vent로 빠지는 조용한 오측정이 된다.
