@@ -394,10 +394,19 @@ async def handle_command(data: dict):
                 state.settings = {**state.settings, **data["settings"]}
                 logger.configure(state.settings)   # 변경 즉시 로거 재설정
             plc_changed = isinstance(data.get("plc"), dict)
+            plc_effective_change = False
             if plc_changed:
+                old_plc = dict(state.plc)
                 incoming = {**state.plc, **data["plc"]}
                 # 방어적 보정: unit_id 1~247, heartbeat는 PLC COMM_TMR(3초) 미만이어야 안전
                 incoming["unit_id"] = min(247, max(1, int(to_num(incoming.get("unit_id"), 1)) or 1))
+                # ★ 실효 설정 비교: 프론트는 plc dict를 항상 통째로 보내므로 '존재 여부'로
+                #   판정하면 매 적용마다 재연결된다. 재연결 중 수 ms~수백 ms의 미연결 창을
+                #   write 루프가 관측하면 열린 밸브를 전부 닫는다(간헐 사고). 값이 정말
+                #   바뀌었을 때만 재연결한다. 타입 차이("502" vs 502)는 config_from_dict
+                #   정규화로 흡수된다(dataclass 동등 비교).
+                plc_effective_change = (plc.config_from_dict(incoming)
+                                        != plc.config_from_dict(old_plc))
                 state.plc = incoming
                 plc.configure(state.plc)           # 설정 반영(실제 연결은 재연결로)
             if assign_changed:
@@ -410,9 +419,9 @@ async def handle_command(data: dict):
             plc.load_addresses(state.channels, state.plc_system)   # 채널 plc 변경분 즉시 반영
             state.save_config()
             await push_log("System Setup 적용 — 채널 설정 저장됨", "ok")
-            if plc_changed:
-                await push_log("PLC 통신 설정 저장됨 — 재연결해야 적용됩니다", "info")
-                await plc.plc.reconnect()          # 새 설정으로 재연결(port 비면 no-op)
+            if plc_effective_change:
+                await push_log("PLC 통신 설정 변경 저장됨 — 새 설정으로 재연결합니다", "info")
+                await plc.plc.reconnect()          # port 비면 no-op
             await manager.broadcast({"type": "ack", "of": "apply_setup", "ok": True})
             for n in validate_channel_map(state.channels, state.plc_hw):
                 await push_log("배정 진단 — " + n["msg"], n.get("level", "info"))
