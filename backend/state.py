@@ -62,7 +62,10 @@ DEFAULT_PLC_SYSTEM = {
 DEFAULT_PLC_HW = {
     "dac_modules": 1,           # DV04A 장착 수. 증설하면 2로 올린다
     "v4w_on_is_sensor": True,   # 4-way 코일 ON이 측정(sensor) 방향인가.
-                                # 실기에서 반대면 false로 바꾼다(코드 수정 불필요)
+                                # ★ 확정(2026-08-12): 실물 무전원 위치가 가스→Vent / 에어→Sensor 이고
+                                #   래더가 V4W_OUT = V4W_CMD AND RUN_PERMIT 이라 트립 시 그 위치가 된다
+                                #   → true 가 정답. P48 배선 확인은 현장 검증 항목으로 남아 있다.
+                                #   실기에서 반대면 false로 바꾼다(코드 수정 불필요)
 }
 
 # 스케일 키 기본값(채널 기본값에도 없을 때의 최후 방어값).

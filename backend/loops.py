@@ -141,6 +141,10 @@ async def plc_write_loop():
                         ch["valveIn"] = False
                         ch["sv"] = 0.0
                     state.system["purging"] = False
+                    # 4-way 도 무전원 위치로 되돌린다 — 코일은 이미 OFF(gas→vent)인데
+                    # routeOut 만 남아 있으면 화면이 실제와 다른 방향을 가리킨다.
+                    # 복구 후 기본 방향도 vent 여야 한다(DEC-036).
+                    state.system["routeOut"] = "vent"
                     await push_log("PLC 연결 끊김 — 밸브·유량 설정을 닫힘으로 정렬했습니다. "
                                    "재연결·리셋 후 다시 여세요", "warn")
                     with contextlib.suppress(Exception):
@@ -164,6 +168,10 @@ async def plc_write_loop():
                     ch["valveIn"] = False
                     ch["sv"] = 0.0
                 state.system["purging"] = False
+                # 4-way 도 무전원 위치로 되돌린다 — 코일은 이미 OFF(gas→vent)인데
+                # routeOut 만 남아 있으면 화면이 실제와 다른 방향을 가리킨다.
+                # 복구 후 기본 방향도 vent 여야 한다(DEC-036).
+                state.system["routeOut"] = "vent"
                 await push_log("PLC 안전정지 감지 — 모든 밸브·유량을 닫았습니다. "
                                "복구 후 다시 열어야 합니다", "warn")
                 await push_state()
