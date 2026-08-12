@@ -1,4 +1,11 @@
 /* recipe.js — 레시피 표(procs) + System Setup 모달 */
+// 수집 단계 파서 — validateSetupInputs/셀 검증 '게이트 뒤'에서만 쓴다(값은 이미 숫자 보장).
+// parseFloat 부분 해석을 코드베이스에서 없애기 위한 일원화이며 동작은 불변이다.
+const numOr = (raw, d) => { const v = window.strictNum(raw); return v === null ? d : v; };
+// ★ Math.trunc 는 이전 parseInt 와 같은 결과를 내기 위한 것이다(동작 불변):
+//   parseInt('150.25')=150 이므로 정수 정규식으로 거르면 0 이 되어 값이 바뀐다.
+//   게이트를 통과하는 입력(=전체가 숫자)에서 이전 식과 결과가 완전히 같다.
+const intOr = (raw, d) => { const v = window.strictNum(raw); return v === null ? d : Math.trunc(v); };
 /* ===== System Setup modal ===== */
 const setupOverlay=document.getElementById('setupOverlay');
 function buildSetupRows(){
@@ -325,7 +332,7 @@ function collectSetup(){
     // ★ sv 는 보내지 않는다 — 현재 유량은 배관도 카드에서 조작한다(Setup의 SV 칸은 레거시).
     //   서버 apply_setup 은 키가 없으면 기존 값을 유지한다.
     const row={ch:i, en:enEl.checked, grp, route,
-      max:parseFloat(mxEl.value)||0};
+      max:numOr(mxEl.value, 0)};
     // 스케일·배정은 plc 매핑이 있는 채널만. 밸브 코일은 서버(카탈로그)가 결정하므로 안 보낸다.
     if(c.plc){
       row.id=c.id;
@@ -334,10 +341,10 @@ function collectSetup(){
       if(svEl2) row.sv_out=svEl2.value;
       if(pvEl2) row.pv_in=pvEl2.value;
       row.scale={
-        fs_sccm: parseFloat(document.querySelector(`[data-sfs="${i}"]`)?.value) || 0,
-        sv_full: parseInt(document.querySelector(`[data-svfull="${i}"]`)?.value) || 0,
-        pv_zero: parseInt(document.querySelector(`[data-pvzero="${i}"]`)?.value) || 0,
-        pv_full: parseInt(document.querySelector(`[data-pvfull="${i}"]`)?.value) || 0,
+        fs_sccm: numOr(document.querySelector(`[data-sfs="${i}"]`)?.value, 0),
+        sv_full: intOr(document.querySelector(`[data-svfull="${i}"]`)?.value, 0),
+        pv_zero: intOr(document.querySelector(`[data-pvzero="${i}"]`)?.value, 0),
+        pv_full: intOr(document.querySelector(`[data-pvfull="${i}"]`)?.value, 0),
       };
     }
     chans.push(row);
@@ -575,8 +582,8 @@ function collectRecipe(){
   const name=(window._recipeName||'').trim();   // 이름은 Save as 에서만 정한다
   const useHumidity=document.getElementById('useHumidity').checked;
   const loopCount=+(document.getElementById('loopCount')?.value)||0;
-  const num=id=>parseFloat(document.getElementById(id)?.value)||0;
-  const bottle=[0,1,2,3].map(i=>parseFloat(document.getElementById('b'+i)?.value)||0);
+  const num=id=>numOr(document.getElementById(id)?.value, 0);
+  const bottle=[0,1,2,3].map(i=>numOr(document.getElementById('b'+i)?.value, 0));
   const params={
     vStart:num('vStart'), vEnd:num('vEnd'), vStep:num('vStep'),
     grafInterval:num('grafInt'),

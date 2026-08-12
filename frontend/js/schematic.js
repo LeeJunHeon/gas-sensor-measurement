@@ -185,7 +185,8 @@ function renderLanes(){
    → .pipe.on 흐름 애니메이션이 리셋되지 않는다. 구조/흐름 변경은 renderLanes()로 전체 렌더.
    구조키: DOM 구조에 영향(채널 수/구성/소수자리). 흐름키: 흐름 클래스에 영향(밸브 개폐·4way). */
 function lanesStructKey(){
-  return channels.map(c=>`${c.id}|${c.en?1:0}|${c.grp}|${c.route}|${c.max<=100?1:0}`).join(',');
+  // 소수자리 규칙은 dec() 하나 — 여기서 같은 식을 다시 쓰면 한쪽만 바뀔 수 있다.
+  return channels.map(c=>`${c.id}|${c.en?1:0}|${c.grp}|${c.route}|${dec(c)}`).join(',');
 }
 function lanesFlowKey(){
   // ★ 후단(svOn)도 흐름키에 넣는다 — PV/SV 값만 바뀌어도 표시가 달라지므로,
