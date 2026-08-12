@@ -102,14 +102,20 @@ function buildMapRows(){
     tb.appendChild(tr);
   });
 }
+/* Setup 검증 메시지 — [취소][적용] 줄의 제일 좌측(#setupMsg).
+   ★ 사유를 PLC 섹션 하단(plcNote)에 띄우면 표 위쪽 필드의 문제인지 알 수 없다.
+     plcNote 는 정적 안내문 전용으로 되돌렸다 — 여기 말고 오류를 쓰지 말 것. */
+function setSetupMsg(t){const el=document.getElementById('setupMsg'); if(el) el.textContent=t||'';}
 // 배정 배너 표시/숨김 — 거부 사유와 사전 중복 경고를 모달 안에서 보여준다.
 function showMapErr(text){
   const el=document.getElementById('mapErr'); if(!el) return;
   el.textContent=text; el.style.display='';
+  setSetupMsg((text||'').split('\n')[0]);   // 푸터엔 첫 줄 요약(상세는 배너에 그대로)
 }
 function hideMapErr(){
   const el=document.getElementById('mapErr'); if(!el) return;
   el.textContent=''; el.style.display='none';
+  setSetupMsg('');
 }
 // 폼 값만으로 중복을 미리 잡는다 — 서버 왕복 전에 보이게 해서 헛수고를 줄인다.
 function checkMapDup(){
@@ -188,7 +194,7 @@ document.addEventListener('change', e=>{
 // 서버 판정(ack) 처리 — ok면 닫고, 거부면 모달을 유지한 채 사유를 보여준다.
 window.onSetupAck=function(msg){
   clearTimeout(window._setupPending);
-  if(msg && msg.ok){ closeSetup(); return; }
+  if(msg && msg.ok){ setSetupMsg(''); closeSetup(); return; }
   const probs=(msg&&msg.problems)||[];
   showMapErr(probs.length?probs.join('\n'):'설정이 거부되었습니다 — System Log 를 확인하세요');
   buildMapRows();      // 드롭다운을 서버 상태(원래 값)로 되돌린다
@@ -239,6 +245,7 @@ function openSetup(){
   buildSetupRows();
   // 카탈로그 도착 후 배정 표 렌더(드롭다운). 실패는 표에 명시한다(조용히 넘기지 않는다).
   hideMapErr();
+  setSetupMsg('');            // 지난 번 사유가 남아 있지 않게
   // 스냅샷은 표가 모두 그려진 뒤에 찍는다 — 그 전에 찍으면 렌더 자체가 '변경'으로 잡힌다.
   _setupSnap=null; _mapHasDup=false; updateApplyGate();
   loadPlcCatalog().then(()=>{
@@ -389,9 +396,13 @@ function collectSetup(){
   };
   return {channels:chans, params, settings, plc};
 }
-// MAX·스케일 원문 검증 — 비숫자는 기본값 대체 없이 통째 거부(값이 채널 동작에 직결).
-//   collectSetup 의 to_num 계열은 '1O00' 을 조용히 0/기본값으로 바꿔 저장해 버린다.
-function validateChannelNumbers(){
+/* 입력 '원문' 검증 — 숫자 여부 + 범위까지 여기서 본다.
+   ★ collectSetup 의 pnum/pint 는 범위를 벗어나면 기본값으로 조용히 대체한다(백스톱).
+     그대로 두면 Heartbeat=5 가 1.0 으로 바뀐 뒤 검증(<3)을 통과해 '적용은 됐는데
+     다시 열면 1' 이 된다 — 사용자는 모달 밖 경고를 보지 못한다. 원문 단계에서 거부한다.
+   ★ 빈칸은 허용(기본값 의도), 숨겨진 필드(연결 방식에 따라 감춰진 TCP/시리얼 섹션)는 건너뛴다. */
+function validateSetupInputs(){
+  // 1) 채널 표: 비숫자 거부(값이 채널 동작에 직결)
   const fields=[['data-smax','MAX'],['data-sfs','풀스케일(sccm)'],
     ['data-svfull','SV 풀카운트'],['data-pvzero','PV 영점'],['data-pvfull','PV 풀카운트']];
   for(const [attr,label] of fields){
@@ -404,25 +415,39 @@ function validateChannelNumbers(){
       }
     }
   }
+  // 2) 통신·로그 숫자 필드: 숫자 여부 + 범위
+  const nums=[
+    ['plcTcpPort',   true,  1,   65535, '포트',        ''],
+    ['plcUnitId',    true,  1,   247,   '국번',        ''],
+    ['plcTimeout',   false, 0.1, 2.5,   'Timeout(s)',  ''],
+    ['plcGap',       false, 0,   1.0,   'Cmd Gap(s)',  ''],
+    ['plcHeartbeat', false, 0.1, 2.5,   'Heartbeat(s)','(PLC 통신감시 3초 미만)'],
+    ['plcReconnect', false, 0.1, 60,    'Reconnect(s)',''],
+    ['logKeepDays',  true,  1,   3650,  '로그 보관일수',''],
+  ];
+  for(const [id, isInt, min, max, label, extra] of nums){
+    const el=document.getElementById(id);
+    if(!el || el.offsetParent===null) continue;      // 없거나 숨겨진 필드는 건너뛴다
+    const raw=(el.value||'').trim(); if(raw==='') continue;
+    const v=isInt ? (/^[+-]?\d+$/.test(raw) ? parseInt(raw,10) : null) : window.strictNum(raw);
+    if(v===null) return {ok:false,
+      msg:`${label}: "${raw}" 은(는) ${isInt?'정수가':'숫자가'} 아닙니다`};
+    if(v<min || v>max) return {ok:false,
+      msg:`${label}: "${raw}" — ${min}~${max} 범위여야 합니다${extra}`};
+  }
   return {ok:true};
 }
 function applySetup(){
-  const note0=document.getElementById('plcNote');
-  const nv=validateChannelNumbers();      // ★ collectSetup 전에 — 숫자가 아니면 아예 수집하지 않는다
-  if(!nv.ok){
-    if(note0){ note0.textContent=nv.msg; note0.classList.add('warn'); }
-    return;
-  }
+  setSetupMsg('');                        // 이전 사유 지우고 시작
+  // ★ collectSetup 전에 원문을 본다 — 숫자·범위가 어긋나면 아예 수집하지 않는다
+  //   (pnum/pint 의 조용한 기본값 대체가 끼어들 자리를 없앤다).
+  const nv=validateSetupInputs();
+  if(!nv.ok){ setSetupMsg(nv.msg); return; }
   const {channels:chans, params, settings, plc}=collectSetup();
-  // PLC 통신·채널 스케일 검증 실패 시 저장 막고 경고 표시(모달 유지)
+  // PLC 통신·채널 스케일 검증(백스톱) 실패 시 저장 막고 사유 표시(모달 유지)
   const pv=validatePlc(plc);
   const v=pv.ok ? validateScales(chans) : pv;
-  const note=document.getElementById('plcNote');
-  if(!v.ok){
-    if(note){ note.textContent=v.msg; note.classList.add('warn'); }
-    return;
-  }
-  if(note){ note.textContent='설정 변경은 저장 후 재연결해야 적용됩니다.'; note.classList.remove('warn'); }
+  if(!v.ok){ setSetupMsg(v.msg); return; }
   hideMapErr();
   window.cmdApplySetup(chans, params, settings, plc);
   // sync a few process params into the Auto Process panel inputs for immediate feedback
