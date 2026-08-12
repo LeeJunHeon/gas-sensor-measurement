@@ -173,9 +173,29 @@ function lanesStructKey(){
   return channels.map(c=>`${c.id}|${c.en?1:0}|${c.grp}|${c.route}|${c.max<=100?1:0}`).join(',');
 }
 function lanesFlowKey(){
-  // ★ 후단(svOn)도 흐름키에 넣는다 — PV/SV 값만 바뀌어도 후단 표시가 달라지므로 재렌더해야 한다.
+  // ★ 후단(svOn)·발광(lit)도 흐름키에 넣는다 — PV/SV 값만 바뀌어도 표시가 달라지므로,
+  //   값 변화만으로도 흐름 표시를 다시 계산해야 한다(판정 규칙 자체는 그대로).
   return (plcSafeStop()?'S':'-')+';'+routeOut+';'
-       + channels.map(c=>(eff(c)?1:0)+''+(svOn(c)?1:0)).join('');
+       + channels.map(c=>(eff(c)?1:0)+''+(svOn(c)?1:0)
+                        +''+((flowing(c)&&c.pv>0)?1:0)).join('');
+}
+/* 흐름 클래스만 in-place 로 갈아끼운다(DOM 교체 없음).
+   → 입력에 포커스가 있어 renderLanes()를 보류하는 동안에도 파이프 표시는 최신이 된다.
+   구간 규칙은 renderLanes()의 템플릿과 같은 판정을 쓴다(en 상시 / eff / svOn). */
+function updateLaneFlowClasses(){
+  channels.forEach((c,idx)=>{
+    const lane=lanesEl.querySelector(`.lane[data-idx="${idx}"]`);
+    if(!lane) return;
+    const seg=s=>lane.querySelector(`.pipe[data-seg="${s}"]`);
+    const pre=seg('pre'),  mid=seg('mid'),  post=seg('post');
+    if(pre)  pre.classList.toggle('on', !!c.en);      // 밸브 앞 = en 상시
+    if(mid)  mid.classList.toggle('on', eff(c));      // 밸브 → MFC = 유효 열림
+    if(post) post.classList.toggle('on', svOn(c));    // MFC 이후 = 실측 PV 기준
+    const v=lane.querySelector('.n-valve');
+    if(v){ v.classList.toggle('open', eff(c)); v.classList.toggle('closed', !eff(c)); }
+    const m=lane.querySelector('.n-mfc');
+    if(m) m.classList.toggle('on', eff(c));
+  });
 }
 /* PV는 state push가 아니라 telemetry(초당 5회)로 들어온다. 후단 표시가 실측 PV 기준이 된
    이상, telemetry 틱에서도 흐름키가 바뀌면 다시 그려야 한다 — 안 그리면 PV가 올라와도
@@ -185,12 +205,19 @@ let _lastFlowKey='';
 function refreshLaneFlow(){
   if(!lanesEl.querySelector('.lane')) return;
   const k=lanesFlowKey();
-  if(k===_lastFlowKey) return;
-  // 레인 안의 입력(SV)에 포커스가 있으면 미룬다 — 재렌더는 DOM을 갈아끼워 입력 중인 값을 날린다.
-  if(lanesEl.contains(document.activeElement)
-     && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+  if(k===_lastFlowKey) return;    // 바뀐 게 없으면 아무 것도 하지 않는다(흐름 애니메이션 보존)
   _lastFlowKey=k;
-  renderLanes();
+  // ★ 보류하는 것은 '재렌더(DOM 교체)'뿐이다 — 편집 중이라고 흐름 표시까지 멈추면
+  //   SV 칸에 커서를 둔 채로는 PV 가 올라와도 파이프가 안 켜진다(바깥을 클릭해야 반영).
+  const editing = lanesEl.contains(document.activeElement)
+    && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if(!editing){
+    renderLanes();                // 내부에서 updateLaneValues 없이 새 DOM + drawBuses 까지 수행
+    return;                       // 중복 호출 방지
+  }
+  updateLaneFlowClasses();        // 레인 파이프·밸브·MFC 클래스만 교체
+  updateLaneValues();             // 값 갱신 — 포커스 중인 SV 입력은 내부에서 스킵된다
+  drawBuses();                    // 커넥터·트렁크·버스는 항상 최신으로
 }
 function updateLaneValues(){
   channels.forEach((c,idx)=>{
