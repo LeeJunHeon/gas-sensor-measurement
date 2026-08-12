@@ -10,6 +10,8 @@ const PIPE_PERIOD = '1.1s';       // .pipe.on::after animation 주기
 // ★ 색은 CSS 변수를 그대로 참조한다 — inline SVG 는 문서의 CSS 변수를 상속하므로
 //   style.css 한 곳만 고치면 레인과 배관이 함께 바뀐다(값 복제 금지).
 const COL_OFF = 'var(--pipe-off)';   // = .pipe 기본(비활성) 배경
+// 그 구간을 지나는 채널이 하나도 없을 때(전부 en=false). 닫힘(COL_OFF)보다 연하다.
+const COL_UNUSED = 'var(--pipe-unused)';
 const COL_AIR = 'var(--air)';        // 레인 카드가 --c 로 쓰는 값
 // 가스 레인은 deriveDisplay()가 전부 --g1 을 준다. 채널별로 색을 나누게 되면 여기만 고치면 된다.
 const COL_GAS = { VA5:'var(--g1)', VA6:'var(--g1)', VA7:'var(--g1)', VA8:'var(--g1)' };
@@ -440,6 +442,37 @@ function drawBuses(){
   // 레인을 재배치해도 route(혼합/단독)별 버스가 그대로 따라간다.
   const bys=[];
   capLanes.forEach(l=>{ bys[+l.dataset.idx]=cy(l.querySelector('.endcap')); });
+  /* ── 세로 버스 구조선을 '행 사이 구간'으로 쪼개 그린다 ─────────────────
+     한 줄로 그리면 아무것도 지나지 않는 구간(예: 미배선 VA2 행 ~ 아래 합류점)까지
+     '닫힘' 색으로 진하게 보여 쓰는 배관처럼 읽힌다.
+     구간에 기여하는 채널 = 그 구간을 실제로 지나 합류점(merge)으로 가는 행.
+       · 구간이 합류점보다 위  → 위쪽(작은 y) 행들이 내려오며 지난다
+       · 구간이 합류점보다 아래 → 아래쪽(큰 y) 행들이 올라가며 지난다
+       · 구간이 합류점을 걸치면 → 양쪽 모두 지난다
+     기여 채널이 전부 en=false 면 --pipe-unused(가장 연함), 아니면 기존 닫힘색.
+     ★ '기여 채널이 흐르는 중'인 구간은 아래 흐름 오버레이가 채널색으로 덮어 그린다 —
+       구조선에서 색을 또 계산하면 두 곳이 갈라진다(색 판정 단일 출처 유지). */
+  const busStruct=(rows, merge)=>{
+    const ys0=rows.map(r=>r.y);
+    if(ys0.length<2) return '';
+    // ★ 합류점도 경계로 넣는다 — 안 넣으면 행이 2개일 때 구간 하나가 합류점을 걸쳐
+    //   양쪽 채널을 모두 세고, 위쪽이 미배선이어도 '사용 중'으로 잡힌다.
+    const ys=[...new Set(
+      (merge>Math.min(...ys0)&&merge<Math.max(...ys0)) ? ys0.concat(merge) : ys0
+    )].sort((a,b)=>a-b);
+    if(ys.length<2) return '';
+    let out='';
+    for(let i=0;i<ys.length-1;i++){
+      const y1=ys[i], y2=ys[i+1];
+      const via=rows.filter(r => (y2<=merge) ? (r.y<=y1)
+                               : ((y1>=merge) ? (r.y>=y2) : true));
+      const used=via.some(r=>r.ch&&r.ch.en);
+      out+=fL(bx,y1,bx,y2,used?GREY:COL_UNUSED,'dn',false);
+    }
+    return out;
+  };
+  const busRows=route=>channels
+    .map((c,i)=>(c.route===route&&bys[i]!=null)?{y:bys[i],ch:c}:null).filter(Boolean);
   // ★ 수집 버스·정션·4-way 입력은 전부 MFC '이후' 구간이다 — 판정은 svOn 하나로 통일한다.
   //   (별칭을 두면 한쪽만 고쳐져 선은 회색인데 탭만 색이 남는 어긋남이 생긴다.)
   const pureRows=channels.map((c,i)=>c.route==='pure'?bys[i]:null).filter(v=>v!=null);
@@ -461,10 +494,9 @@ function drawBuses(){
   // AIR (pure) bus — FIXED grey structure across ALL rows + coloured flow only on the FLOWING span.
   // 4-way 신배치: Air 버스는 카드 위(top-center)로 들어간다(ㄱ 모양: 가로 → 아래로 꺾여 top 포트).
   if(pureRows.length>0){
-    const ptop=Math.min(...pureRows), pbot=Math.max(...pureRows);
     const airFeed=`M${bx} ${pureMidRow} H${cCx} V${cCy-r}`;   // 밸브 위쪽 입력점까지
-    // fixed structural line (always, no flow)
-    if(pureRows.length>1) p+=fL(bx,ptop,bx,pbot,GREY,'dn',false);
+    // fixed structural line (always, no flow) — 구간별로 쪼개 미사용 구간을 흐리게
+    p+=busStruct(busRows('pure'), pureMidRow);
     p+=fP(airFeed,pureF.length>0?BLUE:GREY,false);
     if(pureF.length>0){
       const colTop=Math.min(Math.min(...pureF),pureMidRow), colBot=Math.max(Math.max(...pureF),pureMidRow);
@@ -475,7 +507,7 @@ function drawBuses(){
   }
   // GAS (mix) bus — air-dilution segment blue, gas segment red, combined feeder blends by what flows
   if(mixRows.length>0){
-    const mtop=Math.min(...mixRows), mbot=Math.max(...mixRows);
+    const mtop=Math.min(...mixRows);
     // 합류점 = '표시상 가장 위에 있는 가스 행'. 채널 인덱스 순서가 아니라 y로 고른다
     //   — 레인 표시 순서를 바꿔도 공기 구간/가스 구간 경계가 따라온다.
     const gasRowYs=channels.map((c,i)=>c.grp==='gas'?bys[i]:null).filter(v=>v!=null);
@@ -486,8 +518,8 @@ function drawBuses(){
     const airMixFlow=airFlowY.length>0, gasFlow=gasFlowY.length>0;
     const BLEND=COL_BLEND;
     const feedColor=(airMixFlow&&gasFlow)?BLEND:(airMixFlow?BLUE:(gasFlow?RED:GREY));
-    // grey structural bus (always, full span)
-    if(mixRows.length>1) p+=fL(bx,mtop,bx,mbot,GREY,'dn',false);
+    // grey structural bus — 구간별로 쪼개 미사용 구간을 흐리게(합류점 = gas1Y)
+    p+=busStruct(busRows('mix'), gas1Y);
     // air-dilution flow: only from the topmost FLOWING air tap down to the junction
     if(airMixFlow) p+=fL(bx,Math.min(...airFlowY),bx,gas1Y,BLUE,'dn',true);
     // gas flow: only from the junction down to the deepest FLOWING gas tap

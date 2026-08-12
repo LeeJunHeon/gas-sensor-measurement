@@ -8,6 +8,9 @@
     --lanebtn-w:56px; --lanebtn-pad:4px 6px;
     /* 배관 비활성색 — .pipe 와 SVG(schematic.js)가 함께 참조하는 단일 출처. */
     --pipe-off:#bcc6d3;
+    /* 미사용 구간 — 그 구간을 지나는 채널이 하나도 없을 때(전부 미배선/en=false).
+       --pipe-off(닫힘)보다 연하게 해서 '닫혀 있음'과 '아무것도 안 지남'을 구분한다. */
+    --pipe-unused:#dfe4ea;
     /* 폰트: 오프라인 납품 환경을 전제로 Windows 기본 폰트만 쓴다.
        웹폰트(CDN)는 공장 PC에서 로드 실패 → 폴백 불일치로 화면이 깨진다.
        한글은 맑은 고딕이 주력이고, 숫자·영문 고정폭은 Consolas(Vista 이후 기본 탑재). */
