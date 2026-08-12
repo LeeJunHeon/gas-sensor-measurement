@@ -105,6 +105,11 @@ async def handle_command(data: dict):
                 req = v
                 v = min(v, float(c["max"]))
                 c["sv"] = v
+                # 운전 조작 이력 — 화면 System Log 와 파일 로그(logger)에 동시에 남는다.
+                if v <= 0:
+                    await push_log(f"{c['id']}: SV 초기화(0 sccm)", "info")
+                else:
+                    await push_log(f"{c['id']}: SV {v:g} sccm 적용", "info")
                 # 조용히 깎으면 화면 값과 실제 지령이 달라진 걸 모른다 — 클램프됐으면 알린다.
                 if req > v:
                     await push_log(f"{c['id']}: SV {req:g} → {v:g} sccm (MAX 제한)", "warn")
