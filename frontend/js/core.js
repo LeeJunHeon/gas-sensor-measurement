@@ -165,6 +165,16 @@ function logMsg(msg, level){
   }
 }
 document.getElementById('logClear')?.addEventListener('click',()=>{document.getElementById('logBody').innerHTML='';logMsg('\ub85c\uadf8 \uc9c0\uc6c0','info');});
+// System Log \uc804\uccb4\ub97c \ud074\ub9bd\ubcf4\ub4dc\ub85c \u2014 \ud604\uc7a5\uc5d0\uc11c \ub85c\uadf8\ub97c \ud1b5\uc9f8\ub85c \uc62e\uaca8 \ubd99\uc77c \ub54c \uc4f4\ub2e4.
+document.getElementById('logCopy')?.addEventListener('click',async()=>{
+  const b=document.getElementById('logBody'); if(!b) return;
+  const text=[...b.children].map(e=>e.textContent).join('\n');
+  try{ await navigator.clipboard.writeText(text); }
+  catch(_){ // WebView2/\uad8c\ud55c \ud3f4\ubc31
+    const t=document.createElement('textarea'); t.value=text;
+    document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+  logMsg(`\ub85c\uadf8 ${b.children.length}\uc904 \ubcf5\uc0ac\ub428`,'info');
+});
 
 /* ===== System Log \ubaa8\ub2ec (System Setup\uacfc \ub3d9\uc77c\ud55c \uad6c\uc870) ===== */
 const logModal=document.getElementById('logModal');
