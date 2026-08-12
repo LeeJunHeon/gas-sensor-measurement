@@ -406,8 +406,8 @@
   .pbtn:hover{filter:brightness(.96)}
   .ptbspace{flex:1}
   .ptoolbar .addbtn{flex:0 0 auto}
-  .recname{flex:1;font-family:var(--font-mono);font-size:12px;color:#1d6b5f;background:#dff1ed;border:1px solid #b6ddd4;border-radius:5px;padding:8px 12px}
-  .recname:focus{outline:none;border-color:var(--pv);background:#fff}
+  .field{flex:1;font-family:var(--font-mono);font-size:12px;color:#1d6b5f;background:#dff1ed;border:1px solid #b6ddd4;border-radius:5px;padding:8px 12px}
+  .field:focus{outline:none;border-color:var(--pv);background:#fff}
   .chk{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ink-dim);cursor:pointer;white-space:nowrap}
   .chk input{width:15px;height:15px;accent-color:var(--primary);cursor:pointer}
 

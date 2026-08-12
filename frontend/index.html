@@ -139,7 +139,7 @@
               <div class="frow"><label>측정 CH 범위</label><span class="chrange"><input class="fin" id="chFrom" value="1" disabled><span style="color:var(--ink-faint)">~</span><input class="fin" id="chTo" value="1" disabled></span></div>
               <div class="frow"><label>Graph Interval (sec)</label><input class="fin" id="grafInt" value="1" disabled></div>
               <div class="frow"><label>Graph File</label><span style="display:flex;gap:6px"><button class="pbtn ghost" style="padding:5px 11px" disabled>New</button><button class="pbtn open" style="padding:5px 11px" disabled>Open</button></span></div>
-              <input class="recname mono" style="flex:none" id="grafFile" value="" placeholder="그래프 파일 이름" disabled>
+              <input class="field mono" style="flex:none" id="grafFile" value="" placeholder="그래프 파일 이름" disabled>
               <div style="height:1px;background:var(--line);margin:2px 0"></div>
               <div class="frow"><label style="font-weight:700;color:var(--mix)">RH (%) 현재값</label><span class="mono" id="rhProc" style="font-weight:700;color:var(--mix);font-size:15px">—</span></div>
             </div>
@@ -248,7 +248,7 @@
             </div>
             <div class="setup-row">
               <span class="setup-lbl">저장 폴더</span>
-              <input class="recname mono" id="logDir" style="flex:1" placeholder="logs (또는 절대경로)">
+              <input class="field mono" id="logDir" style="flex:1" placeholder="logs (또는 절대경로)">
             </div>
             <div class="setup-row">
               <span class="setup-lbl">기록 레벨</span>
@@ -258,7 +258,7 @@
                 <option value="err">오류만</option>
               </select>
               <span class="setup-lbl" style="margin-left:12px">보관일수</span>
-              <input class="recname mono" id="logKeepDays" style="width:70px" placeholder="30">
+              <input class="field mono" id="logKeepDays" style="width:70px" placeholder="30">
             </div>
           </div>
 
@@ -271,17 +271,17 @@
                 <option value="tcp">TCP</option>
               </select>
               <span class="setup-lbl" style="margin-left:12px">국번(Unit ID)</span>
-              <input class="recname mono" id="plcUnitId" style="width:60px" placeholder="1">
+              <input class="field mono" id="plcUnitId" style="width:60px" placeholder="1">
             </div>
             <div class="setup-row plc-tcp-only">
               <span class="setup-lbl">Host</span>
-              <input class="recname mono" id="plcHost" style="flex:1" placeholder="127.0.0.1">
+              <input class="field mono" id="plcHost" style="flex:1" placeholder="127.0.0.1">
               <span class="setup-lbl" style="margin-left:12px">Port</span>
-              <input class="recname mono" id="plcTcpPort" style="width:80px" placeholder="502">
+              <input class="field mono" id="plcTcpPort" style="width:80px" placeholder="502">
             </div>
             <div class="setup-row plc-serial-only">
               <span class="setup-lbl">PLC 연결 포트</span>
-              <input class="recname mono" id="plcPort" list="plcPortList" style="flex:1" placeholder="COM3 (또는 /dev/ttyUSB0)">
+              <input class="field mono" id="plcPort" list="plcPortList" style="flex:1" placeholder="COM3 (또는 /dev/ttyUSB0)">
               <datalist id="plcPortList"></datalist>
               <button type="button" class="cancel" id="plcPortsRefresh" style="padding:4px 10px">↻ 포트</button>
             </div>
@@ -305,13 +305,13 @@
             <div class="setup-row">
               <span class="setup-lbl">고급</span>
               <span class="setup-lbl">Timeout(s)</span>
-              <input class="recname mono" id="plcTimeout" style="width:66px" placeholder="1.5">
+              <input class="field mono" id="plcTimeout" style="width:66px" placeholder="1.5">
               <span class="setup-lbl" style="margin-left:8px">Cmd Gap(s)</span>
-              <input class="recname mono" id="plcGap" style="width:66px" placeholder="0.1">
+              <input class="field mono" id="plcGap" style="width:66px" placeholder="0.1">
               <span class="setup-lbl" style="margin-left:8px">Heartbeat(s)</span>
-              <input class="recname mono" id="plcHeartbeat" style="width:66px" placeholder="1.0">
+              <input class="field mono" id="plcHeartbeat" style="width:66px" placeholder="1.0">
               <span class="setup-lbl" style="margin-left:8px">Reconnect(s)</span>
-              <input class="recname mono" id="plcReconnect" style="width:66px" placeholder="1.0">
+              <input class="field mono" id="plcReconnect" style="width:66px" placeholder="1.0">
             </div>
             <div class="setup-row">
               <span class="setup-note" id="plcNote">설정 변경은 저장 후 재연결해야 적용됩니다.</span>
@@ -348,7 +348,7 @@
         </div>
         <div class="modal-body">
           <div id="promptMsg" style="font-size:12px;color:var(--ink-faint);margin-bottom:8px"></div>
-          <input class="recname mono" id="saveNameInput" style="width:100%" placeholder="레시피 이름" autocomplete="off">
+          <input class="field mono" id="saveNameInput" style="width:100%" placeholder="레시피 이름" autocomplete="off">
           <div id="saveNameWarn" style="font-size:11.5px;color:#b3261e;margin-top:6px;min-height:14px"></div>
         </div>
         <div class="modal-foot">

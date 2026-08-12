@@ -211,6 +211,26 @@ function buildScaleRows(){
     tb.appendChild(tr);
   });
 }
+/* Setup 모달 입력의 브라우저 자동완성을 끈다.
+   ★ 실제 사고: PLC Port 칸이 저절로 502 → 5024 → 5025 로 바뀌었다. 서버가 덮어쓴 게 아니라
+     브라우저가 과거 입력 이력을 후보로 띄우고, 그게 확정되면서 저장까지 된 것이다.
+   ★ 크로미움은 autocomplete="off" 를 무시할 때가 있다 — 이력 매칭의 열쇠인 name 을
+     'setup-<id>' 같은 고유값으로 바꿔 매칭 자체를 끊는 것이 핵심이다.
+   ★ 동적으로 그려지는 배정·스케일 표에도 적용되도록 표를 만든 뒤에도 부른다. */
+function hardenSetupInputs(){
+  if(!setupOverlay) return;
+  setupOverlay.querySelectorAll('input,textarea').forEach(el=>{
+    el.setAttribute('autocomplete','off');
+    el.setAttribute('autocorrect','off');
+    el.setAttribute('autocapitalize','off');
+    el.setAttribute('spellcheck','false');
+    if(!el.name || !el.name.startsWith('setup-'))
+      el.name = 'setup-' + (el.id || el.getAttribute('data-sfs') || Math.random().toString(36).slice(2));
+  });
+  // 숫자 필드: 모바일/터치 키패드 + 입력 의도 명시(값 검증은 collectSetup 이 한다).
+  ['plcUnitId','plcTcpPort','plcTimeout','plcGap','plcHeartbeat','plcReconnect','logKeepDays']
+    .forEach(id=>{const e=document.getElementById(id); if(e) e.setAttribute('inputmode','numeric');});
+}
 function openSetup(){
   // 모달이 열려 있는 동안에는 applyState 가 폼을 덮지 않는다(편집 롤백 방지) —
   //   대신 여는 순간 1회만 최신 서버값으로 채운다. 게이트 스냅샷은 이 뒤에 찍힌다.
@@ -223,6 +243,7 @@ function openSetup(){
   _setupSnap=null; _mapHasDup=false; updateApplyGate();
   loadPlcCatalog().then(()=>{
     buildMapRows(); window.refreshMapStatus(undefined);
+    hardenSetupInputs();                        // 표가 그려진 뒤 새 입력에도 적용
     _setupSnap=snapSetup(); checkMapDup();      // checkMapDup 안에서 게이트가 갱신된다
   }).catch(e=>{
     console.error('[plc_catalog] 조회 실패 — 배정 표를 표시할 수 없습니다', e);
@@ -230,6 +251,7 @@ function openSetup(){
     _setupSnap=snapSetup(); updateApplyGate();
   });
   buildScaleRows();
+  hardenSetupInputs();
   if(window.cmdPlcPorts) window.cmdPlcPorts();   // 사용 가능한 시리얼 포트 목록 요청(드롭다운 채우기)
   window.plcSyncModeFields();                     // 연결 방식에 맞는 필드만 표시
   setupOverlay.classList.add('on');
@@ -317,28 +339,47 @@ function collectSetup(){
   // — 죽은 값을 config에 저장하면 나중에 '설정했는데 왜 안 되나' 오해를 부른다.
   //   backend의 params 키 자체는 스냅샷 하위호환으로 남아 있다.
   const params={};
+  /* 숫자 파서 — 범위 밖/해석 불가 값을 '조용히' 기본값으로 되돌리지 않고 경고를 남긴다.
+     조용히 되돌리면 사용자는 자기가 넣은 값이 적용된 줄 알고, 나중에 통신이 안 되는 이유를
+     찾지 못한다(자동완성이 엉뚱한 포트를 넣었던 사고와 같은 계열의 문제다).
+     빈 칸은 '지우고 기본값으로' 라는 의도로 보고 경고하지 않는다. */
+  const _fix=(label,raw,d)=>{
+    if(window.logMsg) window.logMsg(`${label} 값이 올바르지 않습니다 — ${d} 로 되돌림 (입력: "${raw}")`,'warn');
+    return d;
+  };
+  const _pick=(id,d,min,max,label,parse)=>{
+    const el=document.getElementById(id);
+    const raw=(el?.value ?? '').trim();
+    if(raw==='') return d;                       // 빈 칸 → 기본값(경고 없음)
+    const v=parse(raw);
+    if(isNaN(v)) return _fix(label,raw,d);
+    if(min!=null && v<min) return _fix(label,raw,d);
+    if(max!=null && v>max) return _fix(label,raw,d);
+    return v;
+  };
+  const pnum=(id,d,min,max,label)=>_pick(id,d,min,max,label||id,s=>parseFloat(s));
+  const pint=(id,d,min,max,label)=>_pick(id,d,min,max,label||id,s=>parseInt(s,10));
   const settings={
     logEnabled: !!document.getElementById('logEnabled')?.checked,
     logDir: (document.getElementById('logDir')?.value || 'logs').trim(),
     logLevel: document.getElementById('logLevel')?.value || 'info',
-    logKeepDays: parseInt(document.getElementById('logKeepDays')?.value, 10) || 30,
+    logKeepDays: pint('logKeepDays', 30, 1, 3650, '로그 보관일수'),
   };
-  const pnum=(id,d)=>{const v=parseFloat(document.getElementById(id)?.value); return isNaN(v)?d:v;};
-  const pint=(id,d)=>{const v=parseInt(document.getElementById(id)?.value,10); return isNaN(v)?d:v;};
   const plc={
     mode: document.getElementById('plcMode')?.value || 'serial',
     host: (document.getElementById('plcHost')?.value || '127.0.0.1').trim(),
-    tcp_port: pint('plcTcpPort', 502),
+    tcp_port: pint('plcTcpPort', 502, 1, 65535, '포트'),
     port: (document.getElementById('plcPort')?.value || '').trim(),
-    baudrate: pint('plcBaud', 115200),
-    bytesize: pint('plcBytesize', 8),
-    stopbits: pint('plcStopbits', 1),
+    baudrate: pint('plcBaud', 115200, 1200, 921600, '통신 속도'),
+    bytesize: pint('plcBytesize', 8, 5, 8, '데이터 비트'),
+    stopbits: pint('plcStopbits', 1, 1, 2, '정지 비트'),
     parity: document.getElementById('plcParity')?.value || 'N',
-    unit_id: pint('plcUnitId', 1),
-    timeout_s: pnum('plcTimeout', 1.5),
-    inter_cmd_gap_s: pnum('plcGap', 0.1),
-    heartbeat_s: pnum('plcHeartbeat', 1.0),
-    reconnect_delay_s: pnum('plcReconnect', 1.0),
+    unit_id: pint('plcUnitId', 1, 1, 247, '국번'),
+    timeout_s: pnum('plcTimeout', 1.5, 0.1, 60, 'Timeout(s)'),
+    inter_cmd_gap_s: pnum('plcGap', 0.1, 0, 5, 'Cmd Gap(s)'),
+    // ★ 하트비트는 PLC COMM_TMR(3초) 미만이어야 통신두절 트립을 막는다.
+    heartbeat_s: pnum('plcHeartbeat', 1.0, 0.1, 2.5, 'Heartbeat(s)'),
+    reconnect_delay_s: pnum('plcReconnect', 1.0, 0.1, 60, 'Reconnect(s)'),
   };
   return {channels:chans, params, settings, plc};
 }
