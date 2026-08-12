@@ -63,6 +63,24 @@ class PlcConfig:
     reconnect_delay_s: float = 1.0
 
 
+# 통신 파라미터 허용 범위 — config_from_dict(실효값)와 commands.apply_setup(저장값)이
+# 함께 쓰는 단일 출처. ★ 프론트 recipe.js validateSetupInputs 의 범위표와 값이 같아야
+# 한다(계층 경계라 코드 공유 불가 — 바꾸면 양쪽 함께).
+#   heartbeat/timeout/gap 근거: PLC COMM_TMR 3초 — 요청 1건이 락을 (timeout+gap) 만큼
+#   잡으므로 하트비트가 3초 안에 나가려면 이 상한이 필요하다.
+PLC_COMM_LIMITS = {
+    "heartbeat_s":       (0.1, 2.5),
+    "inter_cmd_gap_s":   (0.0, 1.0),
+    "timeout_s":         (0.1, 2.5),
+    "reconnect_delay_s": (0.1, 60.0),
+}
+
+
+def clamp_comm(key: str, v: float) -> float:
+    lo, hi = PLC_COMM_LIMITS[key]
+    return min(hi, max(lo, v))
+
+
 def config_from_dict(d: dict) -> PlcConfig:
     """dict(state.plc)에서 PlcConfig 생성. 알 수 없는 키는 무시, 타입은 안전 변환."""
     d = d or {}
@@ -91,14 +109,9 @@ def config_from_dict(d: dict) -> PlcConfig:
         out.mode = "serial"
     out.tcp_port = min(65535, max(1, out.tcp_port))
     # 방어적 클램프 — config.json 손편집으로도 통신 붕괴 값이 들어오지 못하게 한다.
-    #   heartbeat_s: PLC COMM_TMR(3초)보다 길면 연결하자마자 반복 트립된다.
-    #   gap/timeout: 요청 1건이 락을 (timeout+gap) 만큼 잡는다 — 크면 하트비트가
-    #   밀려 같은 증상. 프론트 검증(recipe.js collectSetup)과 이중 방어이며,
-    #   commands.py apply_setup 도 저장 전에 같은 값으로 클램프한다(범위 동기 유지).
-    out.heartbeat_s = min(2.5, max(0.1, out.heartbeat_s))
-    out.inter_cmd_gap_s = min(1.0, max(0.0, out.inter_cmd_gap_s))
-    out.timeout_s = min(2.5, max(0.1, out.timeout_s))
-    out.reconnect_delay_s = min(60.0, max(0.1, out.reconnect_delay_s))
+    #   범위·근거는 PLC_COMM_LIMITS 참조(commands.apply_setup 도 저장 전에 같은 표를 쓴다).
+    for _k in PLC_COMM_LIMITS:
+        setattr(out, _k, clamp_comm(_k, getattr(out, _k)))
     return out
 
 

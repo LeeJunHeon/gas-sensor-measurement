@@ -428,12 +428,11 @@ async def handle_command(data: dict):
                 incoming = {**state.plc, **data["plc"]}
                 # 방어적 보정: unit_id 1~247, heartbeat는 PLC COMM_TMR(3초) 미만이어야 안전
                 incoming["unit_id"] = min(247, max(1, int(to_num(incoming.get("unit_id"), 1)) or 1))
-                # ★ config.json 자체도 정상 범위로 유지한다(값은 plc.config_from_dict 와 동일 —
-                #   한쪽만 바꾸면 저장값과 실효값이 갈라진다).
-                incoming["heartbeat_s"] = min(2.5, max(0.1, to_num(incoming.get("heartbeat_s"), 1.0)))
-                incoming["inter_cmd_gap_s"] = min(1.0, max(0.0, to_num(incoming.get("inter_cmd_gap_s"), 0.1)))
-                incoming["timeout_s"] = min(2.5, max(0.1, to_num(incoming.get("timeout_s"), 1.5)))
-                incoming["reconnect_delay_s"] = min(60.0, max(0.1, to_num(incoming.get("reconnect_delay_s"), 1.0)))
+                # ★ config.json 자체도 정상 범위로 유지한다 — 범위는 plc.PLC_COMM_LIMITS
+                #   단일 출처(실효값을 만드는 config_from_dict 와 같은 표라 갈라지지 않는다).
+                for _k, _d in (("heartbeat_s", 1.0), ("inter_cmd_gap_s", 0.1),
+                               ("timeout_s", 1.5), ("reconnect_delay_s", 1.0)):
+                    incoming[_k] = plc.clamp_comm(_k, to_num(incoming.get(_k), _d))
                 # ★ 실효 설정 비교: 프론트는 plc dict를 항상 통째로 보내므로 '존재 여부'로
                 #   판정하면 매 적용마다 재연결된다. 재연결 중 수 ms~수백 ms의 미연결 창을
                 #   write 루프가 관측하면 열린 밸브를 전부 닫는다(간헐 사고). 값이 정말

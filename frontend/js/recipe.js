@@ -416,6 +416,7 @@ function validateSetupInputs(){
     }
   }
   // 2) 통신·로그 숫자 필드: 숫자 여부 + 범위
+  // ★ backend plc.PLC_COMM_LIMITS 와 페어 — 바꾸면 양쪽 함께
   const nums=[
     ['plcTcpPort',   true,  1,   65535, '포트',        ''],
     ['plcUnitId',    true,  1,   247,   '국번',        ''],
