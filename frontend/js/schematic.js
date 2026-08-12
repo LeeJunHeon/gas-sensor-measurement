@@ -1,5 +1,13 @@
 /* schematic.js — 배관도(채널/밸브) 렌더 + 이벤트 + drawBuses.
    다른 파일 함수는 window.* 노출분을 사용. 전역 노출/초기화는 core.js가 담당. */
+/* 전체 문자열이 숫자일 때만 값을 돌려준다. parseFloat('10O0')=10 같은 부분 해석과
+   +('12a')||0 = 0 같은 조용한 대체가, 운전자가 의도하지 않은 유량·스케일을 만든 사고의
+   원인이었다(자동완성 사고와 같은 계열 — DEC-041 "입력한 값 그대로가 아니면 나가지 않는다").
+   ★ 이 파일이 첫 스크립트라 여기서 정의한다(recipe.js·core.js·app.js가 뒤따라 로드된다). */
+window.strictNum = function(s){
+  s = String(s==null?'':s).trim();
+  return /^[+-]?(\d+\.?\d*|\.\d+)$/.test(s) ? parseFloat(s) : null;
+};
 /* ── PIPE DESIGN TOKENS — style.css 의 .pipe 계열과 동기(★한쪽만 바꾸지 말 것) ──
    .pipe{height:5px;background:#bcc6d3}
    .pipe.on{background:var(--c)} / .pipe.on::after{ 흰 5px + 17px 간격(주기 22px), 1.1s linear }
@@ -262,8 +270,12 @@ function bindLaneEvents(){
   const svApply=idx=>{
     const el=svInput(idx), c=channels[idx]; if(!el||!c) return;
     const raw=(el.value||'').trim();
-    const v=parseFloat(raw);
-    if(raw==='' || isNaN(v)){ svRevert(idx); return; }   // 빈값·오타는 원값 복귀
+    if(raw===''){ svRevert(idx); return; }               // 빈값 = 입력 취소(경고 없음)
+    const v=window.strictNum(raw);
+    if(v===null){    // '10O0' 같은 부분 숫자 차단 — 조용히 10 이 적용되던 자리다
+      window.logMsg(`${c.id}: "${raw}" — 숫자가 아니므로 적용하지 않았습니다`, 'err');
+      svRevert(idx); return;
+    }
     // ★ MAX 초과는 전송하지 않는다 — 자동 클램프(예: 400→200)는 운전자가 의도하지 않은
     //   값을 조용히 흘려보내므로 금지. 서버의 클램프는 백스톱으로만 남는다.
     if(v > (+c.max||0)){
@@ -281,10 +293,11 @@ function bindLaneEvents(){
   document.querySelectorAll('[data-sv]').forEach(inp=>{
     inp.addEventListener('input',e=>{
       const idx=+e.target.dataset.sv, c=channels[idx]; if(!c) return;
-      const v=+e.target.value||0;
-      const over=v > (+c.max||0);
+      // 비숫자는 초과도 미적용도 아니다 — 표식 없이 두고 [적용] 시점에 거부한다.
+      const v=window.strictNum(e.target.value);
+      const over=v!==null && v > (+c.max||0);
       e.target.classList.toggle('over', over);                    // 초과(빨강)가 우선
-      e.target.classList.toggle('pending', !over && v!==c.sv);    // 미적용(주황)
+      e.target.classList.toggle('pending', v!==null && !over && v!==c.sv);   // 미적용(주황)
       svSyncGo(idx, over);   // 초과 동안 [적용] 비활성 → 해제되면 즉시 복구
     });
     inp.addEventListener('keydown',e=>{

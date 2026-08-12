@@ -357,8 +357,12 @@ function collectSetup(){
     if(max!=null && v>max) return _fix(label,raw,d);
     return v;
   };
-  const pnum=(id,d,min,max,label)=>_pick(id,d,min,max,label||id,s=>parseFloat(s));
-  const pint=(id,d,min,max,label)=>_pick(id,d,min,max,label||id,s=>parseInt(s,10));
+  // ★ 전체가 숫자일 때만 받는다 — parseFloat('1.5x')=1.5 처럼 부분 해석되면
+  //   운전자가 넣지 않은 값이 조용히 저장된다.
+  const pnum=(id,d,min,max,label)=>_pick(id,d,min,max,label||id,
+    s=>{const v=window.strictNum(s); return v===null?NaN:v;});
+  const pint=(id,d,min,max,label)=>_pick(id,d,min,max,label||id,
+    s=>/^[+-]?\d+$/.test(s.trim())?parseInt(s,10):NaN);
   const settings={
     logEnabled: !!document.getElementById('logEnabled')?.checked,
     logDir: (document.getElementById('logDir')?.value || 'logs').trim(),
@@ -375,15 +379,40 @@ function collectSetup(){
     stopbits: pint('plcStopbits', 1, 1, 2, '정지 비트'),
     parity: document.getElementById('plcParity')?.value || 'N',
     unit_id: pint('plcUnitId', 1, 1, 247, '국번'),
-    timeout_s: pnum('plcTimeout', 1.5, 0.1, 60, 'Timeout(s)'),
-    inter_cmd_gap_s: pnum('plcGap', 0.1, 0, 5, 'Cmd Gap(s)'),
+    // ★ 요청 1건이 락을 (timeout + gap) 만큼 잡는다 — 그동안 하트비트가 밀리면
+    //   PLC COMM_TMR(3초) 트립이 난다. 상한을 그 안쪽으로 묶는다.
+    timeout_s: pnum('plcTimeout', 1.5, 0.1, 2.5, 'Timeout(s)'),
+    inter_cmd_gap_s: pnum('plcGap', 0.1, 0, 1.0, 'Cmd Gap(s)'),
     // ★ 하트비트는 PLC COMM_TMR(3초) 미만이어야 통신두절 트립을 막는다.
     heartbeat_s: pnum('plcHeartbeat', 1.0, 0.1, 2.5, 'Heartbeat(s)'),
     reconnect_delay_s: pnum('plcReconnect', 1.0, 0.1, 60, 'Reconnect(s)'),
   };
   return {channels:chans, params, settings, plc};
 }
+// MAX·스케일 원문 검증 — 비숫자는 기본값 대체 없이 통째 거부(값이 채널 동작에 직결).
+//   collectSetup 의 to_num 계열은 '1O00' 을 조용히 0/기본값으로 바꿔 저장해 버린다.
+function validateChannelNumbers(){
+  const fields=[['data-smax','MAX'],['data-sfs','풀스케일(sccm)'],
+    ['data-svfull','SV 풀카운트'],['data-pvzero','PV 영점'],['data-pvfull','PV 풀카운트']];
+  for(const [attr,label] of fields){
+    for(const el of document.querySelectorAll(`[${attr}]`)){
+      const raw=(el.value||'').trim(); if(raw==='') continue;   // 빈칸=기본/기존값 의도
+      if(window.strictNum(raw)===null){
+        const i=+el.getAttribute(attr);
+        const id=(channels[i]||{}).id||('CH'+(i+1));
+        return {ok:false, msg:`${id} ${label}: "${raw}" 은(는) 숫자가 아닙니다`};
+      }
+    }
+  }
+  return {ok:true};
+}
 function applySetup(){
+  const note0=document.getElementById('plcNote');
+  const nv=validateChannelNumbers();      // ★ collectSetup 전에 — 숫자가 아니면 아예 수집하지 않는다
+  if(!nv.ok){
+    if(note0){ note0.textContent=nv.msg; note0.classList.add('warn'); }
+    return;
+  }
   const {channels:chans, params, settings, plc}=collectSetup();
   // PLC 통신·채널 스케일 검증 실패 시 저장 막고 경고 표시(모달 유지)
   const pv=validatePlc(plc);
@@ -439,16 +468,51 @@ function renderRecipe(){
   bindRecipe();
 }
 function bindRecipe(){
+  // ★ 셀에 비숫자가 들어오면 조용히 0 으로 바꾸지 않는다 — '5OO' 이 0 이 되면
+  //   그 단계의 가스가 통째로 빠진 채 실행된다. 경고하고 이전 값으로 되돌린다.
+  const cellReject=(el,label,prev)=>{
+    window.logMsg(`${label}: "${el.value}" — 숫자가 아니므로 되돌렸습니다`, 'warn');
+    el.value=prev;
+  };
   recipeBody.querySelectorAll('[data-g]').forEach(inp=>inp.addEventListener('change',e=>{
-    const [i,gi]=e.target.dataset.g.split('-').map(Number); procs[i].g[gi]=+e.target.value||0;
-    e.target.parentElement.classList.toggle('zero',(+e.target.value||0)===0);
+    const [i,gi]=e.target.dataset.g.split('-').map(Number);
+    const v=window.strictNum(e.target.value);
+    if(v===null){ cellReject(e.target, `P${i+1} 가스${gi+1}`, procs[i].g[gi]); return; }
+    procs[i].g[gi]=v;
+    e.target.parentElement.classList.toggle('zero', v===0);
   }));
   recipeBody.querySelectorAll('[data-f]').forEach(inp=>inp.addEventListener('change',e=>{
-    const [k,i]=e.target.dataset.f.split('-'); procs[+i][k]=+e.target.value||0;
+    const [k,i]=e.target.dataset.f.split('-');
+    const v=window.strictNum(e.target.value);
+    if(v===null){ cellReject(e.target, `P${(+i)+1} ${k}`, procs[+i][k]); return; }
+    procs[+i][k]=v;
   }));
   recipeBody.querySelectorAll('[data-rep]').forEach(cb=>cb.addEventListener('change',e=>{procs[+e.target.dataset.rep].rep=e.target.checked;}));
   recipeBody.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{procs.splice(+e.target.dataset.del,1);renderRecipe();}));
 }
+// 봄베 농도·Loop Count 도 같은 규칙 — 비숫자는 조용히 0/1 로 바뀌지 않게 한다.
+//   봄베가 0 이 되면 희석 계산이 통째로 어긋나고, Loop 가 0 이 되면 실행이 즉시 끝난다.
+[0,1,2,3].forEach(i=>{
+  const el=document.getElementById('b'+i);
+  el?.addEventListener('change',()=>{
+    const raw=(el.value||'').trim();
+    if(raw==='') return;                      // 빈칸 = 사용 안 함(기존 의미 유지)
+    if(window.strictNum(raw)===null){
+      window.logMsg(`봄베 ${i+1} 농도: "${raw}" — 숫자가 아니므로 지웠습니다`, 'warn');
+      el.value='';
+    }
+  });
+});
+(()=>{
+  const el=document.getElementById('loopCount');
+  let prev=el?el.value:'1';
+  el?.addEventListener('change',()=>{
+    const raw=(el.value||'').trim();
+    if(/^\d+$/.test(raw)){ prev=raw; return; }   // 정수만 허용
+    window.logMsg(`Loop Count: "${raw}" — 정수가 아니므로 되돌렸습니다`, 'warn');
+    el.value=prev;
+  });
+})();
 document.getElementById('addProc').addEventListener('click',()=>{
   // 표 편집은 로컬 초안(draft). 저장(Save as) 시 서버로 레시피 전체를 보낸다.
   procs.push({flow:1000, rh:40, g:[0,0,0,0], prep:600, meas:300, rep:false}); renderRecipe();
