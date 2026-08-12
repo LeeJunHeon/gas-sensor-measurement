@@ -69,17 +69,13 @@ def _apply_setpoints(sv: dict):
 def _all_close():
     """자동 진행이 끝나면(정상 완료·STOP 공통) 가스를 차단한다 — 모든 SV=0, 모든 밸브 닫힘.
     이전 규칙('유량 유지')은 자리를 비운 사이 가스가 계속 소모되는 문제로 폐기했다."""
-    for c in state.channels:
-        c["sv"] = 0.0
-        c["valveIn"] = False
+    state.close_all_channels()
     # 진행이 끝나면 4-way도 안전 방향(vent)으로 되돌린다 — 다음 준비 단계의 기본 상태.
     state.system["routeOut"] = "vent"
 
 
 def _emergency_off():
-    for c in state.channels:
-        c["sv"] = 0.0
-        c["valveIn"] = False
+    state.close_all_channels()
 
 
 async def _run_recipe():
@@ -100,22 +96,21 @@ async def _run_recipe():
 
     # PLC 감시 기준: 시작 시점에 연결돼 있었는가.
     # PLC를 아예 안 쓰는 개발/시뮬 환경에서는 통신 감시를 하지 않는다(모듈 상태 없이 지역 변수로).
-    plc_was_connected = bool((state.plc_live or {}).get("connected"))
+    plc_was_connected = state.plc_connected()
 
     def _plc_abort_for(step_no: int):
         def check():
-            live = state.plc_live or {}
+            # ★ 상태 판정은 전부 state 헬퍼를 쓴다 — plc_live dict 를 여기서 다시 파지 않는다.
             # ★ 로그는 사건과 조치만 적는다 — '이 측정은 무효' 같은 판단은 사람의 몫이다.
-            if (live.get("status") or {}).get("SAFETY_STOP") is True:
+            if state.plc_safety_stop():
                 return (f"P{step_no} 진행 중 PLC 안전정지 감지 — "
                         f"자동 실행을 중단하고 전 채널을 닫았습니다(자동 재개 없음)")
-            if plc_was_connected and not live.get("connected"):
+            if plc_was_connected and not state.plc_connected():
                 return (f"P{step_no} 진행 중 PLC 통신 두절 — "
                         f"자동 실행을 중단하고 전 채널을 닫았습니다(자동 재개 없음)")
             # MFC·DAC 알람도 중단 사유다 — 가스가 안 나가거나 지령이 안 실리는 상태에서
             # 계속 진행하면 측정이 정상 완료된 것처럼 보인다(IDD 단선은 제외).
-            st = (live.get("status") or {})
-            if st.get("ALM_MFC") is True or st.get("ALM_DAC") is True:
+            if state.alarm_lock():
                 return (f"P{step_no} 진행 중 PLC 알람 활성 — "
                         f"자동 실행을 중단하고 전 채널을 닫았습니다(자동 재개 없음)")
             return None

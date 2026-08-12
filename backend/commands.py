@@ -56,11 +56,10 @@ async def handle_command(data: dict):
         # ★ System Setup(apply_setup)·set_max·레시피·리셋/재연결·비상정지는 잠그지 않는다
         #   — 연결 설정과 안전 조작은 항상 가능해야 한다.
         if cmd in ("set_valve", "set_sv", "purge", "run", "set_4way"):
-            live = state.plc_live or {}
             locked_reason = None
-            if not live.get("connected"):
+            if not state.plc_connected():
                 locked_reason = "PLC 미연결 — 조작이 잠겨 있습니다. System Setup에서 연결 후 사용하세요"
-            elif (live.get("status") or {}).get("SAFETY_STOP") is True:
+            elif state.plc_safety_stop():
                 locked_reason = "PLC 안전정지 중 — 조작이 잠겨 있습니다. 안전 리셋 후 사용하세요"
             if locked_reason:
                 if cmd == "run":
@@ -446,9 +445,7 @@ async def handle_command(data: dict):
                 plc.configure(state.plc)           # 설정 반영(실제 연결은 재연결로)
             if assign_changed:
                 # 배정이 바뀌면 유량 명령의 목적지가 바뀐다 — 흐르는 중 전환 사고 방지
-                for c in state.channels:
-                    c["valveIn"] = False
-                    c["sv"] = 0.0
+                state.close_all_channels()
                 await push_log("배정 변경 — 안전을 위해 모든 밸브·유량을 닫았습니다. "
                                "확인 후 다시 여세요", "warn")
             plc.load_addresses(state.channels, state.plc_system)   # 채널 plc 변경분 즉시 반영
@@ -550,20 +547,18 @@ async def handle_command(data: dict):
                 if plc.plc.is_connected():
                     sv_map, valve_map = {}, {}
                     for c in state.channels:
-                        # ★ write 루프와 같은 필터 — plc=null 채널이 config 에 있으면
-                        #   _valve_coil_of 에 키가 없어 KeyError 로 차단 쓰기 전체가 무산된다.
-                        if not c.get("plc"):
+                        # ★ write 루프와 같은 판정(state.plc_mapped) — plc=null 채널이 config 에
+                        #   있으면 _valve_coil_of 에 키가 없어 차단 쓰기 전체가 KeyError 로 무산된다.
+                        p = state.plc_mapped(c)
+                        if not p:
                             continue
-                        p = c.get("plc") or {}
                         if plc_catalog.valve_coil(c["id"]) is not None:
                             valve_map[c["id"]] = False
                         if plc_catalog.dac_reg(p.get("sv_out")) is not None:
                             sv_map[c["id"]] = 0.0
                     await asyncio.wait_for(plc.plc.write_sv_block(sv_map), 1.0)
                     await asyncio.wait_for(plc.plc.write_valves_block(valve_map, False), 1.0)
-                    for c in state.channels:
-                        c["sv"] = 0.0
-                        c["valveIn"] = False
+                    state.close_all_channels()
                     await push_log("종료 — 가스 차단(모든 밸브·유량 닫음)", "info")
             except Exception:  # noqa: BLE001
                 logger.write("warn", "종료 시 가스 차단 쓰기 실패 — 래더 3초 트립이 닫는다")

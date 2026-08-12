@@ -24,6 +24,8 @@ import inspect
 from dataclasses import dataclass, asdict, fields
 
 import plc_catalog as cat
+# ★ 상태 싱글턴이 아니라 '배선 판정' 순수 함수만 가져온다(계층 역전 방지·순환 없음).
+from state import plc_mapped
 
 try:
     from pymodbus.client import ModbusSerialClient
@@ -138,14 +140,17 @@ class PlcClient:
         주소는 plc_catalog가 결정한다 — 밸브는 채널 id로, SV/PV는 배정된 채널 '이름'으로.
         배정이 없거나(None) 이름을 모르면 그 채널은 해당 맵에서 빠진다(쓸 곳이 없으므로)."""
         chans = channels or []
-        self._valve_coil = {ch["id"]: cat.valve_coil(ch["id"]) for ch in chans
-                            if ch.get("plc") and cat.valve_coil(ch["id"]) is not None}
-        self._sv_reg = {ch["id"]: cat.dac_reg(ch["plc"].get("sv_out")) for ch in chans
-                        if ch.get("plc") and cat.dac_reg(ch["plc"].get("sv_out")) is not None}
-        self._pv_reg = {ch["id"]: cat.adc_reg(ch["plc"].get("pv_in")) for ch in chans
-                        if ch.get("plc") and cat.adc_reg(ch["plc"].get("pv_in")) is not None}
-        self._scale      = {ch["id"]: dict(ch["plc"])    for ch in chans if ch.get("plc")}
-        self._enabled    = {ch["id"]: bool(ch.get("en")) for ch in chans if ch.get("plc")}
+        # ★ '배선됨' 판정은 state.plc_mapped 하나로 — 여기(_valve_coil 소속을 정하는 곳)와
+        #   write 루프·exit 차단 쓰기가 갈라지면 없는 키를 찾다 KeyError 가 난다(전례 있음).
+        mapped = [(ch, plc_mapped(ch)) for ch in chans]
+        self._valve_coil = {ch["id"]: cat.valve_coil(ch["id"]) for ch, p in mapped
+                            if p and cat.valve_coil(ch["id"]) is not None}
+        self._sv_reg = {ch["id"]: cat.dac_reg(p.get("sv_out")) for ch, p in mapped
+                        if p and cat.dac_reg(p.get("sv_out")) is not None}
+        self._pv_reg = {ch["id"]: cat.adc_reg(p.get("pv_in")) for ch, p in mapped
+                        if p and cat.adc_reg(p.get("pv_in")) is not None}
+        self._scale      = {ch["id"]: dict(p)            for ch, p in mapped if p}
+        self._enabled    = {ch["id"]: bool(ch.get("en")) for ch, p in mapped if p}
         self._sys = dict(plc_system or {})
 
     # ---- 주소 resolver(내부 맵 우선, 없으면 하드코딩 fallback) ----

@@ -395,6 +395,34 @@ class State:
             # 여기는 동기 컨텍스트라 push_log(async)를 쓸 수 없다 → 파일 로그로 남긴다.
             logger.write("warn", f"config 저장 실패: {e}")
 
+    # ---- PLC 상태·배선·닫기 판정의 단일 출처 ----
+    # ★ 같은 판정을 여러 곳이 각자 dict 를 파던 것을 여기로 모았다.
+    #   (exit 만 배선 판정이 어긋나 KeyError 를 냈고, 닫기 루프에 routeOut 처리를
+    #    '일부에만' 넣다 빠뜨린 것이 커밋 7·8 버그의 원인이었다.)
+    def plc_connected(self) -> bool:
+        """PLC 폴링이 살아 있는가 — plc_live 접근의 단일 출처."""
+        return bool((self.plc_live or {}).get("connected"))
+
+    def plc_safety_stop(self) -> bool:
+        """PLC 래더가 안전정지 상태인가(연결 중 + SAFETY_STOP=True)."""
+        return self.plc_connected() and (
+            (self.plc_live.get("status") or {}).get("SAFETY_STOP") is True)
+
+    @staticmethod
+    def plc_mapped(c):
+        """이 채널이 PLC 에 배선돼 있으면 plc dict, 아니면 None — '배선 판정'의 단일 출처.
+        ★ 인자만 보는 순수 함수라 모듈 레벨 별칭(plc_mapped)으로도 노출한다 —
+          plc.py 는 상태 싱글턴을 import 하지 않고 이 함수만 가져다 쓴다."""
+        p = c.get("plc")
+        return p if isinstance(p, dict) and p else None
+
+    def close_all_channels(self) -> None:
+        """전 채널 SV=0 + 밸브 닫힘. 4-way(routeOut)·purging·로그는 호출자가 맥락에 맞게
+        처리한다 — 이 함수는 채널 배열만 만진다."""
+        for c in self.channels:
+            c["sv"] = 0.0
+            c["valveIn"] = False
+
     # ---- 알람 인터록 판정(조작 게이트의 단일 출처) ----
     # ★ commands·loops 가 state.alarm_lock() 으로 부른다(둘 다 State 인스턴스를 import).
     def alarm_lock(self) -> bool:
@@ -454,6 +482,9 @@ def channel_role(c: dict) -> str:
         return "wet_air"
     return "dry_air"
 
+
+# 배선 판정은 인자만 보는 순수 함수 — plc.py 처럼 상태 싱글턴을 쓰지 않는 쪽도 가져다 쓴다.
+plc_mapped = State.plc_mapped
 
 # 서버 전역에서 공유하는 단일 상태 인스턴스
 state = State()

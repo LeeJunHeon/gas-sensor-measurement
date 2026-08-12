@@ -32,8 +32,7 @@ def _build_telemetry(dt: float) -> dict:
         state._elapsed_f += dt
     elapsed = int(state._elapsed_f)
     state.system["elapsed"] = elapsed
-    live = state.plc_live or {}
-    live_pv = (live.get("pv") or {}) if live.get("connected") else {}
+    live_pv = ((state.plc_live or {}).get("pv") or {}) if state.plc_connected() else {}
     pv = []
     for c in state.channels:
         r = live_pv.get(c["id"])
@@ -138,9 +137,7 @@ async def plc_write_loop():
                     # 연결됨→끊김 전이 1회: 래더는 3초 내 트립으로 실제 밸브를 닫는다.
                     # 앱 상태도 함께 닫아 화면 거짓 표시와 재연결 시 일괄 재개를 막는다
                     # (수동 재투입 원칙 — 트립 발생 전이 처리와 대칭).
-                    for ch in state.channels:
-                        ch["valveIn"] = False
-                        ch["sv"] = 0.0
+                    state.close_all_channels()
                     state.system["purging"] = False
                     # 4-way 도 무전원 위치로 되돌린다 — 코일은 이미 OFF(gas→vent)인데
                     # routeOut 만 남아 있으면 화면이 실제와 다른 방향을 가리킨다.
@@ -156,7 +153,7 @@ async def plc_write_loop():
             prev_connected = True
             # 안전정지면 무조건 닫기(열림·유량 명령 금지). status는 읽기 폴링이 채운다.
             # PLC 안전정지와 파이썬 비상정지(system.safeStop) 둘 다 닫힘 조건이다.
-            plc_safe = (state.plc_live.get("status") or {}).get("SAFETY_STOP") is True
+            plc_safe = state.plc_safety_stop()
             safe = plc_safe or bool(state.system.get("safeStop"))
             alarm = state.alarm_lock()
             locked = safe or alarm     # 밸브·SV·4-way 게이트는 알람도 잠근다
@@ -167,9 +164,7 @@ async def plc_write_loop():
             #   밸브가 전부 자동으로 다시 열린다. PLC 래더는 수동 재투입을 의도했으므로
             #   파이썬이 그걸 무너뜨리면 안 된다. 전이 시점 1회만 — 매 주기면 조작이 막히고 로그가 도배된다.
             if plc_safe and not prev_plc_safe:
-                for ch in state.channels:
-                    ch["valveIn"] = False
-                    ch["sv"] = 0.0
+                state.close_all_channels()
                 state.system["purging"] = False
                 # 4-way 도 무전원 위치로 되돌린다 — 코일은 이미 OFF(gas→vent)인데
                 # routeOut 만 남아 있으면 화면이 실제와 다른 방향을 가리킨다.
@@ -182,9 +177,7 @@ async def plc_write_loop():
             # 알람 전이(False→True): 안전정지와 같은 방식으로 전 채널을 닫는다.
             #   해제되어도 자동으로 다시 열지 않는다(수동 재투입 원칙).
             if alarm and not prev_alarm:
-                for ch in state.channels:
-                    ch["valveIn"] = False
-                    ch["sv"] = 0.0
+                state.close_all_channels()
                 state.system["purging"] = False
                 state.system["routeOut"] = "vent"
                 await push_log(f"PLC 알람 활성({state.alarm_names()}) — 전 채널을 닫았습니다"
@@ -195,7 +188,7 @@ async def plc_write_loop():
             prev_alarm = alarm
             valve_map, sv_map = {}, {}
             for ch in state.channels:
-                p = ch.get("plc")
+                p = state.plc_mapped(ch)
                 if not p:
                     continue                          # 매핑 없는 채널은 제외
                 cid = ch["id"]
