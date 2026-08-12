@@ -64,15 +64,19 @@ function plcSafeStop(){ const L=window.plcLive; return !!(L&&L.connected&&L.stat
 // 유효 열림 = 명령(valveIn) ON 이고 안전정지 아님 → 래더의 'valve = CMD AND RUN_PERMIT'와 동일.
 const eff=c=>c.en&&c.valveIn&&!plcSafeStop();
 const flowing=c=>eff(c);
-// ★ MFC 이후(레인 후단·트렁크·버스)는 '실제로 흐를 때'만 그린다 — 실측 PV 기준.
-//   PV를 읽을 수 없는 경우(미배정·통신 두절 등 pv가 숫자가 아님)에는 지령(SV)으로 물러선다.
-//   물러서지 않으면 PV 배선/설정 문제일 때 화면이 통째로 죽어 원인 파악이 어려워진다.
-//   밸브 앞(en 기반 상시)·밸브→MFC(eff) 구간은 그대로 둔다.
+// MFC 이후 구간(레인 후단·트렁크·버스): 지령(SV)이 살아 있을 때만 그리고,
+// 그 안에서 실제 흐름은 PV 로 확인한다. 밸브 앞(en 상시)·밸브→MFC(eff) 구간은 그대로.
+//  · SV=0 또는 밸브 닫힘 → 조작 즉시 끔(잔류 PV 무시 — "껐는데 남아 보임" 방지)
+//  · SV>0 인데 PV 가 아직 안 오름 → 상승 중이므로 표시(끊겨 보이지 않게)
+//  · PV 를 못 읽는 경우(미배정·통신 두절) → SV 기준으로 물러섬
 const PV_ON_MIN = 1;                      // sccm — 잡음 무시 문턱
 const svOn = c => {
-  if (!eff(c)) return false;
+  if (!eff(c)) return false;            // 밸브 닫힘/미준비 → 즉시 꺼짐
+  if (!(+c.sv > 0)) return false;       // ★ 지령 해제 → 즉시 꺼짐(잔류 PV 무시)
   const pv = (c && c.pv != null && isFinite(+c.pv)) ? +c.pv : null;
-  return pv != null ? (pv >= PV_ON_MIN) : (+c.sv > 0);
+  // ★ SV>0 이 위에서 보장되므로 지금은 항상 true 다. PV 문턱을 나중에
+  //   "SV 대비 이상치 감지" 등으로 확장할 자리로 이 형태를 남겨 둔다.
+  return pv == null ? true : (pv >= PV_ON_MIN || +c.sv > 0);
 };
 
 const valveSvg = `<svg width="34" height="22" viewBox="0 0 34 22">
