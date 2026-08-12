@@ -458,6 +458,8 @@ function drawBuses(){
   // 경계 점은 여기 모아 두었다가 흐름 오버레이보다 '뒤에' 붙인다 —
   // 같은 자리에 색 선이 지나가도 점이 가려지지 않아야 한다(z-order).
   let dots='';
+  // 채널색(이음새 점·조인트 공용). 아래 endcap 조인트도 같은 함수를 쓴다 — 색 규칙 단일 출처.
+  const chCol=ch=>ch.grp==='gas'?gasCol(ch.id):COL_AIR;
   const busStruct=(rows, merge)=>{
     const ys0=rows.map(r=>r.y);
     if(ys0.length<2) return '';
@@ -474,15 +476,17 @@ function drawBuses(){
                                : ((y1>=merge) ? (r.y>=y2) : true));
       const used=via.some(r=>r.ch&&r.ch.en);
       out+=fL(bx,y1,bx,y2,used?GREY:COL_UNUSED,'dn',false);
-      // 구간 경계 = 실제 이음새 → 다른 정션과 같은 규격의 점을 찍어 연속성을 보인다.
-      // 색은 구조선과 같은 판정(사용 중 GREY / 미사용 COL_UNUSED) — 흐름색은 오버레이 담당.
-      // ★ 양 끝(맨 위·맨 아래)과 '행 위치'는 제외한다 — 행에는 이미 endcap 조인트 사각형이
-      //   있어 점을 겹쳐 찍으면 표식이 두 개가 된다. 남는 건 합류점 같은 중간 경계뿐이다.
+      // 구간 경계 = 실제 이음새 → 다른 정션과 같은 규격·같은 색 규칙의 점을 찍는다.
+      //   흐르는 채널 있음 → 그 채널색 / 배선만 됨 → GREY / 아무것도 안 지남 → COL_UNUSED
+      //   (흐름 여부 판정은 선 오버레이와 같은 svOn 하나를 쓴다)
+      // ★ 양 끝(맨 위·맨 아래)과 '행 위치'는 제외한다 — 행에는 아래 조인트 점이 따로 찍히므로
+      //   겹쳐 그리면 표식이 두 개가 된다. 남는 건 합류점 같은 중간 경계뿐이다.
       if(i>0 && !ys0.includes(y1)){
-        const above=rows.some(r=>r.ch&&r.ch.en&&r.y<=y1);
-        const below=rows.some(r=>r.ch&&r.ch.en&&r.y>=y1);
-        const on=(y1<=merge)?above:below;   // 그 점을 실제로 지나는 배선 채널이 있는가
-        dots+=fDot(bx,y1,on?GREY:COL_UNUSED);
+        // 그 점을 지나는 채널: 합류점 위면 위쪽 행들이, 아래면 아래쪽 행들이 지난다(구간 규칙과 동일).
+        const viaAll=rows.filter(r => (y1<=merge) ? (r.y<=y1) : (r.y>=y1));
+        const flowsHere=viaAll.find(r=>r.ch&&svOn(r.ch));
+        const wired=viaAll.some(r=>r.ch&&r.ch.en);
+        dots+=fDot(bx,y1, flowsHere?chCol(flowsHere.ch) : (wired?GREY:COL_UNUSED));
       }
     }
     return out;
@@ -556,8 +560,10 @@ function drawBuses(){
     if(bys[i]==null) return;
     const onMixBus=ech.route==='mix', onPureBus=ech.route==='pure'&&pureRows.length>1;
     if(!onMixBus&&!onPureBus) return;
-    const col=ech.grp==='gas'?gasCol(ech.id):COL_AIR;
-    p+=`<rect x="${bx-6*sc}" y="${bys[i]-4*sc}" width="${12*sc}" height="${8*sc}" rx="${3*sc}" fill="#cfd8e3" stroke="${svOn(ech)?col:GREY}" stroke-width="${(1.2*sc).toFixed(2)}"/>`;
+    // 합류 지점 표식 = 다른 이음새(소스점·합류점·구간 경계)와 같은 원 규격(DOT_R·DOT_SW).
+    //   사각형·전용 배경색(#cfd8e3)을 쓰던 것을 fDot 으로 흡수했다 — 한 화면에 이음새 모양이
+    //   두 종류로 보이지 않게 한다. '합류 지점'이라는 의미와 색 판정(svOn)은 그대로.
+    p+=fDot(bx,bys[i],svOn(ech)?chCol(ech):GREY);
   });
 
   /* ── 4-way 밸브 = 둥근 테두리 박스 + 스타일 C 대각선(반대 삼각형, 가운데 빔). 출력색 = 들어온 입력색. ── */
