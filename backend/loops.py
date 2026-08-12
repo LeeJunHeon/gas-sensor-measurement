@@ -11,6 +11,7 @@ server.py의 lifespan에서 start_all()/stop_all()로만 쓴다.
 
 import asyncio
 import contextlib
+import time
 
 import logger
 import plc
@@ -51,11 +52,16 @@ def _build_telemetry(dt: float) -> dict:
 
 
 async def telemetry_loop():
-    dt = 1.0 / TELEMETRY_HZ
+    # ★ dt 는 '실측 경과'를 쓴다. 명목값(1/HZ)을 그대로 더하면 sleep 지연이 누적돼
+    #   경과시간 표시가 벽시계보다 느려진다(Windows 타이머 해상도 15.6ms에서 특히).
+    nominal = 1.0 / TELEMETRY_HZ
+    last = time.monotonic()
     # 같은 실패가 초당 TELEMETRY_HZ회 반복될 수 있다 → 첫 1회만 남기고 이후는 개수만 센다.
     last_err, err_count = "", 0
     while True:
-        await asyncio.sleep(dt)
+        await asyncio.sleep(nominal)
+        now = time.monotonic()
+        dt, last = now - last, now
         try:
             t = _build_telemetry(dt)
             await manager.broadcast(t)

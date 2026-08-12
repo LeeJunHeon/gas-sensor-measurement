@@ -6,6 +6,8 @@ P1→P2→… 순서로: 계산→SV적용→준비(prep)대기→측정(meas)�
 """
 
 import asyncio
+import math
+import time
 
 import plc_catalog
 from state import state, channel_role
@@ -153,11 +155,12 @@ def is_running_flag() -> bool:
 
 
 async def _phase(name: str, seconds: float, plc_abort=None):
-    """name 구간을 seconds 동안 진행. 남은시간은 telemetry(5Hz)가 전달. running 꺼지면 즉시 반환.
-    1초를 0.1초 단위로 쪼개 running을 자주 확인 → STOP 반영이 최대 0.1초로 빨라짐
-    (AUTO STOP 직후 AUTO RUN을 눌러도 이전 태스크가 곧바로 끝나 재시작이 정상 동작).
+    """name 구간을 seconds 동안 진행 — 벽시계(monotonic) 데드라인 기준.
+    이전의 'sleep 0.1 × 10 = 1초' 방식은 sleep 지연이 누적돼 Linux에서도 +0.5%,
+    Windows(타이머 해상도 15.6ms)에서는 +5~8%까지 단계가 길어졌다.
+    running이 꺼지면 ≤0.1초 안에 반환, plc_abort는 약 1초 간격으로 확인한다.
 
-    plc_abort: 중단 사유 문자열(없으면 None)을 돌려주는 콜백. 1초마다 확인한다.
+    plc_abort: 중단 사유 문자열(없으면 None)을 돌려주는 콜백.
     PLC 이상 중에 계속 진행하면 가스가 안 흐르는데 측정이 정상 완료된 것처럼 보인다."""
     state.system["phase"] = name
     # 4-way 자동 전환: 준비는 혼합가스를 vent로 흘려 안정화하고(센서엔 단독 에어만),
@@ -166,30 +169,36 @@ async def _phase(name: str, seconds: float, plc_abort=None):
         state.system["routeOut"] = "vent"
     elif name == "meas":
         state.system["routeOut"] = "sensor"
-    remain = int(round(seconds))
+    total = max(0.0, float(seconds or 0))
+    end = time.monotonic() + total
+    remain = int(round(total))
     state.system["stepRemain"] = remain
     await push_state()          # 구간 시작만 즉시 알림(이후 카운트다운은 telemetry)
-    ticks = 0
-    while remain > 0:
+    next_abort = time.monotonic() + 1.0
+    while True:
+        now = time.monotonic()
+        left = end - now
+        if left <= 0:
+            break
         if not is_running_flag():
             return
-        await asyncio.sleep(0.1)
-        ticks += 1
-        if ticks >= 10:               # 1초마다 남은시간 감소 + PLC 이상 확인
-            ticks = 0
-            remain -= 1
+        r = max(0, math.ceil(left - 1e-9))
+        if r != remain:
+            remain = r
             state.system["stepRemain"] = remain   # telemetry가 이 값을 5Hz로 내려보냄
-            if plc_abort is not None:
-                reason = plc_abort()
-                if reason:
-                    # 복구 후 자동 재개를 막는다. 안전정지든 통신두절이든 사람이 확인하고 다시 열어야 한다.
-                    # ★ sv만 0으로 만들면 valveIn이 True로 남아 통신 복구 시
-                    #   밸브가 다시 열린다(안전정지는 loops의 전이 감지가 닫아주지만 통신두절은 아무도 안 닫는다).
-                    _emergency_off()
-                    state.system["running"] = False
-                    await push_log(reason, "err")
-                    await push_state()
-                    return
+        if plc_abort is not None and now >= next_abort:
+            next_abort = now + 1.0
+            reason = plc_abort()
+            if reason:
+                # 복구 후 자동 재개를 막는다. 안전정지든 통신두절이든 사람이 확인하고 다시 열어야 한다.
+                # ★ sv만 0으로 만들면 valveIn이 True로 남아 통신 복구 시
+                #   밸브가 다시 열린다(안전정지는 loops의 전이 감지가 닫아주지만 통신두절은 아무도 안 닫는다).
+                _emergency_off()
+                state.system["running"] = False
+                await push_log(reason, "err")
+                await push_state()
+                return
+        await asyncio.sleep(min(0.1, left))
     state.system["stepRemain"] = 0
 
 
