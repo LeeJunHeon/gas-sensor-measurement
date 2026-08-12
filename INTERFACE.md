@@ -41,7 +41,9 @@
 ```
 {
   running:   true | false             // 자동 실행 중 여부
-  routeOut:  "sensor" | "vent"         // 4-way 출력 방향
+  routeOut:  "sensor" | "vent"   // 4-way: **혼합(mix) 라인**이 가는 곳.
+                                 //   "vent"   = 가스→Vent / 단독에어→Sensor (코일 OFF·무전원 기본)
+                                 //   "sensor" = 가스→Sensor / 단독에어→Vent (코일 ON)
   loop:      { current: 0, total: 7 }  // 전체 반복 진행
   elapsed:   0                         // 경과 시간(초)
   rh:        40.0                      // 현재 습도(%)
@@ -155,6 +157,8 @@ plc_live — PLC 실측(읽기 폴링 결과). state 메시지에 항상 포함�
 [data-max="N"]   채널 N MAX 입력 (value)
 [data-v="N-in"]                      VA 밸브 (클릭)
 #wayToggle                           4-way 방향 전환 토글 (클릭: sensor↔vent)
+                                     ※ routeOut 은 '혼합(mix) 라인이 가는 곳' —
+                                       vent=가스→Vent·에어→Sensor / sensor=가스→Sensor·에어→Vent
 #rh                  RH 표시
 #activeCh #totalFlow #clk #hdrLoop #runtxt #measVal   상단 상태 표시
 #connStatus          연결 상태 표시 pill (신규)

@@ -336,9 +336,10 @@ document.getElementById('wayToggle')?.addEventListener('click',()=>{
 // 토글 버튼의 현재 모드 표시(틴트/툴팁) 갱신. core.js applyState와 drawBuses에서 호출.
 function updateWayToggle(){
   const b=document.getElementById('wayToggle'); if(!b) return;
-  const sen=routeOut==='sensor';
+  const sen=routeOut==='sensor';          // sen = 혼합(가스)이 센서로 간다
   b.classList.toggle('vent', !sen);
-  b.title = sen ? 'Air→Sensor / Gas→Vent (클릭: 전환)' : 'Air→Vent / Gas→Sensor (클릭: 전환)';
+  b.title = sen ? 'Gas→Sensor / Air→Vent  (클릭: Gas를 Vent로)'
+                : 'Gas→Vent / Air→Sensor · 무전원 기본 위치  (클릭: Gas를 Sensor로)';
 }
 
 /* ===================== manifold buses ===================== */
@@ -592,14 +593,22 @@ function drawBuses(){
   const botFlow=mixF.length>0;
   const botCol=(airMixFlowY.length>0&&gasMixFlowY.length>0)?BLEND:(airMixFlowY.length>0?BLUE:(gasMixFlowY.length>0?RED:GREY));
   const vTop=[cCx,cCy-r], vBot=[cCx,cCy+r], vRight=[cCx+r,cCy], vLeft=[cCx-r,cCy];
-  const topTo=senOn?vRight:vLeft, botTo=senOn?vLeft:vRight;
+  /* ★ routeOut = '혼합(mix) 라인이 가는 곳' (백엔드 단일 정의).
+       위 포트 = 단독(pure) 에어, 아래 포트 = 혼합(mix) 매니폴드,
+       오른쪽 = Sensor, 왼쪽 = Vent.
+     실물 밸브의 무전원(코일 OFF) 위치 = gas→Vent / air→Sensor 이고,
+     이때 백엔드 routeOut 은 'vent' 다(want_4w=False). 즉 아래 포트(mix)가
+     routeOut 을 그대로 따라가고, 위 포트(에어)는 항상 그 반대편으로 간다.
+     ※ 이전 코드는 위 포트를 routeOut 에 연결해 두 상태 모두 반대로 그렸다. */
+  const topTo=senOn?vLeft:vRight, botTo=senOn?vRight:vLeft;
   // 테두리 박스(입·출력 파이프가 4변 통과, 안쪽 배경색) — 대각선보다 먼저 그려 대각선이 위로.
   p+=`<rect x="${cCx-r}" y="${cCy-r}" width="${r*2}" height="${r*2}" rx="${6*sc}" style="fill:var(--bg2)" stroke="#6b7686" stroke-width="${(1.6*sc).toFixed(2)}"/>`;
   p+=fL(vTop[0],vTop[1],topTo[0],topTo[1],topFlow?topCol:GREY,'dn',topFlow);
   p+=fL(vBot[0],vBot[1],botTo[0],botTo[1],botFlow?botCol:GREY,'dn',botFlow);
   const L=46*sc;
-  const senSrcFlow=senOn?topFlow:botFlow, senSrcCol=senOn?topCol:botCol;
-  const venSrcFlow=senOn?botFlow:topFlow, venSrcCol=senOn?botCol:topCol;
+  // 출력 파이프 색 = '그 출구로 들어온 입력'의 색 — 위 대각선 반전과 짝이다.
+  const senSrcFlow=senOn?botFlow:topFlow, senSrcCol=senOn?botCol:topCol;
+  const venSrcFlow=senOn?topFlow:botFlow, venSrcCol=senOn?topCol:botCol;
   p+=fL(vRight[0],vRight[1],cCx+r+L,cCy,senSrcFlow?senSrcCol:GREY,'dn',senSrcFlow);
   p+=fL(vLeft[0],vLeft[1],cCx-r-L,cCy,venSrcFlow?venSrcCol:GREY,'dn',venSrcFlow);
   const dotC=(x,y,col)=>`<circle cx="${x}" cy="${y}" r="${(DOT_R*sc).toFixed(2)}" fill="${col}"/>`;
