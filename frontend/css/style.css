@@ -313,6 +313,17 @@
   .modal-foot button{border:1px solid var(--line2);border-radius:6px;padding:8px 18px;font-size:12.5px;font-weight:600;cursor:pointer}
   .modal-foot .cancel{background:#fff;color:#2a3645}
   .modal-foot .apply{background:var(--primary);border-color:#2550bb;color:#fff}
+  /* 적용 비활성(변경 없음 / 중복 배정) — 회색 채움 + 금지 커서.
+     ★ opacity 로만 흐리게 하지 않는다: 파란 버튼이 반투명해도 '눌리는 파란 버튼'으로 읽힌다.
+     취소는 흰 바탕+외곽선이라 회색 채움과 겹치지 않는다(둘 다 회색으로 보이는 혼동 없음). */
+  .modal-foot .apply:disabled,#applySetup:disabled{
+    background:#c9d2dd;border-color:#c9d2dd;color:#8a95a5;
+    cursor:not-allowed;box-shadow:none;opacity:1;
+  }
+  /* disabled 버튼은 Chromium 계열에서 마우스 이벤트를 받지 않아 title 툴팁이 뜨지 않는다.
+     → 사유 문구는 버튼을 감싼 span 이 들고 있고, 커서도 여기서 함께 준다. */
+  .applywrap{display:inline-flex}
+  .applywrap.off{cursor:not-allowed}
   .modal-foot .danger{background:#c5343a;border-color:#ad2e33;color:#fff}
   .modal-foot .danger:hover{background:#b22f35;border-color:#9a2a2f}
   .railcard{border:1px solid var(--line2);border-radius:7px;background:#fff;padding:10px;margin-top:2px}

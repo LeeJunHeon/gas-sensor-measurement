@@ -167,6 +167,15 @@ function updateApplyGate(){
   b.title = _mapHasDup ? '중복 배정을 해소하세요'
           : (!dirty ? '변경 사항 없음'
                     : '변경한 설정을 저장합니다 — 통신 설정은 저장 후 재연결해야 적용됩니다');
+  // 시각·접근성만 반영(위 disabled 판정은 그대로).
+  //  · 감싼 span 이 같은 문구를 들어 비활성일 때도 툴팁이 뜬다(disabled 버튼은 툴팁이 안 뜬다).
+  //  · aria-disabled 로 스크린리더에도 '누를 수 없음'을 알린다.
+  const w=b.parentElement;
+  if(w&&w.classList.contains('applywrap')){
+    w.title=b.title;
+    w.classList.toggle('off', b.disabled);
+  }
+  b.setAttribute('aria-disabled', b.disabled ? 'true' : 'false');
 }
 document.addEventListener('change', e=>{
   if(e.target && e.target.closest && e.target.closest('#setupMapRows')) checkMapDup();
