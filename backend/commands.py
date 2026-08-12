@@ -253,6 +253,9 @@ async def handle_command(data: dict):
                         c["valveIn"] = False
                         c["sv"] = 0.0
                 state.system["purging"] = False
+                # 청소가 끝났으면 4-way 도 기본 위치(vent)로 — sensor 로 남겨두면
+                # 다음에 가스 밸브를 여는 순간 곧장 센서로 들어간다(DEC-036).
+                state.system["routeOut"] = "vent"
                 await push_log("PURGE 중단 — 마른공기 밸브 닫음", "info")
                 await push_state()
                 return

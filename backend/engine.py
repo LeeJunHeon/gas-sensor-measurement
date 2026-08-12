@@ -222,7 +222,13 @@ def stop():
 
 
 def emergency():
-    """비상정지: 진행 중단 + 모든 SV=0 + 모든 밸브 닫기."""
+    """비상정지: 진행 중단 + 모든 SV=0 + 모든 밸브 닫기 + 4-way 무전원 위치."""
     state.system["running"] = False
     state.system["safeStop"] = True
     _emergency_off()
+    # 4-way 도 무전원 위치로 — safeStop 동안 코일은 이미 OFF(gas→vent)인데
+    # routeOut 이 sensor 로 남으면 '해제' 순간 코일이 자동 ON 으로 복귀한다
+    # (밸브는 닫힌 채 유지되는 것과 비대칭 — 방향은 사람이 다시 고른다. DEC-036).
+    # ★ _phase 의 PLC-이상 abort 는 _emergency_off() 만 부르므로 여기 영향을 받지 않는다
+    #   (그 경로의 vent 복귀는 loops 의 전이 감지가 담당한다 — 중복 처리 금지).
+    state.system["routeOut"] = "vent"
