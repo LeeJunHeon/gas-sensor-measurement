@@ -71,20 +71,21 @@ channels.forEach(c=>{c.valveIn=c.en;});
 function plcSafeStop(){ const L=window.plcLive; return !!(L&&L.connected&&L.status&&L.status.SAFETY_STOP===true); }
 // 유효 열림 = 명령(valveIn) ON 이고 안전정지 아님 → 래더의 'valve = CMD AND RUN_PERMIT'와 동일.
 const eff=c=>c.en&&c.valveIn&&!plcSafeStop();
+// 밸브 앞(en 상시)·밸브→MFC(eff) 전용. MFC 이후 표시는 svOn 을 쓴다.
 const flowing=c=>eff(c);
-// MFC 이후 구간(레인 후단·트렁크·버스): 지령(SV)이 살아 있을 때만 그리고,
-// 그 안에서 실제 흐름은 PV 로 확인한다. 밸브 앞(en 상시)·밸브→MFC(eff) 구간은 그대로.
-//  · SV=0 또는 밸브 닫힘 → 조작 즉시 끔(잔류 PV 무시 — "껐는데 남아 보임" 방지)
-//  · SV>0 인데 PV 가 아직 안 오름 → 상승 중이므로 표시(끊겨 보이지 않게)
-//  · PV 를 못 읽는 경우(미배정·통신 두절) → SV 기준으로 물러섬
+// MFC 이후 구간(레인 후단·트렁크·버스·4-way 입력·연결점·발광)의 단일 판정.
+//  · 밸브 닫힘/미준비(eff=false) → 즉시 꺼짐 (지령 해제 즉시 반영 — 유지)
+//  · SV>0 인데 PV 아직 0     → 표시 (상승 중 끊겨 보이지 않게 — 유지)
+//  · SV=0(초기화)·밸브 열림   → 잔류 PV 가 PV_ON_MIN 밑으로 빠질 때까지 표시 ★변경
+//  · PV 미가용(미배정·두절)   → SV 기준 폴백 (유지)
+// ★ 파이프와 점·발광을 두 규칙으로 그리면 초기화 순간 한쪽만 꺼져 불일치가 보인다 —
+//   점의 방식(PV 추종)으로 통일한다.
 const PV_ON_MIN = 1;                      // sccm — 잡음 무시 문턱
 const svOn = c => {
-  if (!eff(c)) return false;            // 밸브 닫힘/미준비 → 즉시 꺼짐
-  if (!(+c.sv > 0)) return false;       // ★ 지령 해제 → 즉시 꺼짐(잔류 PV 무시)
+  if (!eff(c)) return false;
   const pv = (c && c.pv != null && isFinite(+c.pv)) ? +c.pv : null;
-  // ★ SV>0 이 위에서 보장되므로 지금은 항상 true 다. PV 문턱을 나중에
-  //   "SV 대비 이상치 감지" 등으로 확장할 자리로 이 형태를 남겨 둔다.
-  return pv == null ? true : (pv >= PV_ON_MIN || +c.sv > 0);
+  if (pv == null) return +c.sv > 0;
+  return pv >= PV_ON_MIN || +c.sv > 0;
 };
 
 const valveSvg = `<svg width="34" height="22" viewBox="0 0 34 22">
@@ -136,7 +137,7 @@ function renderLanes(){
   lanesInDisplayOrder().forEach(([idx,c])=>{
     const d=dec(c);
     const lane=document.createElement('div');
-    lane.className='lane'+(flowing(c)&&c.pv>0?' lit':'')+(c.en?'':' off');
+    lane.className='lane'+(svOn(c)?' lit':'')+(c.en?'':' off');
     lane.dataset.grp=c.grp; lane.dataset.idx=idx;
     const showLabel = '';
     // 물탱크(가습기): VA2·VA4 레인에만 그리고, 나머지는 같은 폭의 빈 자리로 둬 MFC 정렬을 맞춘다.
@@ -187,11 +188,11 @@ function lanesStructKey(){
   return channels.map(c=>`${c.id}|${c.en?1:0}|${c.grp}|${c.route}|${c.max<=100?1:0}`).join(',');
 }
 function lanesFlowKey(){
-  // ★ 후단(svOn)·발광(lit)도 흐름키에 넣는다 — PV/SV 값만 바뀌어도 표시가 달라지므로,
+  // ★ 후단(svOn)도 흐름키에 넣는다 — PV/SV 값만 바뀌어도 표시가 달라지므로,
   //   값 변화만으로도 흐름 표시를 다시 계산해야 한다(판정 규칙 자체는 그대로).
+  //   발광(lit)은 이제 svOn 과 같은 판정이라 별도 자리가 필요 없다.
   return (plcSafeStop()?'S':'-')+';'+routeOut+';'
-       + channels.map(c=>(eff(c)?1:0)+''+(svOn(c)?1:0)
-                        +''+((flowing(c)&&c.pv>0)?1:0)).join('');
+       + channels.map(c=>(eff(c)?1:0)+''+(svOn(c)?1:0)).join('');
 }
 /* 흐름 클래스만 in-place 로 갈아끼운다(DOM 교체 없음).
    → 입력에 포커스가 있어 renderLanes()를 보류하는 동안에도 파이프 표시는 최신이 된다.
@@ -238,7 +239,7 @@ function updateLaneValues(){
     const lane=lanesEl.querySelector(`.lane[data-idx="${idx}"]`);
     if(!lane) return;
     const d=dec(c);
-    lane.classList.toggle('lit', flowing(c)&&c.pv>0);   // 발광(글로우)은 파이프 애니메이션과 무관
+    lane.classList.toggle('lit', svOn(c));   // 발광(글로우)은 파이프 애니메이션과 무관
     const pv=lane.querySelector(`[data-pv="${idx}"]`); if(pv) pv.textContent=fmtPv(c);
     // 'SV 없음' 뱃지 — 배정 변경은 구조키를 바꾸지 않으므로 여기서 직접 갱신한다.
     const nb=lane.querySelector(`[data-nosv="${idx}"]`);
