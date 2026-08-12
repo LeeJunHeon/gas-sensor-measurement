@@ -145,9 +145,9 @@ def validate_channel_map(channels, plc_hw) -> list:
         elif ch.get("en"):                   # 5) 사용 중인데 미배정
             warn(f"{cid}: 사용(en) 상태인데 SV 출력이 배정되지 않았습니다. "
                  f"밸브는 열리지만 유량 지령이 나가지 않습니다")
-        else:                                # 5') 꺼져 있어 지금은 무해 — 켜기 전에 알린다
-            info(f"{cid}: SV 출력이 배정되지 않았습니다. 지금은 사용(en) 상태가 아니라 무해하지만, "
-                 f"켜기 전에 config.json의 sv_out을 배정해야 유량이 나갑니다")
+        else:                                # 5') 지금은 en=False — 켜기 전에 알린다
+            info(f"{cid}: SV 출력(sv_out)이 배정되지 않았습니다 — 현재 en=False 라 지령이 "
+                 f"나가지 않습니다. 사용하려면 config.json 의 sv_out 배정이 필요합니다")
 
         # 스케일 유효성: 0 이하면 변환식이 무효화되거나 0으로 나누기가 된다.
         fs = float(p.get("fs_sccm") or 0)

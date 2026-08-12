@@ -105,12 +105,13 @@ async def _run_recipe():
     def _plc_abort_for(step_no: int):
         def check():
             live = state.plc_live or {}
+            # ★ 로그는 사건과 조치만 적는다 — '이 측정은 무효' 같은 판단은 사람의 몫이다.
             if (live.get("status") or {}).get("SAFETY_STOP") is True:
-                return (f"P{step_no} 진행 중 PLC 안전정지 — 레시피를 중단합니다. "
-                        f"이 측정은 무효입니다. 밸브를 모두 닫았습니다 — 복구 후 다시 열어야 합니다")
+                return (f"P{step_no} 진행 중 PLC 안전정지 감지 — "
+                        f"자동 실행을 중단하고 전 채널을 닫았습니다(자동 재개 없음)")
             if plc_was_connected and not live.get("connected"):
-                return (f"P{step_no} 진행 중 PLC 통신 두절 — 레시피를 중단합니다. "
-                        f"이 측정은 무효입니다. 밸브를 모두 닫았습니다 — 복구 후 다시 열어야 합니다")
+                return (f"P{step_no} 진행 중 PLC 통신 두절 — "
+                        f"자동 실행을 중단하고 전 채널을 닫았습니다(자동 재개 없음)")
             return None
         return check
 
