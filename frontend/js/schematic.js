@@ -479,6 +479,17 @@ function drawBuses(){
   let dots='';
   // 채널색(이음새 점·조인트 공용). 아래 endcap 조인트도 같은 함수를 쓴다 — 색 규칙 단일 출처.
   const chCol=ch=>ch.grp==='gas'?gasCol(ch.id):COL_AIR;
+  // 점(y)을 '지나가는' 흐름의 색 — 단일 출처.
+  //   합류점(merge) 위쪽 행은 아래로, 아래쪽 행은 위로 이동해 merge 에서 꺾인다.
+  //   경로가 y 를 덮는 조건: (r.y<=y && y<=merge) || (r.y>=y && y>=merge)
+  //   (y==merge 면 양쪽 모두 — 기존 경계점 규칙은 위쪽만 세서 아래서 오는 흐름을 놓쳤다)
+  //   흐르는 채널 있음 → 채널색 / 배선만 됨 → GREY / 아무도 안 지남 → COL_UNUSED
+  const passCol=(rows,merge,y)=>{
+    const via=rows.filter(r=>(r.y<=y&&y<=merge)||(r.y>=y&&y>=merge));
+    const f=via.find(r=>r.ch&&svOn(r.ch));
+    if(f) return chCol(f.ch);
+    return via.some(r=>r.ch&&r.ch.en)?GREY:COL_UNUSED;
+  };
   const busStruct=(rows, merge)=>{
     const ys0=rows.map(r=>r.y);
     if(ys0.length<2) return '';
@@ -495,18 +506,10 @@ function drawBuses(){
                                : ((y1>=merge) ? (r.y>=y2) : true));
       const used=via.some(r=>r.ch&&r.ch.en);
       out+=fL(bx,y1,bx,y2,used?GREY:COL_UNUSED,'dn',false);
-      // 구간 경계 = 실제 이음새 → 다른 정션과 같은 규격·같은 색 규칙의 점을 찍는다.
-      //   흐르는 채널 있음 → 그 채널색 / 배선만 됨 → GREY / 아무것도 안 지남 → COL_UNUSED
-      //   (흐름 여부 판정은 선 오버레이와 같은 svOn 하나를 쓴다)
+      // 구간 경계 = 실제 이음새 → 다른 정션과 같은 규격·같은 색 규칙(passCol)의 점을 찍는다.
       // ★ 양 끝(맨 위·맨 아래)과 '행 위치'는 제외한다 — 행에는 아래 조인트 점이 따로 찍히므로
       //   겹쳐 그리면 표식이 두 개가 된다. 남는 건 합류점 같은 중간 경계뿐이다.
-      if(i>0 && !ys0.includes(y1)){
-        // 그 점을 지나는 채널: 합류점 위면 위쪽 행들이, 아래면 아래쪽 행들이 지난다(구간 규칙과 동일).
-        const viaAll=rows.filter(r => (y1<=merge) ? (r.y<=y1) : (r.y>=y1));
-        const flowsHere=viaAll.find(r=>r.ch&&svOn(r.ch));
-        const wired=viaAll.some(r=>r.ch&&r.ch.en);
-        dots+=fDot(bx,y1, flowsHere?chCol(flowsHere.ch) : (wired?GREY:COL_UNUSED));
-      }
+      if(i>0 && !ys0.includes(y1)) dots+=fDot(bx,y1,passCol(rows,merge,y1));
     }
     return out;
   };
@@ -518,6 +521,10 @@ function drawBuses(){
   const mixRows=channels.map((c,i)=>c.route==='mix'?bys[i]:null).filter(v=>v!=null);
   const pureF=channels.map((c,i)=>c.route==='pure'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
   const mixF=channels.map((c,i)=>c.route==='mix'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
+  // ★ mix 블록 안에서만 쓰던 값들을 바깥으로 올린다 — 행 접점(passCol)과 4-way 입력색이
+  //   같은 값을 참조해야 한다. 아래에서 재계산하던 중복 블록은 삭제했다(계산은 한 곳).
+  let gas1Y=null, airFlowY=[], gasFlowY=[];
+  const BLEND=COL_BLEND;
   const vcR=24, vcX=bx+186*sc, jx=bx+93*sc;
   const pureMidRow=pureRows.length?(Math.min(...pureRows)+Math.max(...pureRows))/2:S.height*0.25;
   const mixMidRow=mixRows.length?(Math.min(...mixRows)+Math.max(...mixRows))/2:S.height*0.6;
@@ -550,12 +557,11 @@ function drawBuses(){
     // 합류점 = '표시상 가장 위에 있는 가스 행'. 채널 인덱스 순서가 아니라 y로 고른다
     //   — 레인 표시 순서를 바꿔도 공기 구간/가스 구간 경계가 따라온다.
     const gasRowYs=channels.map((c,i)=>c.grp==='gas'?bys[i]:null).filter(v=>v!=null);
-    const gas1Y=gasRowYs.length?Math.min(...gasRowYs):mtop;
+    gas1Y=gasRowYs.length?Math.min(...gasRowYs):mtop;
     // Y's of channels that are ACTUALLY flowing (valves open), per group
-    const airFlowY=channels.map((c,i)=>c.grp==='air'&&c.route==='mix'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
-    const gasFlowY=channels.map((c,i)=>c.grp==='gas'&&c.route==='mix'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
+    airFlowY=channels.map((c,i)=>c.grp==='air'&&c.route==='mix'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
+    gasFlowY=channels.map((c,i)=>c.grp==='gas'&&c.route==='mix'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
     const airMixFlow=airFlowY.length>0, gasFlow=gasFlowY.length>0;
-    const BLEND=COL_BLEND;
     const feedColor=(airMixFlow&&gasFlow)?BLEND:(airMixFlow?BLUE:(gasFlow?RED:GREY));
     // grey structural bus — 구간별로 쪼개 미사용 구간을 흐리게(합류점 = gas1Y)
     p+=busStruct(busRows('mix'), gas1Y);
@@ -571,28 +577,27 @@ function drawBuses(){
   // 구간 경계 점 — 두 버스의 흐름 오버레이를 모두 그린 뒤에 붙인다(점이 색 선에 가리지 않게).
   p+=dots;
 
-  // endcap joints (coloured only where that channel actually flows)
-  // ★ 정션(탭)은 그 행의 채널이 실제로 이 버스에 합류할 때만 그린다.
+  // endcap joints — 색은 '이 점을 지나는 흐름'(passCol)이다.
+  // ★ 자기 채널만 보면, 꺼진 행(예: VA4)의 회색 링이 그 위를 지나가는 파란 흐름 위에
+  //   구멍처럼 얹힌다. 점도 선과 같은 통과 규칙을 써야 이어져 보인다.
   //   단독(pure) 라인은 4-way로 직행하므로 혼합 버스 위를 '점 없이 통과'해야 한다 —
   //   점을 찍으면 합류하는 것처럼 보인다(표시 순서가 바뀌며 pure 행이 버스 한가운데 온다).
   channels.forEach((ech,i)=>{
     if(bys[i]==null) return;
     const onMixBus=ech.route==='mix', onPureBus=ech.route==='pure'&&pureRows.length>1;
     if(!onMixBus&&!onPureBus) return;
-    // 합류 지점 표식 = 다른 이음새(소스점·합류점·구간 경계)와 같은 원 규격(DOT_R·DOT_SW).
-    //   사각형·전용 배경색(#cfd8e3)을 쓰던 것을 fDot 으로 흡수했다 — 한 화면에 이음새 모양이
-    //   두 종류로 보이지 않게 한다. '합류 지점'이라는 의미와 색 판정(svOn)은 그대로.
-    p+=fDot(bx,bys[i],svOn(ech)?chCol(ech):GREY);
+    // 규격은 다른 이음새(소스점·합류점·구간 경계)와 같은 원(DOT_R·DOT_SW) — fDot 단일 렌더러.
+    const col = onMixBus ? passCol(busRows('mix'), gas1Y, bys[i])
+                         : passCol(busRows('pure'), pureMidRow, bys[i]);
+    p+=fDot(bx,bys[i],col);
   });
 
   /* ── 4-way 밸브 = 둥근 테두리 박스 + 스타일 C 대각선(반대 삼각형, 가운데 빔). 출력색 = 들어온 입력색. ── */
   // 입력 색: 위=순수공기(파랑), 아래=mix(실제 흐름 기준: 공기희석=파랑/가스=빨강/둘다=보라)
-  const BLEND=COL_BLEND;
-  const airMixFlowY=channels.map((c,i)=>c.grp==='air'&&c.route==='mix'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
-  const gasMixFlowY=channels.map((c,i)=>c.grp==='gas'&&c.route==='mix'&&svOn(c)?bys[i]:null).filter(v=>v!=null);
+  // ★ airFlowY/gasFlowY/BLEND 는 위 mix 블록에서 이미 구했다 — 재계산하지 않는다(단일 출처).
   const topFlow=pureF.length>0, topCol=BLUE;
   const botFlow=mixF.length>0;
-  const botCol=(airMixFlowY.length>0&&gasMixFlowY.length>0)?BLEND:(airMixFlowY.length>0?BLUE:(gasMixFlowY.length>0?RED:GREY));
+  const botCol=(airFlowY.length>0&&gasFlowY.length>0)?BLEND:(airFlowY.length>0?BLUE:(gasFlowY.length>0?RED:GREY));
   const vTop=[cCx,cCy-r], vBot=[cCx,cCy+r], vRight=[cCx+r,cCy], vLeft=[cCx-r,cCy];
   /* ★ routeOut = '혼합(mix) 라인이 가는 곳' (백엔드 단일 정의).
        위 포트 = 단독(pure) 에어, 아래 포트 = 혼합(mix) 매니폴드,
@@ -612,11 +617,11 @@ function drawBuses(){
   const venSrcFlow=senOn?topFlow:botFlow, venSrcCol=senOn?topCol:botCol;
   p+=fL(vRight[0],vRight[1],cCx+r+L,cCy,senSrcFlow?senSrcCol:GREY,'dn',senSrcFlow);
   p+=fL(vLeft[0],vLeft[1],cCx-r-L,cCy,venSrcFlow?venSrcCol:GREY,'dn',venSrcFlow);
-  const dotC=(x,y,col)=>`<circle cx="${x}" cy="${y}" r="${(DOT_R*sc).toFixed(2)}" fill="${col}"/>`;
-  p+=dotC(vTop[0],vTop[1],topFlow?topCol:GREY);
-  p+=dotC(vBot[0],vBot[1],botFlow?botCol:GREY);
-  p+=dotC(vRight[0],vRight[1],senSrcFlow?senSrcCol:GREY);
-  p+=dotC(vLeft[0],vLeft[1],venSrcFlow?venSrcCol:GREY);
+  // 4-way 4포트도 다른 이음새와 같은 렌더러·규격(fDot) — 속 채운 dotC 별종을 없앴다.
+  p+=fDot(vTop[0],vTop[1],topFlow?topCol:GREY);
+  p+=fDot(vBot[0],vBot[1],botFlow?botCol:GREY);
+  p+=fDot(vRight[0],vRight[1],senSrcFlow?senSrcCol:GREY);
+  p+=fDot(vLeft[0],vLeft[1],venSrcFlow?venSrcCol:GREY);
   // Vent/Sensor 라벨만 출력 파이프 끝에(배관도 라벨 톤). Air/Gas 텍스트는 넣지 않음.
   const lf=(13.5*sc).toFixed(1);
   p+=`<text x="${cCx+r+L+8*sc}" y="${cCy+4.5*sc}" text-anchor="start" font-family="inherit" font-size="${lf}" font-weight="700" fill="#2a3645">Sensor</text>`;
