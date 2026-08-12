@@ -361,6 +361,12 @@ function drawBuses(){
   const fP=(d,col,on)=> on
     ? `<path d="${d}" fill="none" stroke="${col}" stroke-width="${SW}" stroke-linecap="butt" stroke-linejoin="round"/><path class="stripe sdn" d="${d}" stroke-linejoin="round"/>`
     : `<path d="${d}" fill="none" stroke="${col}" stroke-width="${SW}" stroke-linecap="butt" stroke-linejoin="round"/>`;
+  /* 정션·소스 접점 공통 점(흰 속 + 색 테두리). 규격은 DOT_R·DOT_SW 단일 출처.
+     ★ 같은 모양을 세 군데서 인라인으로 복제하고 있던 것을 이 헬퍼로 모았다 — 규격이 갈라지면
+       한 화면에서 점 크기가 달라 보인다(4-way 포트의 dotC 는 '속 채운' 다른 종류다). */
+  const fDot=(x,y,col,op)=>`<circle cx="${x}" cy="${y}" r="${(DOT_R*sc).toFixed(2)}"`
+    +` fill="#fff" stroke="${col}" stroke-width="${(DOT_SW*sc).toFixed(2)}"`
+    +`${(op==null||op===1)?'':` opacity="${op}"`}/>`;
   const Bbox=(x,y)=>`<rect x="${x-13*sc}" y="${y-13*sc}" width="${26*sc}" height="${26*sc}" rx="${6*sc}" fill="#f0ece2" stroke="#b9ad8e" stroke-width="${(1.6*sc).toFixed(2)}"/><text x="${x}" y="${y+4*sc}" text-anchor="middle" font-size="${(11*sc).toFixed(1)}" font-weight="700" fill="#8a7c55">B</text>`;
 
   // PLC 준비 여부 — 레인의 .lane.notready(투명도 .45 + 애니 정지)와 같은 표현을 SVG에도 적용한다.
@@ -394,8 +400,7 @@ function drawBuses(){
     //   구간 활성 = 그 구간을 경유해 도달하는 가지 중 en=true 가 존재(=enAirYs 범위).
     //   밸브 '뒤'부터(트렁크·버스·4-way)는 유효 열림(eff) 기준을 그대로 쓴다.
     // left inlet pipe + inlet cap (label sits at its left end)
-    let airSeg=fL(xIn,topY,ax,topY,BLUE,'dn',has)
-      +`<circle cx="${xIn}" cy="${topY}" r="${(DOT_R*sc).toFixed(2)}" fill="#fff" stroke="${BLUE}" stroke-width="${(DOT_SW*sc).toFixed(2)}"/>`;
+    let airSeg=fL(xIn,topY,ax,topY,BLUE,'dn',has)+fDot(xIn,topY,BLUE);
     // vertical manifold: flow across the enabled air span (밸브 개폐와 무관)
     if(has) airSeg+=fL(ax,topY,ax,botY,BLUE,'dn',true);
     p+=dim(airSeg);
@@ -403,9 +408,7 @@ function drawBuses(){
     // 소스 접점: 가스·버스 정션과 같은 규격(흰 속 + 색 테두리)으로 그린다.
     //   HTML .tap 은 CSS로 숨겨져 있고 여기가 유일한 표시다 — 규격은 DOT_R·DOT_SW로 통일.
     airTaps.forEach((t,i)=>{const on=!!(airChs[i]&&airChs[i].en);
-      p+=dim(`<circle cx="${ax}" cy="${ays[i]}" r="${(DOT_R*sc).toFixed(2)}" fill="#fff"`
-            +` stroke="${on?BLUE:GREY}" stroke-width="${(DOT_SW*sc).toFixed(2)}"`
-            +` opacity="${on?1:0.45}"/>`);});
+      p+=dim(fDot(ax,ays[i],on?BLUE:GREY,on?1:0.45));});
   }
 
   /* ── Gas inlets: each lane = ONE continuous line from inlet cap to VA valve ── */
@@ -424,7 +427,7 @@ function drawBuses(){
     // hide the HTML pre-pipe so this is a single SVG line
     const pre=lane.querySelector('.pipe[data-seg="pre"]'); if(pre) pre.style.visibility='hidden';
     // pre-segment flows whenever enabled (supply reaches the valve), like air
-    let seg=fL(xIn,gy,vx,gy,col,'dn',on)+`<circle cx="${xIn}" cy="${gy}" r="${(DOT_R*sc).toFixed(2)}" fill="#fff" stroke="${col}" stroke-width="${(DOT_SW*sc).toFixed(2)}"/>`;
+    let seg=fL(xIn,gy,vx,gy,col,'dn',on)+fDot(xIn,gy,col);
     if(!on) seg=`<g opacity="0.42">${seg}</g>`;   // match disabled air lanes (.lane.off opacity:.42)
     p+=dim(seg);   // PLC 미준비면 레인과 같은 45%·정지 표현
     if(glayer&&ch){
@@ -452,6 +455,9 @@ function drawBuses(){
      기여 채널이 전부 en=false 면 --pipe-unused(가장 연함), 아니면 기존 닫힘색.
      ★ '기여 채널이 흐르는 중'인 구간은 아래 흐름 오버레이가 채널색으로 덮어 그린다 —
        구조선에서 색을 또 계산하면 두 곳이 갈라진다(색 판정 단일 출처 유지). */
+  // 경계 점은 여기 모아 두었다가 흐름 오버레이보다 '뒤에' 붙인다 —
+  // 같은 자리에 색 선이 지나가도 점이 가려지지 않아야 한다(z-order).
+  let dots='';
   const busStruct=(rows, merge)=>{
     const ys0=rows.map(r=>r.y);
     if(ys0.length<2) return '';
@@ -468,6 +474,16 @@ function drawBuses(){
                                : ((y1>=merge) ? (r.y>=y2) : true));
       const used=via.some(r=>r.ch&&r.ch.en);
       out+=fL(bx,y1,bx,y2,used?GREY:COL_UNUSED,'dn',false);
+      // 구간 경계 = 실제 이음새 → 다른 정션과 같은 규격의 점을 찍어 연속성을 보인다.
+      // 색은 구조선과 같은 판정(사용 중 GREY / 미사용 COL_UNUSED) — 흐름색은 오버레이 담당.
+      // ★ 양 끝(맨 위·맨 아래)과 '행 위치'는 제외한다 — 행에는 이미 endcap 조인트 사각형이
+      //   있어 점을 겹쳐 찍으면 표식이 두 개가 된다. 남는 건 합류점 같은 중간 경계뿐이다.
+      if(i>0 && !ys0.includes(y1)){
+        const above=rows.some(r=>r.ch&&r.ch.en&&r.y<=y1);
+        const below=rows.some(r=>r.ch&&r.ch.en&&r.y>=y1);
+        const on=(y1<=merge)?above:below;   // 그 점을 실제로 지나는 배선 채널이 있는가
+        dots+=fDot(bx,y1,on?GREY:COL_UNUSED);
+      }
     }
     return out;
   };
@@ -528,6 +544,9 @@ function drawBuses(){
     const feeding=airMixFlow||gasFlow;
     p+=fP(`M${bx} ${gas1Y} H${cCx} V${cCy+r}`,feeding?feedColor:GREY,feeding);   // 밸브 아래쪽 입력점까지
   }
+
+  // 구간 경계 점 — 두 버스의 흐름 오버레이를 모두 그린 뒤에 붙인다(점이 색 선에 가리지 않게).
+  p+=dots;
 
   // endcap joints (coloured only where that channel actually flows)
   // ★ 정션(탭)은 그 행의 채널이 실제로 이 버스에 합류할 때만 그린다.
