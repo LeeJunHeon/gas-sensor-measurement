@@ -308,6 +308,9 @@ class State:
         self.plc_hw = dict(DEFAULT_PLC_HW)
         # PLC 실측 라이브(읽기 경로): 폴링 태스크가 갱신, snapshot으로 프론트에 전송.
         self.plc_live = {"connected": False, "pv": {}, "pv_raw": {}, "status": {}}
+        self.plc_sync_done = False   # 연결 전이에서 '채택 or 닫힘' 결정이 끝나기 전엔
+                                     # write 루프가 지령을 쓰지 않는다(경합으로 PLC 를
+                                     # 지워버리는 것을 막는 1회성 게이트)
         # 기동 시점 진단(채널 배정·쓰기 권한 등). lifespan에는 접속한 클라이언트가 없어
         # push_log가 허공으로 사라지므로, 여기 보관했다가 접속할 때 전달한다.
         # ★ 지우지 않는다 — 새로고침·재접속해도 다시 보여야 한다.

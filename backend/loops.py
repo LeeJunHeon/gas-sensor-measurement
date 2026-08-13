@@ -87,6 +87,8 @@ async def plc_poll_loop():
         if was_connected:
             await push_log("PLC 연결 끊김", "warn")
         was_connected = False
+        # 다음 연결 전이에서 다시 '채택 or 닫힘'을 결정할 때까지 write 루프를 멈춘다.
+        state.plc_sync_done = False
         if state.plc_live.get("connected") or state.plc_live.get("pv"):
             state.plc_live = {"connected": False, "pv": {}, "pv_raw": {}, "status": {}}
             with contextlib.suppress(Exception):
@@ -100,6 +102,38 @@ async def plc_poll_loop():
                                   "pv_raw": res.get("pv_raw", {}), "status": res["status"]}
                 fail_streak = 0            # 성공 1회면 관용 카운터 초기화
                 if not was_connected:
+                    # ── 연결 전이 1회: 운전 상태 조건부 인수 ──────────────────────
+                    # 운전허가가 살아 있다 = 하트비트를 치던 세션이 직전까지 운전 중이었다는 뜻.
+                    # 그 상태만 신뢰해 밸브·SV·4-way 를 이어받는다(HMI 재시작·test_plc 인수).
+                    # ★ 트립이면 절대 채택하지 않는다 — 스테일 지령을 이어받으면 '운전 준비'
+                    #   순간 이전 세션 밸브가 열린다(arm 시 자동 개방 없음 불변식).
+                    adopted = 0
+                    if res["status"].get("SAFETY_STOP") is False:
+                        try:
+                            tk = await plc.plc.read_takeover(
+                                bool(state.plc_hw.get("v4w_on_is_sensor", True)))
+                            for c in state.channels:
+                                cid = c["id"]
+                                if cid not in tk["valves"]:
+                                    continue
+                                if not c.get("en"):
+                                    # 우리 설정상 꺼진 채널은 인수하지 않는다 — 다음 쓰기에서 닫힌다
+                                    if tk["valves"][cid]:
+                                        logger.write(
+                                            "warn", f"{cid}: PLC 에 열려 있으나 en=False — 닫음")
+                                    continue
+                                c["valveIn"] = tk["valves"][cid]
+                                c["sv"] = min(tk["sv_sccm"].get(cid, 0.0),
+                                              float(c.get("max") or 0))
+                                adopted += int(c["valveIn"])
+                            state.system["routeOut"] = "sensor" if tk["to_sensor"] else "vent"
+                        except Exception as e:  # noqa: BLE001 — 인수 실패는 안전측(닫힘 동기화)
+                            # ★ 조용히 삼키면 '왜 인수가 안 됐나'를 현장에서 알 수 없다.
+                            logger.write("warn", f"운전 상태 인수 실패 — 닫힘 동기화로 진행: {e}")
+                    state.plc_sync_done = True
+                    if adopted:
+                        await push_log(
+                            f"PLC 운전 상태 인수 — 열린 밸브 {adopted}개·SV·4-way 채택", "ok")
                     await push_log("PLC 연결됨", "ok")   # 끊김→연결 전이 1회
                     was_connected = True
                 # ── 상태 전이 로그: 알람 4종 + 운전 허가 (표시등 변화를 로그로도 남긴다) ──
@@ -161,6 +195,11 @@ async def plc_write_loop():
                 last = None
                 continue
             prev_connected = True
+            # ★ 연결 전이의 '채택 or 닫힘' 결정이 끝나기 전에는 지령을 쓰지 않는다 —
+            #   먼저 써버리면 인수 대상(살아있는 세션의 지령)을 지운다.
+            #   ※ 위 '끊김 전이' 처리보다 뒤에 둔다 — 끊겼을 때 닫힘 정렬은 그대로 돌아야 한다.
+            if not state.plc_sync_done:
+                continue
             # 안전정지면 무조건 닫기(열림·유량 명령 금지). status는 읽기 폴링이 채운다.
             # PLC 안전정지와 파이썬 비상정지(system.safeStop) 둘 다 닫힘 조건이다.
             plc_safe = state.plc_safety_stop()

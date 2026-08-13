@@ -455,6 +455,42 @@ class PlcClient:
             await self.write_coil(a, v)
         return True
 
+    async def read_takeover(self, on_is_sensor: bool = True) -> dict:
+        """연결 '전이 1회'에만 호출 — 밸브 지령·SV·4-way 를 읽어 sccm/불리언으로 돌려준다.
+        반환: {"valves": {cid: bool}, "sv_sccm": {cid: float}, "to_sensor": bool}
+        (정상 주기 poll 은 이걸 읽지 않는다 — HMI 가 지령의 단일 출처라는 원칙은 유지되고,
+         이 함수는 '살아있는 세션 인수' 한 정에만 쓰인다. 실패는 예외 그대로 — 호출부가 폴백.)
+        ★ on_is_sensor 는 plc_hw 값이라 인자로 받는다(드라이버가 앱 설정을 import 하지 않는다)."""
+        # 밸브 코일 블록 — write_valves_block 과 같은 범위 산출(160..168).
+        v4w_addr = self._sys_addr("v4w_cmd")
+        addrs = list(self._valve_coil.values()) + [v4w_addr]
+        base, top = min(addrs), max(addrs)
+        bits = await self.read_coil(base, count=top - base + 1)   # count>1 이면 비트 리스트
+        bits = bits if isinstance(bits, list) else [bits]
+
+        def _bit(a):
+            i = a - base
+            return bool(bits[i]) if 0 <= i < len(bits) else False
+
+        valves = {cid: _bit(a) for cid, a in self._valve_coil.items()}
+        to_sensor = _bit(v4w_addr) if on_is_sensor else (not _bit(v4w_addr))
+
+        sv = {}
+        if self._sv_reg:
+            sregs = list(self._sv_reg.values())
+            sbase, stop = min(sregs), max(sregs)
+            regs = await self.read_register(sbase, count=stop - sbase + 1)
+            regs = regs if isinstance(regs, list) else [regs]
+            for cid, addr in self._sv_reg.items():
+                i = addr - sbase
+                raw = _s16(regs[i]) if 0 <= i < len(regs) else 0
+                sc = self._scale.get(cid) or {}
+                full = float(sc.get("sv_full") or 0)
+                fs = float(sc.get("fs_sccm") or 0)
+                sv[cid] = (max(0.0, min(fs, raw / full * fs))
+                           if (full > 0 and fs > 0) else 0.0)
+        return {"valves": valves, "sv_sccm": sv, "to_sensor": to_sensor}
+
     async def write_sv_block(self, sv_map: dict) -> bool:
         """SV 레지스터를 한 프레임(FC16)으로 쓴다.
         sv_map: {채널id: sccm(float)}. 내부에서 _sv_to_raw로 변환.
