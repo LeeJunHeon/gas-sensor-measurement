@@ -447,6 +447,11 @@
   .delrow{cursor:pointer;color:#b9495a;font-weight:700;font-size:13px;padding:4px 7px;border:none;background:transparent}
   .delrow:hover{color:#8a2233}
   .addrow{display:flex;align-items:center;gap:7px;margin-top:2px}
+  /* 퍼지 단계에서 쓰이지 않는 칸(G1~G4·RH·준비) — 값은 남기고 흐림+입력 잠금만.
+     톤은 조작 잠금 시각화(#app.ctl-locked)와 같은 .45 로 맞춘다. */
+  table.rcp td.cell-off{opacity:.45}
+  table.rcp td.cell-off input{pointer-events:none;background:#f2f4f7}
+  .ptype{font-size:12px;border:1px solid var(--line2);border-radius:4px;padding:2px 4px;background:#fff}
   .addbtn{border:1px dashed var(--line2);border-radius:5px;padding:7px 14px;font-size:12px;font-weight:600;color:var(--primary);background:#fff;cursor:pointer}
   .addbtn:hover{background:#eef2fb;border-color:var(--primary)}
 
