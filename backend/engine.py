@@ -73,7 +73,8 @@ def precheck(recipe) -> list:
             flow = float(proc.get("flow") or 0)
             if flow <= 0:
                 problems.append(f"P{n + 1}(퍼지) — 에어 유량이 0입니다")
-            if float(proc.get("meas") or 0) <= 0:
+            # 퍼지 시간 = 준비 + 측정(같은 구간이라 합산해 돈다)
+            if (float(proc.get("prep") or 0) + float(proc.get("meas") or 0)) <= 0:
                 problems.append(f"P{n + 1}(퍼지) — 시간이 0입니다")
             if not pure:
                 problems.append(f"P{n + 1}(퍼지) — 단독 마른공기 채널(VA3)이 꺼져 있거나 없습니다")
@@ -187,8 +188,10 @@ async def _run_recipe():
                     state.system["stepIndex"] = n + 1
                     await push_log(f"P{n+1} 퍼지 시작 — 단독 에어 → Sensor "
                                    f"(Loop {loop_i+1}/{loop_count})", "ok")
-                    await _phase("purge", float(proc.get("meas") or 0),
-                                 _plc_abort_for(n + 1))
+                    dur = float(proc.get("prep") or 0) + float(proc.get("meas") or 0)
+                    # 퍼지는 준비·측정 모두 Air→Sensor 로 동일 구간이다 — 표를 가스 단계와
+                    # 맞추기 위해 두 칸을 받되, 합산해 단일 카운트다운으로 돈다.
+                    await _phase("purge", dur, _plc_abort_for(n + 1))
                     if not is_running_flag():
                         return
                     continue

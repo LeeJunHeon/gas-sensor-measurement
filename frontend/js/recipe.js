@@ -486,8 +486,9 @@ function renderRecipe(){
   procs.forEach((r,i)=>{
     const tr=document.createElement('tr');
     if(i===0) tr.className='active';
-    // 퍼지 단계는 G1~G4·RH·준비를 쓰지 않는다 — 값은 지우지 않고 흐림+입력 잠금만
+    // 퍼지 단계는 G1~G4·RH 를 쓰지 않는다 — 값은 지우지 않고 흐림+입력 잠금만
     // (종류를 가스로 되돌리면 그대로 복원된다).
+    // ★ 준비 칸은 퍼지에서도 활성이다 — 엔진이 준비+측정을 합산해 한 구간으로 돈다.
     const pg = r.type==='purge';
     const off = pg ? ' cell-off' : '';
     const dis = pg ? ' disabled' : '';
@@ -495,14 +496,16 @@ function renderRecipe(){
     tr.innerHTML=`
       <td class="pcol">P${i+1}</td>
       <td><select class="ptype" data-type="${i}">
-        <option value="gas"${!pg?' selected':''}>가스</option>
-        <option value="purge"${pg?' selected':''}>퍼지</option>
+        <option value="gas"${!pg?' selected':''}>Gas→Sensor</option>
+        <option value="purge"${pg?' selected':''}>Air→Sensor</option>
       </select></td>
       <td><input class="ci" value="${r.flow}" data-f="flow-${i}"${pg?' title="퍼지 단계: 단독 에어 유량(sccm)"':''}></td>
       <td class="humcol${off}" ${useHum?'':'style="display:none"'}><input class="ci" value="${r.rh}" data-f="rh-${i}"${dis}></td>
       ${gcells}
-      <td class="${pg?'cell-off':''}"><input class="ci" value="${r.prep}" data-f="prep-${i}"${dis}></td>
-      <td><input class="ci" value="${r.meas}" data-f="meas-${i}"></td>
+      <td><input class="ci" value="${r.prep}" data-f="prep-${i}">
+        <div class="cellcap">${pg?'Air→Sensor':'Gas→Vent'}</div></td>
+      <td><input class="ci" value="${r.meas}" data-f="meas-${i}">
+        <div class="cellcap">${pg?'Air→Sensor':'Gas→Sensor'}</div></td>
       <td><input type="checkbox" class="reptog" ${r.rep?'checked':''} data-rep="${i}"></td>
       <td><button class="delrow" data-del="${i}">×</button></td>`;
     recipeBody.appendChild(tr);
@@ -542,10 +545,14 @@ function bindRecipe(){
   const el=document.getElementById('b'+i);
   el?.addEventListener('change',()=>{
     const raw=(el.value||'').trim();
-    if(raw==='') return;                      // 빈칸 = 사용 안 함(기존 의미 유지)
-    if(window.strictNum(raw)===null){
+    if(raw!=='' && window.strictNum(raw)===null){
       window.logMsg(`봄베 ${i+1} 농도: "${raw}" — 숫자가 아니므로 지웠습니다`, 'warn');
       el.value='';
+    }
+    // 봄베는 '장비에 물린 실물' 이라 레시피와 별개로 서버(config.json)에 남긴다 —
+    // 재기동해도 괄호 안 값이 유지된다. 검증을 통과한 값만 보낸다(비숫자는 위에서 비움).
+    if(window.cmdSetBottle){
+      window.cmdSetBottle([0,1,2,3].map(k=>numOr(document.getElementById('b'+k)?.value, 0)));
     }
   });
 });

@@ -239,12 +239,25 @@ DEFAULT_PLC = {
 }
 
 
-def default_recipe() -> dict:
+def default_recipe(bottle=None) -> dict:
+    """부팅·New 시의 기본 레시피.
+    ★ bottle 은 호출부가 넘긴다(State 가 마지막 사용값 last_bottle 을 준다) —
+      여기서 state 를 참조하면 모듈 초기화 순서가 꼬인다."""
+    b = [to_num(x) for x in (list(bottle or []) + [0, 0, 0, 0])[:4]]
     return {
         "name": "",
         "useHumidity": False,
         "loopCount": 1,
-        "procs": [],
+        # 기본 골격: 세정 → 측정 → 세정. 값은 출발점일 뿐이며 사용자가 자유 수정한다.
+        "procs": [
+            {"type": "purge", "flow": 1000, "rh": 0, "g": [0, 0, 0, 0],
+             "prep": 0,  "meas": 60, "rep": False},
+            {"type": "gas",   "flow": 1000, "rh": 0, "g": [0, 0, 0, 0],
+             "prep": 60, "meas": 60, "rep": False},
+            {"type": "purge", "flow": 1000, "rh": 0, "g": [0, 0, 0, 0],
+             "prep": 0,  "meas": 60, "rep": False},
+        ],
+        "bottle": b,
         "params": dict(DEFAULT_PARAMS),
     }
 
@@ -334,7 +347,10 @@ class State:
             # 서버가 다시 뜨면 False로 돌아간다 — STOP·완료로는 되돌리지 않는다.
             "measureLaunched": False,
         }
-        self.recipe = default_recipe()
+        # 마지막으로 쓴 봄베 농도 — config.json 에 저장해 재기동 후에도 유지한다
+        # (레시피 파일이 아니라 '장비에 물린 봄베'라 세션을 넘겨 남는 값이다).
+        self.last_bottle = [0.0] * 4
+        self.recipe = default_recipe(self.last_bottle)
         self._elapsed_f = 0.0    # 내부 누적 경과시간(float)
 
     # ---- config 로드/저장 ----
@@ -375,6 +391,11 @@ class State:
         self.plc = {**DEFAULT_PLC, **(data.get("plc") or {})}
         self.plc_system = {**DEFAULT_PLC_SYSTEM, **(data.get("plc_system") or {})}
         self.plc_hw = {**DEFAULT_PLC_HW, **(data.get("plc_hw") or {})}
+        # 마지막 봄베 농도 복원 → 부팅 기본 레시피에 그대로 실어 준다.
+        lb = data.get("last_bottle")
+        if isinstance(lb, list):
+            self.last_bottle = [to_num(x) for x in (lb + [0, 0, 0, 0])[:4]]
+            self.recipe["bottle"] = list(self.last_bottle)
         # 사용 채널은 시작 시 밸브 열림으로 둔다(데모 일관성).
         for c in self.channels:
             c.setdefault("valveIn", False)   # 시작 시 모든 밸브 닫힘(흐름 표시도 꺼진 상태)
@@ -393,6 +414,7 @@ class State:
             "plc": self.plc,
             "plc_system": self.plc_system,
             "plc_hw": self.plc_hw,
+            "last_bottle": list(self.last_bottle),
         }
         try:
             atomic_write_json(CONFIG_PATH, payload)

@@ -151,6 +151,10 @@
     if (send({ cmd: 'set_sv', ch: ch, value: value })) return;
     window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');
   };
+  // 봄베 농도 저장(장비에 물린 실물이라 config.json 에 남는다) — 실패해도 조용히 넘긴다.
+  window.cmdSetBottle = function (values) {
+    send({ cmd: 'set_bottle', values: values });
+  };
   window.cmdSet4way = function (route) {
     if (send({ cmd: 'set_4way', route: route })) return;
     window.logMsg('오프라인 — 서버에 연결되어야 합니다', 'warn');

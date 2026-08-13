@@ -28,6 +28,18 @@ def set_shutdown_handler(fn):
     _shutdown_handler = fn
 
 
+def _track_bottle(recipe) -> None:
+    """서버로 들어온 레시피의 봄베 농도를 '마지막 사용값'으로 기억한다(config 에 저장).
+    ★ 봄베는 레시피가 아니라 '장비에 물린 실물'이라 세션·레시피를 넘겨 유지한다."""
+    b = (recipe or {}).get("bottle")
+    if not isinstance(b, list):
+        return
+    vals = [max(0.0, to_num(x)) for x in (b + [0, 0, 0, 0])[:4]]
+    if vals != list(state.last_bottle):
+        state.last_bottle = vals
+        state.save_config()
+
+
 def _launch_measure_app() -> tuple[bool, str]:
     """측정 프로그램(외부 exe)을 띄운다. 성공하면 (True, 파일명), 실패하면 (False, 사유).
     ★ 가스 제어를 방해하면 안 된다 — 절대 기다리지 않고(Popen만), shell=True도 쓰지 않는다.
@@ -160,6 +172,7 @@ async def handle_command(data: dict):
                 incoming = normalize_recipe(data["recipe"])
                 incoming["name"] = state.recipe.get("name", "") or incoming.get("name", "")
                 state.recipe = incoming
+                _track_bottle(state.recipe)
             problems = engine.precheck(state.recipe)
             if problems:
                 await manager.broadcast({"type": "ack", "of": "run", "ok": False,
@@ -486,9 +499,17 @@ async def handle_command(data: dict):
             except Exception as e:  # noqa: BLE001
                 await push_log(f"PLC 재연결 실패 — {plc.plc.diagnose_connection()} ({e})", "warn")
 
+        elif cmd == "set_bottle":
+            # 봄베 농도는 '장비에 물린 실물' 이라 레시피와 별개로 config 에 남긴다.
+            vals = data.get("values") or []
+            state.last_bottle = [max(0.0, to_num(v)) for v in (list(vals) + [0] * 4)[:4]]
+            if isinstance(state.recipe, dict):
+                state.recipe["bottle"] = list(state.last_bottle)
+            state.save_config()
+
         elif cmd == "recipe_new":
             keep_params = dict(state.recipe.get("params", DEFAULT_PARAMS))
-            state.recipe = default_recipe()
+            state.recipe = default_recipe(state.last_bottle)   # 기본 3단계 + 마지막 봄베
             state.recipe["params"] = keep_params
             await push_log("새 레시피 — 빈 레시피로 초기화", "info")
             await push_state(include_recipe=True)   # New는 레시피 교체
@@ -520,6 +541,7 @@ async def handle_command(data: dict):
                 await push_log(f"레시피 저장 실패 — {e}", "err")
                 return
             state.recipe = recipe
+            _track_bottle(state.recipe)
             await manager.broadcast({"type": "ack", "of": "recipe_save", "ok": True, "name": name})
             await push_log(f"레시피 저장됨 — {name}", "ok")
             await push_state(include_recipe=True)   # Save 후 저장된 레시피로 동기화
@@ -536,6 +558,7 @@ async def handle_command(data: dict):
             loaded = normalize_recipe(loaded)
             loaded["name"] = name
             state.recipe = loaded
+            _track_bottle(state.recipe)
             await push_log(f"레시피 불러옴 — {name}", "ok")
             await push_state(include_recipe=True)   # Open은 레시피 교체
 

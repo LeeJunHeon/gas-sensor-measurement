@@ -70,11 +70,14 @@
       type: "gas" | "purge"            // 단계 종류. 없거나 모르는 값이면 "gas"
                                        //   (타입 없는 구파일 레시피가 그대로 동작한다)
                                        // "purge": 희석 계산 없이 단독(pure) 에어만
-                                       //   flow sccm 으로 meas 초 동안 연다. 4-way 는
-                                       //   OFF(vent) 유지 — 그 위치가 곧 에어→Sensor.
-                                       //   g·rh·prep 은 쓰이지 않는다.
+                                       //   flow sccm 으로 연다. 4-way 는 OFF(vent) 유지
+                                       //   — 그 위치가 곧 에어→Sensor. g·rh 는 안 쓴다.
+                                       //   ★ 시간은 prep + meas 합산(둘 다 같은 구간이라
+                                       //     표를 가스 단계와 맞추려고 두 칸을 받는다).
     }
   ]
+  // 화면 표기: type "gas" → "Gas→Sensor", "purge" → "Air→Sensor" (저장값은 불변)
+  // 기본 레시피(부팅·New)는 3단계 골격 — purge / gas / purge, 각 60초.
   params: {                            // 측정/전압/SMU 파라미터
     vStart: 0.5, vEnd: 0.0, vStep: 0,
     grafInterval: 1,
@@ -140,7 +143,12 @@ plc_live — PLC 실측(읽기 폴링 결과). state 메시지에 항상 포함�
 { "cmd": "set_sv",    "ch": 4, "value": 5 }
 { "cmd": "set_max",   "ch": 0, "value": 2000 }
 { "cmd": "set_4way",  "route": "vent" }                        // sensor | vent
-// 의미: 'sensor'면 Air→Sensor·Gas→Vent, 'vent'면 반전(Air→Vent·Gas→Sensor). 명령/필드 이름은 그대로.
+// 의미: route 는 '혼합(mix) 라인이 가는 곳'이다(3.2 routeOut 과 같은 정의).
+//   "vent"   = 가스→Vent / 단독에어→Sensor (코일 OFF·무전원 기본)
+//   "sensor" = 가스→Sensor / 단독에어→Vent (코일 ON)
+{ "cmd": "set_bottle", "values": [100, 0, 0, 0] }              // 봄베 농도(ppm) 4개
+// 봄베는 '장비에 물린 실물'이라 레시피가 아니라 config.json(last_bottle)에 저장된다.
+// 재기동·New 시 기본 레시피의 bottle 로 다시 실린다.
 { "cmd": "run" }
 { "cmd": "stop" }
 { "cmd": "purge" }
