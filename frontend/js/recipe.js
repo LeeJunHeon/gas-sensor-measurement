@@ -6,6 +6,15 @@ const numOr = (raw, d) => { const v = window.strictNum(raw); return v === null ?
 //   parseInt('150.25')=150 이므로 정수 정규식으로 거르면 0 이 되어 값이 바뀐다.
 //   게이트를 통과하는 입력(=전체가 숫자)에서 이전 식과 결과가 완전히 같다.
 const intOr = (raw, d) => { const v = window.strictNum(raw); return v === null ? d : Math.trunc(v); };
+// from 행을 '삽입선 위치 ins(0..length)'로 옮긴다. 이동이 있었으면 true.
+// ★ 먼저 뽑으면 뒤쪽 인덱스가 한 칸 당겨진다 — ins 를 보정하고 시작한다(커밋 29 결함).
+function reorderProcs(arr, from, ins){
+  if(ins>from) ins--;
+  if(ins===from) return false;
+  const [mv]=arr.splice(from,1);
+  arr.splice(ins,0,mv);
+  return true;
+}
 /* ===== System Setup modal ===== */
 const setupOverlay=document.getElementById('setupOverlay');
 function buildSetupRows(){
@@ -537,25 +546,33 @@ function bindRecipe(){
   recipeBody.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{procs.splice(+e.target.dataset.del,1);renderRecipe();}));
   // P열을 잡아 행 순서를 바꾼다(HTML5 DnD). 번호(P1·P2…)는 재렌더로 자동 재부여된다.
   let dragFrom=null;
+  const clearDropMarks=()=>recipeBody.querySelectorAll('tr').forEach(t=>
+    t.classList.remove('drop-before','drop-after'));
   recipeBody.querySelectorAll('td.pcol').forEach(h=>{
     h.addEventListener('dragstart',e=>{
       if(window._sys&&window._sys.running){e.preventDefault();return;}   // 실행 중 금지
       dragFrom=+h.dataset.drag; e.dataTransfer.effectAllowed='move';
       e.dataTransfer.setData('text/plain',String(dragFrom));
     });
+    h.addEventListener('dragend',()=>{clearDropMarks(); dragFrom=null;}); // 취소·이탈 정리
   });
   recipeBody.querySelectorAll('tr').forEach(tr=>{
-    tr.addEventListener('dragover',e=>{e.preventDefault();
-      recipeBody.querySelectorAll('tr').forEach(t=>t.classList.remove('droptarget'));
-      tr.classList.add('droptarget');});
-    tr.addEventListener('dragleave',()=>tr.classList.remove('droptarget'));
-    tr.addEventListener('drop',e=>{e.preventDefault();
-      tr.classList.remove('droptarget');
-      const to=+tr.dataset.row;
-      if(dragFrom==null||to===dragFrom) {dragFrom=null;return;}
-      const [mv]=procs.splice(dragFrom,1);
-      procs.splice(to,0,mv);
-      dragFrom=null; renderRecipe();
+    tr.addEventListener('dragover',e=>{
+      e.preventDefault();
+      const r=tr.getBoundingClientRect();
+      const after=e.clientY > r.top + r.height/2;      // 행 중점 아래면 '뒤에 삽입'
+      clearDropMarks();
+      tr.classList.add(after?'drop-after':'drop-before');
+    });
+    tr.addEventListener('drop',e=>{
+      e.preventDefault();
+      const after=tr.classList.contains('drop-after');
+      const ins=+tr.dataset.row + (after?1:0);
+      clearDropMarks();
+      if(dragFrom==null){return;}
+      const moved=reorderProcs(procs, dragFrom, ins);
+      dragFrom=null;
+      if(moved) renderRecipe();
     });
   });
 }
