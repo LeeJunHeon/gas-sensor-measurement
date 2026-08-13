@@ -444,7 +444,7 @@
   table.rcp td.pcol{font-weight:700;color:var(--pv);font-family:var(--font-mono);padding:6px 4px;cursor:grab;user-select:none}
   /* 준비·측정 열 머리 — 시간 의미(준비/측정)를 크게, 라우팅을 회색 부제로. */
   table.rcp th .thsec{font-weight:500;color:#8a93a3}
-  table.rcp th .throute{font-size:11px;font-weight:500;color:#9aa3b2;letter-spacing:-.2px}
+  table.rcp th .throute{font-size:11px;font-weight:500;color:#9aa3b2;letter-spacing:-.2px;display:inline-block;line-height:1.25}
   /* 드래그 순서 변경 — 삽입선을 '놓을 자리' 그대로(행 위/아래) 그린다. */
   table.rcp tbody tr.drop-before td{box-shadow:inset 0 2px 0 var(--acc,#3b82f6)}
   table.rcp tbody tr.drop-after  td{box-shadow:inset 0 -2px 0 var(--acc,#3b82f6)}
@@ -458,8 +458,7 @@
 
   /* 퍼지 단계에서 쓰이지 않는 칸(G1~G4·RH) — 값은 남기고 흐림+입력 잠금만.
      톤은 조작 잠금 시각화(#app.ctl-locked)와 같은 .45 로 맞춘다. */
-  table.rcp td.cell-off{opacity:.45}
-  table.rcp td.cell-off input{pointer-events:none;background:#f2f4f7}
+
   .ptype{font-size:12px;border:1px solid var(--line2);border-radius:4px;padding:2px 4px;background:#fff}
   .addbtn{border:1px dashed var(--line2);border-radius:5px;padding:7px 14px;font-size:12px;font-weight:600;color:var(--primary);background:#fff;cursor:pointer}
   .addbtn:hover{background:#eef2fb;border-color:var(--primary)}

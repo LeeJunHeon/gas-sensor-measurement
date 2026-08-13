@@ -499,8 +499,9 @@ function renderRecipe(){
     // (종류를 가스로 되돌리면 그대로 복원된다).
     // ★ 준비 칸은 퍼지에서도 활성이다 — 엔진이 준비+측정을 합산해 한 구간으로 돈다.
     const pg = r.type==='purge';
-    const off = pg ? ' cell-off' : '';
-    const dis = pg ? ' disabled' : '';
+    const off = '';                       // 색은 가스 행과 동일하게 둔다(요청: 원복)
+    // readonly 는 값·색을 그대로 두고 타이핑만 막는다(disabled 처럼 흐려지지 않는다).
+    const dis = pg ? ' readonly title="Air→Sensor 단계에서는 사용하지 않습니다"' : '';
     const gcells=r.g.map((v,gi)=>`<td class="${v===0?'zero':''}${off}"><input class="ci" value="${v}" data-g="${i}-${gi}"${dis}></td>`).join('');
     tr.innerHTML=`
       <td class="pcol" draggable="true" data-drag="${i}" title="드래그해서 순서 변경">P${i+1}</td>
