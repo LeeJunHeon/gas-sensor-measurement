@@ -78,22 +78,11 @@ channels.forEach(c=>{c.valveIn=c.en;});
 function plcSafeStop(){ const L=window.plcLive; return !!(L&&L.connected&&L.status&&L.status.SAFETY_STOP===true); }
 // 유효 열림 = 명령(valveIn) ON 이고 안전정지 아님 → 래더의 'valve = CMD AND RUN_PERMIT'와 동일.
 const eff=c=>c.en&&c.valveIn&&!plcSafeStop();
-// 밸브 앞(en 상시)·밸브→MFC(eff) 전용. MFC 이후 표시는 svOn 을 쓴다.
-const flowing=c=>eff(c);
-// MFC 이후 구간(레인 후단·트렁크·버스·4-way 입력·연결점·발광)의 단일 판정.
-//  · 밸브 닫힘/미준비(eff=false) → 즉시 꺼짐 (지령 해제 즉시 반영 — 유지)
-//  · SV>0 인데 PV 아직 0     → 표시 (상승 중 끊겨 보이지 않게 — 유지)
-//  · SV=0(초기화)·밸브 열림   → 잔류 PV 가 PV_ON_MIN 밑으로 빠질 때까지 표시 ★변경
-//  · PV 미가용(미배정·두절)   → SV 기준 폴백 (유지)
-// ★ 파이프와 점·발광을 두 규칙으로 그리면 초기화 순간 한쪽만 꺼져 불일치가 보인다 —
-//   점의 방식(PV 추종)으로 통일한다.
-const PV_ON_MIN = 1;                      // sccm — 잡음 무시 문턱
-const svOn = c => {
-  if (!eff(c)) return false;
-  const pv = (c && c.pv != null && isFinite(+c.pv)) ? +c.pv : null;
-  if (pv == null) return +c.sv > 0;
-  return pv >= PV_ON_MIN || +c.sv > 0;
-};
+// MFC 이후 구간(레인 발광·연결점·트렁크·버스·4-way 입력)의 단일 판정.
+// ★ 표시 = '지령'이다(밸브 열림 AND SV>0). 실측 PV 는 표시에 쓰지 않는다 —
+//   초기화·밸브 닫기 즉시 꺼지고, SV 투입 즉시 켜진다(사용자 결정 2026-08-13,
+//   커밋 9 의 'PV 추종'을 되돌림. PV 는 숫자 칸으로만 확인한다).
+const svOn = c => eff(c) && +c.sv > 0;
 
 const valveSvg = `<svg width="34" height="22" viewBox="0 0 34 22">
   <line class="vstem" x1="17" y1="11" x2="17" y2="4"/><rect class="vact" x="12" y="0" width="10" height="5" rx="1"/>
@@ -485,9 +474,6 @@ function drawBuses(){
      기여 채널이 전부 en=false 면 --pipe-unused(가장 연함), 아니면 기존 닫힘색.
      ★ '기여 채널이 흐르는 중'인 구간은 아래 흐름 오버레이가 채널색으로 덮어 그린다 —
        구조선에서 색을 또 계산하면 두 곳이 갈라진다(색 판정 단일 출처 유지). */
-  // 경계 점은 여기 모아 두었다가 흐름 오버레이보다 '뒤에' 붙인다 —
-  // 같은 자리에 색 선이 지나가도 점이 가려지지 않아야 한다(z-order).
-  let dots='';
   // 채널색(이음새 점·조인트 공용). 아래 endcap 조인트도 같은 함수를 쓴다 — 색 규칙 단일 출처.
   const chCol=ch=>ch.grp==='gas'?gasCol(ch.id):COL_AIR;
   // 점(y)을 '지나가는' 흐름의 색 — 단일 출처.
@@ -517,10 +503,9 @@ function drawBuses(){
                                : ((y1>=merge) ? (r.y>=y2) : true));
       const used=via.some(r=>r.ch&&r.ch.en);
       out+=fL(bx,y1,bx,y2,used?GREY:COL_UNUSED,'dn',false);
-      // 구간 경계 = 실제 이음새 → 다른 정션과 같은 규격·같은 색 규칙(passCol)의 점을 찍는다.
-      // ★ 양 끝(맨 위·맨 아래)과 '행 위치'는 제외한다 — 행에는 아래 조인트 점이 따로 찍히므로
-      //   겹쳐 그리면 표식이 두 개가 된다. 남는 건 합류점 같은 중간 경계뿐이다.
-      if(i>0 && !ys0.includes(y1)) dots+=fDot(bx,y1,passCol(rows,merge,y1));
+      // 행이 아닌 구간 경계에는 점을 찍지 않는다 — 레인이 없는 허공의 점이라
+      // 정보 없이 도드라지기만 한다(급기 이탈은 선의 코너로 충분).
+      // 흐름의 이어짐은 선(fL/fP)이 보여준다.
     }
     return out;
   };
@@ -585,10 +570,8 @@ function drawBuses(){
     p+=fP(`M${bx} ${gas1Y} H${cCx} V${cCy+r}`,feeding?feedColor:GREY,feeding);   // 밸브 아래쪽 입력점까지
   }
 
-  // 구간 경계 점 — 두 버스의 흐름 오버레이를 모두 그린 뒤에 붙인다(점이 색 선에 가리지 않게).
-  p+=dots;
-
   // endcap joints — 색은 '이 점을 지나는 흐름'(passCol)이다.
+  // ★ 행 접점은 두 버스의 흐름 오버레이를 모두 그린 뒤에 찍는다(점이 색 선에 가리지 않게).
   // ★ 자기 채널만 보면, 꺼진 행(예: VA4)의 회색 링이 그 위를 지나가는 파란 흐름 위에
   //   구멍처럼 얹힌다. 점도 선과 같은 통과 규칙을 써야 이어져 보인다.
   //   단독(pure) 라인은 4-way로 직행하므로 혼합 버스 위를 '점 없이 통과'해야 한다 —
@@ -597,10 +580,12 @@ function drawBuses(){
     if(bys[i]==null) return;
     const onMixBus=ech.route==='mix', onPureBus=ech.route==='pure'&&pureRows.length>1;
     if(!onMixBus&&!onPureBus) return;
-    // 규격은 다른 이음새(소스점·합류점·구간 경계)와 같은 원(DOT_R·DOT_SW) — fDot 단일 렌더러.
+    // 규격은 다른 이음새(소스점·합류점)와 같은 원(DOT_R·DOT_SW) — fDot 단일 렌더러.
     const col = onMixBus ? passCol(busRows('mix'), gas1Y, bys[i])
                          : passCol(busRows('pure'), pureMidRow, bys[i]);
-    p+=fDot(bx,bys[i],col);
+    // 비활성 채널의 접점은 레인과 같은 45% 흐림 — 레인 전체가 흐린데 점만
+    // 진하면 그 점이 도드라진다(활성=기존 스타일, 비활성=기존 비활성 스타일).
+    p+=fDot(bx,bys[i],col, ech.en?1:0.45);
   });
 
   /* ── 4-way 밸브 = 둥근 테두리 박스 + 스타일 C 대각선(반대 삼각형, 가운데 빔). 출력색 = 들어온 입력색. ── */
