@@ -262,45 +262,49 @@ async def handle_command(data: dict):
             # PLC 미연결·안전정지 거부는 위 잠금 게이트가 처리한다(중복 안내 금지).
             from state import channel_role
             if state.system.get("purging"):
-                # 재클릭 = 중단: 퍼지가 열었던 마른공기 채널만 닫는다
+                # 재클릭 = 중단: 퍼지가 열었던 단독 에어만 닫는다
                 for c in state.channels:
-                    if channel_role(c) == "dry_air" and c.get("route") != "pure":
+                    if channel_role(c) == "dry_air" and c.get("route") == "pure":
                         c["valveIn"] = False
                         c["sv"] = 0.0
                 state.system["purging"] = False
-                # 청소가 끝났으면 4-way 도 기본 위치(vent)로 — sensor 로 남겨두면
-                # 다음에 가스 밸브를 여는 순간 곧장 센서로 들어간다(DEC-036).
+                # 4-way 는 어차피 OFF(vent) 로 두고 썼지만, 다른 경로로 sensor 가 남아
+                # 있었을 수 있으니 기본 위치로 되돌린다(DEC-036, 방어).
                 state.system["routeOut"] = "vent"
-                await push_log("PURGE 중단 — 마른공기 밸브 닫음", "info")
+                await push_log("PURGE 중단 — 단독 에어 밸브 닫음", "info")
                 await push_state()
                 return
-            # 가스 채널 닫고 SV=0, 마른 공기 채널을 열어 일정 유량으로 라인 청소
-            PURGE_DRY_FLOW = 1000.0   # 청소용 총 마른공기 유량(sccm)
-            # ★ 청소 대상은 가스 매니폴드에 합류하는 혼합(mix) 마른공기뿐이다.
-            #   단독(pure) 라인은 4-way로 직행해 가스라인을 지나지 않는다.
-            dry_idx = [i for i, c in enumerate(state.channels)
-                       if channel_role(c) == "dry_air" and c.get("en")
-                       and c.get("route") != "pure"]
-            # ★ 청소할 채널이 하나도 없으면 아무 것도 만지지 않고 거부한다.
-            #   그냥 두면 가스만 닫고 purging=True·routeOut=sensor 로 바꿔놓아
-            #   '청소 중'으로 보이지만 실제로는 아무것도 흐르지 않는다.
-            if not dry_idx:
-                await push_log("PURGE 불가 — 혼합(mix) 마른공기 채널이 없거나 꺼져 있습니다 "
-                               "(System Setup에서 VA1 사용을 확인하세요)", "err")
+            # ★ DEC-035 개정(2026-08-13): 퍼지 = '단독(pure) 에어를 센서로'.
+            #   이전 설계는 혼합 라인(VA1)에 마른공기를 흘리고 4-way 를 sensor 로 돌려
+            #   가스 배관을 세정하는 것이었다. 지금은 코일 OFF(무전원) 기본 위치에서
+            #   단독 에어가 이미 센서로 가므로 방향 전환 자체가 필요 없다.
+            PURGE_DRY_FLOW = 1000.0   # 퍼지 총 에어 유량(sccm) — VA3 풀스케일 1000 과 일치
+            pure_idx = [i for i, c in enumerate(state.channels)
+                        if channel_role(c) == "dry_air" and c.get("en")
+                        and c.get("route") == "pure"]
+            # ★ 퍼지할 채널이 하나도 없으면 아무 것도 만지지 않고 거부한다.
+            #   그냥 두면 혼합 라인만 닫고 purging=True 로 바꿔놓아 '퍼지 중'으로
+            #   보이지만 실제로는 아무것도 흐르지 않는다.
+            if not pure_idx:
+                await push_log("PURGE 불가 — 단독(pure) 마른공기 채널이 없거나 꺼져 있습니다 "
+                               "(System Setup에서 VA3 사용을 확인하세요)", "err")
                 return
+            # 혼합 라인(가스 + 혼합 에어)은 전부 차단 — 센서로는 단독 에어만 간다.
             for i, c in enumerate(state.channels):
-                role = channel_role(c)
-                if role == "gas":
-                    c["valveIn"] = False
-                    c["sv"] = 0.0
-                elif i in dry_idx:
-                    c["valveIn"] = True
-                    c["sv"] = min(PURGE_DRY_FLOW / len(dry_idx), float(c.get("max") or 0))
-                elif role == "wet_air":
-                    c["sv"] = 0.0
-            state.system["routeOut"] = "sensor"
+                if c.get("route") == "pure":
+                    continue
+                c["valveIn"] = False
+                c["sv"] = 0.0
+            each = 0.0
+            for i in pure_idx:
+                c = state.channels[i]
+                each = min(PURGE_DRY_FLOW / len(pure_idx), float(c.get("max") or 0))
+                c["sv"] = each
+                c["valveIn"] = True
+            # ★ routeOut 은 건드리지 않는다 — 코일 OFF(vent) 가 곧 '단독 에어 → 센서'다.
             state.system["purging"] = True
-            await push_log("PURGE — 순수 Air로 라인 청소", "info")
+            await push_log(f"PURGE 시작 — 단독 에어 {each:g} sccm → Sensor (4-way OFF 유지)",
+                           "info")
             await push_state()
 
         elif cmd == "apply_setup":
