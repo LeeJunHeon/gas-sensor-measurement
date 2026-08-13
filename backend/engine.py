@@ -16,6 +16,43 @@ from connection import push_state, push_log
 
 _task = None
 
+AIR_HANDOFF_S = 1.0
+# 4-way 를 sensor 로 돌린 뒤 이 시간 동안 단독 에어를 유지하고 닫는다.
+# 겹침이 없으면 전환 순간 센서가 잠깐 무풍이 되고, 계속 열어두면 측정 내내
+# 에어가 vent 로 낭비된다(운용 결정 2026-08-13: 전환 1초 후 차단).
+
+
+def _pure_dry_idx():
+    """단독(pure) 마른공기 채널 인덱스 — 퍼지 단계가 열고, 가스 단계가 전환 후 닫는다."""
+    return [i for i, c in enumerate(state.channels)
+            if channel_role(c) == "dry_air" and c.get("en") and c.get("route") == "pure"]
+
+
+def _close_pure_air() -> bool:
+    """열려 있던 단독 에어를 닫는다. 실제로 닫은 게 있으면 True(로그·push 용)."""
+    hit = False
+    for i in _pure_dry_idx():
+        c = state.channels[i]
+        if c.get("valveIn") or c.get("sv"):
+            c["sv"] = 0.0
+            c["valveIn"] = False
+            hit = True
+    return hit
+
+
+def _apply_purge_step(proc):
+    """퍼지 단계: 혼합 라인(가스+혼합에어) 전부 닫고 단독 에어만 flow 로 연다."""
+    flow = float(proc.get("flow") or 0)
+    for i, c in enumerate(state.channels):
+        if c.get("route") == "pure":
+            continue
+        c["sv"] = 0.0
+        c["valveIn"] = False
+    for i in _pure_dry_idx():
+        c = state.channels[i]
+        c["sv"] = min(flow, float(c.get("max") or 0))
+        c["valveIn"] = True
+
 
 def is_running() -> bool:
     return _task is not None and not _task.done()
@@ -30,6 +67,30 @@ def precheck(recipe) -> list:
     if not procs:
         return ["추가된 프로세스 단계가 없습니다 (＋Add Process로 단계를 추가하세요)"]
     for n, proc in enumerate(procs):
+        if proc.get("type") == "purge":
+            # 퍼지 단계는 희석 계산 대상이 아니다 — 에어 유량·시간·대상 채널만 본다.
+            pure = _pure_dry_idx()
+            flow = float(proc.get("flow") or 0)
+            if flow <= 0:
+                problems.append(f"P{n + 1}(퍼지) — 에어 유량이 0입니다")
+            if float(proc.get("meas") or 0) <= 0:
+                problems.append(f"P{n + 1}(퍼지) — 시간이 0입니다")
+            if not pure:
+                problems.append(f"P{n + 1}(퍼지) — 단독 마른공기 채널(VA3)이 꺼져 있거나 없습니다")
+            for i in pure:
+                c = state.channels[i]
+                mx = float(c.get("max") or 0)
+                fs = float(((c.get("plc") or {}).get("fs_sccm")) or 0)
+                lim = min(x for x in (mx, fs) if x > 0) if (mx > 0 or fs > 0) else 0
+                if lim > 0 and flow > lim + 1e-6:
+                    problems.append(
+                        f"P{n + 1}(퍼지) — {c.get('id', '?')}: 에어 유량 {flow:g} sccm이 "
+                        f"상한 {lim:g} sccm을 넘습니다")
+                if plc_catalog.dac_reg((c.get("plc") or {}).get("sv_out")) is None:
+                    problems.append(
+                        f"P{n + 1}(퍼지) — {c.get('id', '?')}: SV 출력 채널이 없어 "
+                        f"실행할 수 없습니다 (config.json의 channels[].plc.sv_out 확인)")
+            continue
         res = compute_step_setpoints(state.channels, proc, bottle, use_h)
         for e in res["errors"]:
             problems.append(f"P{n + 1} — {e}")
@@ -52,8 +113,8 @@ def _apply_setpoints(sv: dict):
     """계산된 SV를 채널에 적용하고 밸브를 자동 개폐한다.
     유량이 필요한 채널(sv>0)은 열고, 0인 채널은 닫는다(비상정지로 닫혀 있어도 자동 복구).
     꺼진 채널(en=False)은 항상 닫힘.
-    ★ 단독(route=pure) 에어 라인은 건드리지 않는다 — 4-way로 직행하는 센서측 공급이라
-      레시피의 희석 소관이 아니다. 실행 전에 사람이 맞춰둔 SV·밸브를 그대로 유지한다.
+    ★ 단독(route=pure) 라인은 희석 '배분'에서 제외한다. 단, 단계 시퀀스는 별도로
+      관리한다 — 퍼지 단계가 열고, 가스 단계는 4-way 전환 1초 뒤 닫는다(_close_pure_air).
     4-way 방향은 단계 진행(_phase)이 준비=vent / 측정=sensor 로 전환한다."""
     for i, c in enumerate(state.channels):
         if channel_role(c) in ("dry_air", "wet_air") and c.get("route") == "pure":
@@ -120,6 +181,17 @@ async def _run_recipe():
         for loop_i in range(loop_count):
             state.system["loop"]["current"] = loop_i + 1
             for n, proc in enumerate(procs):
+                if proc.get("type") == "purge":
+                    # 퍼지 단계: 희석 계산 없이 단독 에어만 연다(4-way 는 OFF 유지).
+                    _apply_purge_step(proc)
+                    state.system["stepIndex"] = n + 1
+                    await push_log(f"P{n+1} 퍼지 시작 — 단독 에어 → Sensor "
+                                   f"(Loop {loop_i+1}/{loop_count})", "ok")
+                    await _phase("purge", float(proc.get("meas") or 0),
+                                 _plc_abort_for(n + 1))
+                    if not is_running_flag():
+                        return
+                    continue
                 res = compute_step_setpoints(state.channels, proc, bottle, use_h)
                 if res["errors"]:
                     await push_log(f"P{n+1} 실행 불가로 중단: " + " / ".join(res["errors"]), "err")
@@ -136,7 +208,21 @@ async def _run_recipe():
                 # 측정(meas): 값 유지하며 시간 흐름.
                 # ── 하드웨어 연결 시 여기에 RH/SMU 측정값 기록 코드 삽입 위치 ──
                 #    (예: 주기적으로 센서값을 읽어 그래프/파일에 저장)
-                await _phase("meas", float(proc.get("meas") or 0), abort)
+                # ★ 에어 핸드오프: 4-way 를 sensor 로 돌린 뒤 AIR_HANDOFF_S 동안 단독 에어를
+                #   겹쳐 두었다가 닫는다. 겹침이 없으면 전환 순간 센서가 무풍이 된다.
+                #   ※ 가스 단계는 단독 에어를 '열지 않는다' — 직전 퍼지 단계(또는 사람이)
+                #     열어둔 것을 전환 +1s 까지 유지할 뿐이다. 가스 단계를 연속으로 붙이면
+                #     두 번째 준비 구간은 센서 무풍이 된다(막지 않음 — 계약으로 문서화).
+                #   ※ 표시 특성: 겹침 구간이 끝나면 stepRemain 이 (meas−1)부터 다시 센다.
+                dur = float(proc.get("meas") or 0)
+                head = min(AIR_HANDOFF_S, dur)
+                await _phase("meas", head, abort)      # 4-way → sensor + 겹침 구간
+                if not is_running_flag():
+                    return
+                if dur > 0 and _close_pure_air():
+                    await push_log("단독 에어 차단 — 4-way 전환 후 1초 경과", "info")
+                    await push_state()
+                await _phase("meas", dur - head, abort)
                 if not is_running_flag():
                     return
         await push_log("AUTO RUN 완료 — 레시피 종료", "ok")
@@ -171,6 +257,9 @@ async def _phase(name: str, seconds: float, plc_abort=None):
         state.system["routeOut"] = "vent"
     elif name == "meas":
         state.system["routeOut"] = "sensor"
+    elif name == "purge":
+        # 퍼지는 코일 OFF(vent) 기본 위치 그대로 — 단독 에어가 이미 센서로 간다.
+        state.system["routeOut"] = "vent"
     total = max(0.0, float(seconds or 0))
     end = time.monotonic() + total
     remain = int(round(total))

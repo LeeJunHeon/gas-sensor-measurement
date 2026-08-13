@@ -279,6 +279,8 @@ def normalize_recipe(r: dict) -> dict:
                 "prep": to_num(p.get("prep")),
                 "meas": to_num(p.get("meas")),
                 "rep": bool(p.get("rep")),
+                # 단계 종류. 없거나 모르는 값이면 gas — 구파일(타입 없는 레시피)이 그대로 돈다.
+                "type": (p.get("type") if p.get("type") in ("gas", "purge") else "gas"),
             })
     params = {**DEFAULT_PARAMS, **(r.get("params") if isinstance(r.get("params"), dict) else {})}
     bottle = r.get("bottle")

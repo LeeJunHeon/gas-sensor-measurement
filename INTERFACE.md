@@ -66,7 +66,13 @@
       g:    [5, 0, 0, 0],              // 측정 MFC 농도 G1~G4 (ppm)
       prep: 3600,                      // 준비 시간(초)
       meas: 300,                       // 측정 시간(초)
-      rep:  false                      // 이 단계 반복 여부
+      rep:  false,                     // 이 단계 반복 여부
+      type: "gas" | "purge"            // 단계 종류. 없거나 모르는 값이면 "gas"
+                                       //   (타입 없는 구파일 레시피가 그대로 동작한다)
+                                       // "purge": 희석 계산 없이 단독(pure) 에어만
+                                       //   flow sccm 으로 meas 초 동안 연다. 4-way 는
+                                       //   OFF(vent) 유지 — 그 위치가 곧 에어→Sensor.
+                                       //   g·rh·prep 은 쓰이지 않는다.
     }
   ]
   params: {                            // 측정/전압/SMU 파라미터
@@ -107,7 +113,9 @@ plc_live — PLC 실측(읽기 폴링 결과). state 메시지에 항상 포함�
   "pv": [0,0,0,0,0,0,0,0],
   "rh": 40.1, "smu": "+1.16398E-05",
   "elapsed": 123, "running": true,
-  "loop": { "current": 3, "total": 7 } }
+  "loop": { "current": 3, "total": 7 },
+  "phase": "idle" | "prep" | "meas" | "purge",   // 현재 구간
+  "stepIndex": 1, "stepTotal": 3, "stepRemain": 42 }
 ```
 
 (3) log — 서버 발생 로그 (level: ok|info|warn|err)
