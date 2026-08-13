@@ -251,11 +251,11 @@ def default_recipe(bottle=None) -> dict:
         # 기본 골격: 세정 → 측정 → 세정. 값은 출발점일 뿐이며 사용자가 자유 수정한다.
         "procs": [
             {"type": "purge", "flow": 1000, "rh": 0, "g": [0, 0, 0, 0],
-             "prep": 0,  "meas": 60, "rep": False},
+             "prep": 0,  "meas": 60},
             {"type": "gas",   "flow": 1000, "rh": 0, "g": [0, 0, 0, 0],
-             "prep": 60, "meas": 60, "rep": False},
+             "prep": 60, "meas": 60},
             {"type": "purge", "flow": 1000, "rh": 0, "g": [0, 0, 0, 0],
-             "prep": 0,  "meas": 60, "rep": False},
+             "prep": 0,  "meas": 60},
         ],
         "bottle": b,
         "params": dict(DEFAULT_PARAMS),
@@ -291,7 +291,7 @@ def normalize_recipe(r: dict) -> dict:
                 "g": g,
                 "prep": to_num(p.get("prep")),
                 "meas": to_num(p.get("meas")),
-                "rep": bool(p.get("rep")),
+
                 # 단계 종류. 없거나 모르는 값이면 gas — 구파일(타입 없는 레시피)이 그대로 돈다.
                 "type": (p.get("type") if p.get("type") in ("gas", "purge") else "gas"),
             })

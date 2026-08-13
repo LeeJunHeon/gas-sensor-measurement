@@ -17,7 +17,7 @@ from state import channel_role
 def compute_step_setpoints(channels, proc, bottle, use_humidity=True):
     """
     channels: state.channels (각 dict: id/grp/route/en/max/sv...)
-    proc: {flow, rh, g:[g1..g4], prep, meas, rep}
+    proc: {flow, rh, g:[g1..g4], prep, meas, type}
     bottle: [b1..b4] 봄베 농도(ppm)
     반환: {"sv": {channel_index: 목표값}, "errors": [문자열...]}
       errors가 비어있지 않으면 실행 불가(차단 대상).

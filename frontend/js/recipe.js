@@ -485,7 +485,7 @@ function renderRecipe(){
   recipeBody.innerHTML='';
   procs.forEach((r,i)=>{
     const tr=document.createElement('tr');
-    if(i===0) tr.className='active';
+    tr.dataset.row=i;
     // 퍼지 단계는 G1~G4·RH 를 쓰지 않는다 — 값은 지우지 않고 흐림+입력 잠금만
     // (종류를 가스로 되돌리면 그대로 복원된다).
     // ★ 준비 칸은 퍼지에서도 활성이다 — 엔진이 준비+측정을 합산해 한 구간으로 돈다.
@@ -494,7 +494,7 @@ function renderRecipe(){
     const dis = pg ? ' disabled' : '';
     const gcells=r.g.map((v,gi)=>`<td class="${v===0?'zero':''}${off}"><input class="ci" value="${v}" data-g="${i}-${gi}"${dis}></td>`).join('');
     tr.innerHTML=`
-      <td class="pcol">P${i+1}</td>
+      <td class="pcol" draggable="true" data-drag="${i}" title="드래그해서 순서 변경">P${i+1}</td>
       <td><select class="ptype" data-type="${i}">
         <option value="gas"${!pg?' selected':''}>Gas→Sensor</option>
         <option value="purge"${pg?' selected':''}>Air→Sensor</option>
@@ -502,15 +502,13 @@ function renderRecipe(){
       <td><input class="ci" value="${r.flow}" data-f="flow-${i}"${pg?' title="퍼지 단계: 단독 에어 유량(sccm)"':''}></td>
       <td class="humcol${off}" ${useHum?'':'style="display:none"'}><input class="ci" value="${r.rh}" data-f="rh-${i}"${dis}></td>
       ${gcells}
-      <td><input class="ci" value="${r.prep}" data-f="prep-${i}">
-        <div class="cellcap">${pg?'Air→Sensor':'Gas→Vent'}</div></td>
-      <td><input class="ci" value="${r.meas}" data-f="meas-${i}">
-        <div class="cellcap">${pg?'Air→Sensor':'Gas→Sensor'}</div></td>
-      <td><input type="checkbox" class="reptog" ${r.rep?'checked':''} data-rep="${i}"></td>
+      <td><input class="ci" value="${r.prep}" data-f="prep-${i}"></td>
+      <td><input class="ci" value="${r.meas}" data-f="meas-${i}"></td>
       <td><button class="delrow" data-del="${i}">×</button></td>`;
     recipeBody.appendChild(tr);
   });
   bindRecipe();
+  window.markRunningStep(_curStep);   // 실행 중 재렌더에도 하이라이트 유지
 }
 function bindRecipe(){
   // ★ 셀에 비숫자가 들어오면 조용히 0 으로 바꾸지 않는다 — '5OO' 이 0 이 되면
@@ -536,9 +534,38 @@ function bindRecipe(){
     procs[+e.target.dataset.type].type=e.target.value;
     renderRecipe();      // 퍼지↔가스에 따라 흐림·잠금이 달라지므로 행을 다시 그린다
   }));
-  recipeBody.querySelectorAll('[data-rep]').forEach(cb=>cb.addEventListener('change',e=>{procs[+e.target.dataset.rep].rep=e.target.checked;}));
   recipeBody.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{procs.splice(+e.target.dataset.del,1);renderRecipe();}));
+  // P열을 잡아 행 순서를 바꾼다(HTML5 DnD). 번호(P1·P2…)는 재렌더로 자동 재부여된다.
+  let dragFrom=null;
+  recipeBody.querySelectorAll('td.pcol').forEach(h=>{
+    h.addEventListener('dragstart',e=>{
+      if(window._sys&&window._sys.running){e.preventDefault();return;}   // 실행 중 금지
+      dragFrom=+h.dataset.drag; e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/plain',String(dragFrom));
+    });
+  });
+  recipeBody.querySelectorAll('tr').forEach(tr=>{
+    tr.addEventListener('dragover',e=>{e.preventDefault();
+      recipeBody.querySelectorAll('tr').forEach(t=>t.classList.remove('droptarget'));
+      tr.classList.add('droptarget');});
+    tr.addEventListener('dragleave',()=>tr.classList.remove('droptarget'));
+    tr.addEventListener('drop',e=>{e.preventDefault();
+      tr.classList.remove('droptarget');
+      const to=+tr.dataset.row;
+      if(dragFrom==null||to===dragFrom) {dragFrom=null;return;}
+      const [mv]=procs.splice(dragFrom,1);
+      procs.splice(to,0,mv);
+      dragFrom=null; renderRecipe();
+    });
+  });
 }
+/* 실행 중인 단계 하이라이트 — telemetry 의 stepIndex(1-base)를 받는다. 0 이면 해제. */
+let _curStep=0;
+window.markRunningStep=idx=>{
+  _curStep=idx|0;
+  recipeBody.querySelectorAll('tr').forEach((tr,k)=>
+    tr.classList.toggle('runrow',_curStep>0&&k===_curStep-1));
+};
 // 봄베 농도·Loop Count 도 같은 규칙 — 비숫자는 조용히 0/1 로 바뀌지 않게 한다.
 //   봄베가 0 이 되면 희석 계산이 통째로 어긋나고, Loop 가 0 이 되면 실행이 즉시 끝난다.
 [0,1,2,3].forEach(i=>{
@@ -568,7 +595,7 @@ function bindRecipe(){
 })();
 document.getElementById('addProc').addEventListener('click',()=>{
   // 표 편집은 로컬 초안(draft). 저장(Save as) 시 서버로 레시피 전체를 보낸다.
-  procs.push({type:'gas', flow:1000, rh:40, g:[0,0,0,0], prep:600, meas:300, rep:false}); renderRecipe();
+  procs.push({type:'gas', flow:1000, rh:40, g:[0,0,0,0], prep:600, meas:300}); renderRecipe();
 });
 document.getElementById('useHumidity').addEventListener('change',renderRecipe);
 

@@ -393,6 +393,10 @@ function applyTelemetry(tl){
     _runInfo={phase:tl.phase,i:tl.stepIndex||0,n:tl.stepTotal||0,r:tl.stepRemain||0};
     refreshHdrStatus();
   }
+  // 레시피 표의 '지금 도는 단계' 하이라이트. idle 이면 0 → 해제
+  // (AUTO STOP·완료·중단이 모두 여기로 정리된다).
+  if(window.markRunningStep)
+    window.markRunningStep(tl.phase&&tl.phase!=='idle'?(tl.stepIndex||0):0);
   // Post-MFC flow now follows measured PV, which arrives here (not on state pushes).
   // Repaints only when the flow key actually flips, so pipe animations are not reset.
   if(typeof refreshLaneFlow==='function') refreshLaneFlow();

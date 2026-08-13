@@ -436,20 +436,25 @@
   table.rcp th .bottle input{width:34px;font-family:var(--font-mono);font-size:10px;text-align:right;border:1px solid var(--line);border-radius:3px;padding:1px 3px;color:#b5610c;background:#fff}
   table.rcp th .bottle input:focus{outline:none;border-color:var(--sv)}
   table.rcp td{border-right:1px solid #e7ebf1;border-bottom:1px solid #e7ebf1;text-align:center;padding:0}
-  table.rcp tbody tr:nth-child(even){background:#f7f9fb}
-  table.rcp tbody tr.active{background:#e6f3ef}
-  table.rcp tbody tr.active td:first-child{box-shadow:inset 3px 0 0 var(--pv)}
+  /* 행 배경은 '지브라'와 아래 실행 하이라이트 둘뿐이다 — 첫 행 특별색(.active)은 없앴다. */
+  table.rcp tbody tr:nth-child(odd) td{background:#fff}
+  table.rcp tbody tr:nth-child(even) td{background:#f4f6f8}
   table.rcp td .ci{width:100%;border:none;background:transparent;text-align:center;font-family:var(--font-mono);font-size:12px;color:#2a3645;padding:6px 4px}
   table.rcp td .ci:focus{outline:2px solid var(--primary);outline-offset:-2px;background:#fff;border-radius:2px}
-  table.rcp td.pcol{font-weight:700;color:var(--pv);font-family:var(--font-mono);padding:6px 4px;background:#eef6f4;cursor:grab}
+  table.rcp td.pcol{font-weight:700;color:var(--pv);font-family:var(--font-mono);padding:6px 4px;cursor:grab}
+  /* 준비·측정 열 머리 — 그 구간의 라우팅을 그대로 적는다(캡션 대신 헤더 한 곳으로). */
+  table.rcp th.thflow{font-size:11.5px;line-height:1.25;font-weight:600}
+  table.rcp th.thflow .thsec{font-weight:500;color:#8a93a3}
+  /* 드래그 순서 변경 — 놓을 행 위쪽에 삽입선 */
+  table.rcp tr.droptarget td{box-shadow:inset 0 2px 0 var(--acc,#3b82f6)}
+  /* 실행 중인 단계 — 지브라보다 '뒤에' 선언해 같은 특정도에서 이긴다. */
+  table.rcp tbody tr.runrow td{background:#e8f1ff}
+  table.rcp tbody tr.runrow td.pcol{box-shadow:inset 3px 0 0 #3b82f6;font-weight:800}
   table.rcp td.zero .ci{color:#b3bccb}
-  .reptog{width:15px;height:15px;accent-color:var(--primary);cursor:pointer;margin:5px}
   .delrow{cursor:pointer;color:#b9495a;font-weight:700;font-size:13px;padding:4px 7px;border:none;background:transparent}
   .delrow:hover{color:#8a2233}
   .addrow{display:flex;align-items:center;gap:7px;margin-top:2px}
-  /* 준비·측정 칸 아래 캡션 — 그 구간에 무엇이 어디로 가는지(행 종류별로 달라진다). */
-  .cellcap{font-size:11px;color:var(--sub,#8a93a3);line-height:1.1;margin-top:2px;
-    text-align:center;pointer-events:none}
+
   /* 퍼지 단계에서 쓰이지 않는 칸(G1~G4·RH) — 값은 남기고 흐림+입력 잠금만.
      톤은 조작 잠금 시각화(#app.ctl-locked)와 같은 .45 로 맞춘다. */
   table.rcp td.cell-off{opacity:.45}
