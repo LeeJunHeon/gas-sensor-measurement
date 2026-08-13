@@ -23,6 +23,7 @@ import asyncio
 import inspect
 from dataclasses import dataclass, asdict, fields
 
+import logger
 import plc_catalog as cat
 # ★ 상태 싱글턴이 아니라 '배선 판정' 순수 함수만 가져온다(계층 역전 방지·순환 없음).
 from state import plc_mapped
@@ -82,6 +83,10 @@ PLC_COMM_LIMITS = {
 #   폴링 주기 0.7초(loops.PLC_POLL_INTERVAL_S) 기준 3회 ≈ 2.1초 → 3초 트립 안에서 판정이 끝난다.
 #   ★ 하트비트는 별도 태스크(_run_loop)라 폴링 실패와 무관하게 계속 나간다.
 POLL_FAIL_LIMIT = 3
+
+HB_RETRY_GAP_S = 0.2   # 하트비트 단발 실패 후 재시도 간격.
+# ★ timeout_s 를 2.5까지 키워 두면 첫 실패 '확정'만 t0+3.5라 재시도가 무의미해진다 —
+#   시리얼 현장 권장 timeout 은 1.5 이하(CONFIG.md 트러블슈팅에도 명시).
 
 
 def clamp_comm(key: str, v: float) -> float:
@@ -360,8 +365,16 @@ class PlcClient:
             try:
                 await self.heartbeat()
             except Exception:  # noqa: BLE001
-                await self.close()
-                continue
+                # 단발 쓰기 실패(USB 지연·간헐 타임아웃)로 즉시 끊으면 '끊겼다 붙었다'가
+                # 반복되고, poll 이 곧바로 미연결을 보고 전 채널을 닫는다. 짧게 1회만
+                # 재시도한다(위 상수 주석의 타임라인 근거 — COMM_TMR 3s 안에서 끝난다).
+                await asyncio.sleep(HB_RETRY_GAP_S)
+                try:
+                    await self.heartbeat()
+                    logger.write("warn", "하트비트 1회 실패 → 재시도 성공 — 연결 유지")
+                except Exception:  # noqa: BLE001
+                    await self.close()
+                    continue
             await asyncio.sleep(max(0.1, self.cfg.heartbeat_s))
 
     async def heartbeat(self):

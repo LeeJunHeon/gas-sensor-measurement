@@ -138,6 +138,7 @@ async def plc_write_loop():
     prev_plc_safe = False   # PLC 안전정지의 직전 값(전이 감지용)
     prev_alarm = False      # MFC·DAC 알람의 직전 값(전이 감지용)
     prev_connected = False   # 연결의 직전 값(전이 감지) — 끊김 시 앱 상태도 닫힘으로 정렬
+    write_warned = False     # 쓰기 실패 파일 로그 도배 억제(성공하면 해제)
     while True:
         await asyncio.sleep(PLC_WRITE_INTERVAL_S)
         try:
@@ -224,8 +225,13 @@ async def plc_write_loop():
                 await plc.plc.write_sv_block(sv_map)
                 await plc.plc.write_valves_block(valve_map, want_4w)
                 last = want
-        except Exception:  # noqa: BLE001 — 쓰기 실패(연결문제 등)는 캐시 비우고 다음 주기 재시도
+                write_warned = False        # 성공하면 다음 실패를 다시 한 번 알린다
+        except Exception as e:  # noqa: BLE001 — 쓰기 실패는 캐시 비우고 다음 주기 재시도
             last = None
+            # ★ 파일 로그에만, 그것도 연속 실패 중 첫 1회만 — 0.25초 주기라 도배된다.
+            if not write_warned:
+                logger.write("warn", f"PLC 쓰기 실패 — 다음 주기 재시도: {e}")
+                write_warned = True
 
 
 def start_all() -> list:
