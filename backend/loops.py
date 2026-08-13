@@ -81,6 +81,7 @@ async def telemetry_loop():
 async def plc_poll_loop():
     was_connected = False
     prev_alm = {}
+    fail_streak = 0   # 연속 읽기 실패 횟수 — plc.POLL_FAIL_LIMIT 부터 '끊김'으로 본다
     async def _mark_disconnected():
         nonlocal was_connected
         if was_connected:
@@ -97,6 +98,7 @@ async def plc_poll_loop():
                 res = await plc.plc.poll()
                 state.plc_live = {"connected": True, "pv": res["pv"],
                                   "pv_raw": res.get("pv_raw", {}), "status": res["status"]}
+                fail_streak = 0            # 성공 1회면 관용 카운터 초기화
                 if not was_connected:
                     await push_log("PLC 연결됨", "ok")   # 끊김→연결 전이 1회
                     was_connected = True
@@ -116,9 +118,16 @@ async def plc_poll_loop():
                 await push_state()
             else:
                 await _mark_disconnected()
-        except Exception:  # noqa: BLE001 — 읽기 실패는 연결표시만 내리고 계속
-            with contextlib.suppress(Exception):
-                await _mark_disconnected()
+        except Exception:  # noqa: BLE001 — 읽기 실패는 연속 N회부터 끊김으로 본다
+            fail_streak += 1
+            if fail_streak >= plc.POLL_FAIL_LIMIT:
+                with contextlib.suppress(Exception):
+                    await _mark_disconnected()
+            else:
+                # 단발 실패: 연결 표시·밸브 상태를 유지하고 다음 주기에 재시도한다.
+                # (래더 하트비트가 계속 나가므로 3초 트립도 걸리지 않는다.)
+                # ★ 파일 로그에만 남긴다 — 화면 System Log 에 띄우면 도배된다.
+                logger.write("warn", f"PLC 읽기 실패 {fail_streak}/{plc.POLL_FAIL_LIMIT} — 재시도")
 
 
 # PLC 쓰기 동기화: 앱의 '원하는 상태'(밸브 개폐 + 목표유량 SV)를 주기적으로 PLC에 반영.

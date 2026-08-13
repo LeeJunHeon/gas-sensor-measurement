@@ -76,6 +76,14 @@ PLC_COMM_LIMITS = {
 }
 
 
+# 읽기 실패를 '끊김'으로 판정하기까지의 연속 실패 횟수.
+#   USB 시리얼(FTDI latency 등)에서 단발 실패는 정상 범위라 1회로 끊으면
+#   운전 중 오탐 중단이 잦다. 반대로 너무 키우면 래더 COMM_TMR(3초)가 먼저 트립한다.
+#   폴링 주기 0.7초(loops.PLC_POLL_INTERVAL_S) 기준 3회 ≈ 2.1초 → 3초 트립 안에서 판정이 끝난다.
+#   ★ 하트비트는 별도 태스크(_run_loop)라 폴링 실패와 무관하게 계속 나간다.
+POLL_FAIL_LIMIT = 3
+
+
 def clamp_comm(key: str, v: float) -> float:
     lo, hi = PLC_COMM_LIMITS[key]
     return min(hi, max(lo, v))
