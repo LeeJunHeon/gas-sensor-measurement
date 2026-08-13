@@ -79,10 +79,12 @@ function plcSafeStop(){ const L=window.plcLive; return !!(L&&L.connected&&L.stat
 // 유효 열림 = 명령(valveIn) ON 이고 안전정지 아님 → 래더의 'valve = CMD AND RUN_PERMIT'와 동일.
 const eff=c=>c.en&&c.valveIn&&!plcSafeStop();
 // MFC 이후 구간(레인 발광·연결점·트렁크·버스·4-way 입력)의 단일 판정.
-// ★ 표시 = '지령'이다(밸브 열림 AND SV>0). 실측 PV 는 표시에 쓰지 않는다 —
-//   초기화·밸브 닫기 즉시 꺼지고, SV 투입 즉시 켜진다(사용자 결정 2026-08-13,
-//   커밋 9 의 'PV 추종'을 되돌림. PV 는 숫자 칸으로만 확인한다).
-const svOn = c => eff(c) && +c.sv > 0;
+// ★ 표시 = '실측'이다(PV > 0). 지령(SV·밸브)은 표시에 쓰지 않는다 — 실제로 흐르는
+//   동안만 우측이 켜진다. 미연결이면 pv 가 null 이라 자연히 꺼진다.
+//   결정 이력: 커밋 9 'PV 추종' → 커밋 27 '지령 기준'(PV 삭제) → 본 커밋 'PV>0 단순
+//   복원'(사용자 결정 2026-08-13). 실기 양(+)의 영점 잡음으로 깜빡이면 그때
+//   임계값(예: 1 sccm)을 이 한 줄에만 더한다.
+const svOn = c => c.pv != null && +c.pv > 0;
 
 const valveSvg = `<svg width="34" height="22" viewBox="0 0 34 22">
   <line class="vstem" x1="17" y1="11" x2="17" y2="4"/><rect class="vact" x="12" y="0" width="10" height="5" rx="1"/>
