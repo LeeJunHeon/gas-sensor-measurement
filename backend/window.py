@@ -41,6 +41,10 @@ def _acquire_single_instance() -> bool:
     if sys.platform != "win32":
         return True
     global _MUTEX_HANDLE
+    # 재진입 안전: 창 경로로 실행하면 run()과 lifespan이 둘 다 부른다.
+    # 이미 내가 잡은 뮤텍스면 두 번째 호출이 자기 자신에 걸려 오탐 종료하는 것을 막는다.
+    if _MUTEX_HANDLE is not None:
+        return True
     try:
         import ctypes
         kernel32 = ctypes.windll.kernel32

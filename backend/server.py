@@ -53,6 +53,16 @@ async def lifespan(_app: FastAPI):
     # startup: 파일 로거 구성(config의 settings 기준) + PLC 통신 설정 반영(포트가 있으면 연결 유지 루프 시작)
     #          + 백그라운드 주기 태스크 시작
     logger.configure(state.settings)   # 여기서 early 버퍼(import 단계 진단)가 파일로 flush된다
+    # 이중 실행 방지는 창 경로(window.run)뿐 아니라 서버 기동 공통 경로에도 둔다.
+    # `python -m uvicorn server:app` 는 main()을 거치지 않아 검사 없이 PLC 루프까지 떴고,
+    # 인스턴스 2개가 한 PLC에 붙어 밸브 프레임을 서로 덮었다(2026-08-14).
+    # 헤드리스 실행이라 메시지박스가 아니라 콘솔·파일 로그로 알린다.
+    # ★ 비Windows는 _acquire_single_instance가 항상 True — 검증 하네스는 영향받지 않는다.
+    if not window._acquire_single_instance():
+        msg = "프로그램이 이미 실행 중입니다 — 백엔드 기동을 중단합니다"
+        print(f"[error] {msg}", flush=True)   # os._exit 는 버퍼를 비우지 않는다 — 반드시 flush
+        logger.write("err", msg)
+        os._exit(1)
     # 버전은 진단이 아니라 정보 — 파일 로그 맨 앞에 남긴다(로그만 받아도 버전을 알 수 있게).
     logger.write("info", f"{version.APP_NAME} v{version.APP_VERSION} ({version.BUILD_DATE})")
     plc.configure(state.plc)
