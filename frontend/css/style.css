@@ -363,6 +363,9 @@
   .plc-conn.discon{color:#8a94a3}
   .plc-conn.con{color:#1b8a44}.plc-conn.con .pdot{background:#28a745}
   /* 운전 허가(헤드라인) — 연결+허가=초록, 연결+정지=빨강, 미연결=회색 */
+  /* 연결 대상 한 줄 — 상시 표시(미연결이면 .dim 으로 흐리게). */
+  .pp-target{font-size:12px;color:#5a6678;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pp-target.dim{color:var(--ink-faint)}
   .pp-permit{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;background:#eef1f4;border:1px solid var(--line)}
   .pp-permit .pp-permit-dot{width:12px;height:12px;border-radius:50%;background:#b7c0cc;flex:0 0 12px}
   .pp-permit .pp-permit-txt{font-size:15px;font-weight:700;color:#8a94a3}

@@ -49,6 +49,8 @@
                 <span class="plc-conn discon" id="plcConn"><span class="pdot"></span><span class="ptxt">미연결</span></span>
               </div>
               <div class="b">
+                <!-- 연결 대상(TCP host:port / COM·속도·국번). 미연결이어도 '붙으려는 대상'을 보여준다. -->
+                <div class="pp-target mono" id="plcTarget" title="지금 설정된 PLC 연결 대상">—</div>
                 <div class="pp-permit" id="plcPermit"><span class="pp-permit-dot"></span><span class="pp-permit-txt">—</span></div>
                 <div class="pp-dots">
                   <span class="plcstat" id="stAlmMfc"><span class="d"></span>MFC알람</span>
@@ -238,12 +240,12 @@
           <div class="setup-dis" hidden>
             <div class="setup-sec">시스템 파라미터</div>
             <div class="setup-grid">
-              <div class="setup-field"><label>Start 전압 (V) — 미사용</label><input id="setVStart" value="0" disabled></div>
-              <div class="setup-field"><label>End 전압 (V) — 미사용</label><input id="setVEnd" value="0" disabled></div>
-              <div class="setup-field"><label>Graph Interval — 미사용</label><input id="setGraf" value="1" disabled></div>
-              <div class="setup-field"><label>Loop Count — 미사용(우측 패널에서 설정)</label><input id="setLoop" value="1" disabled></div>
-              <div class="setup-field"><label>SMU Compliance — 미사용</label><input id="setComp" value="1.0" disabled></div>
-              <div class="setup-field"><label>목표 습도 RH (%) — 미사용(습도 미배선)</label><input id="setRH" value="" disabled></div>
+              <div class="setup-field"><label>Start 전압 (V) — 미사용</label><input id="setVStart" value="0" disabled autocomplete="off"></div>
+              <div class="setup-field"><label>End 전압 (V) — 미사용</label><input id="setVEnd" value="0" disabled autocomplete="off"></div>
+              <div class="setup-field"><label>Graph Interval — 미사용</label><input id="setGraf" value="1" disabled autocomplete="off"></div>
+              <div class="setup-field"><label>Loop Count — 미사용(우측 패널에서 설정)</label><input id="setLoop" value="1" disabled autocomplete="off"></div>
+              <div class="setup-field"><label>SMU Compliance — 미사용</label><input id="setComp" value="1.0" disabled autocomplete="off"></div>
+              <div class="setup-field"><label>목표 습도 RH (%) — 미사용(습도 미배선)</label><input id="setRH" value="" disabled autocomplete="off"></div>
             </div>
           </div>
           <div class="setup-section">
@@ -254,7 +256,7 @@
             <!-- 로그 위치는 exe 옆 logs/ 고정 운용(2026-08-14) — 입력만 숨김, 로직 보존 -->
             <div class="setup-row" hidden>
               <span class="setup-lbl">저장 폴더</span>
-              <input class="field mono" id="logDir" style="flex:1" placeholder="logs (또는 절대경로)">
+              <input class="field mono" id="logDir" style="flex:1" placeholder="logs (또는 절대경로)" autocomplete="off">
             </div>
             <div class="setup-row">
               <span class="setup-lbl">기록 레벨</span>
@@ -264,7 +266,7 @@
                 <option value="err">오류만</option>
               </select>
               <span class="setup-lbl" style="margin-left:12px">보관일수</span>
-              <input class="field mono" id="logKeepDays" style="width:70px" placeholder="30">
+              <input class="field mono" id="logKeepDays" style="width:70px" placeholder="30" autocomplete="off">
             </div>
           </div>
 
@@ -277,17 +279,17 @@
                 <option value="tcp">TCP</option>
               </select>
               <span class="setup-lbl" style="margin-left:12px">국번(Unit ID)</span>
-              <input class="field mono" id="plcUnitId" style="width:60px" placeholder="1">
+              <input class="field mono" id="plcUnitId" style="width:60px" placeholder="1" autocomplete="off">
             </div>
             <div class="setup-row plc-tcp-only">
               <span class="setup-lbl">Host</span>
-              <input class="field mono" id="plcHost" style="flex:1" placeholder="127.0.0.1">
+              <input class="field mono" id="plcHost" style="flex:1" placeholder="127.0.0.1" autocomplete="off">
               <span class="setup-lbl" style="margin-left:12px">Port</span>
-              <input class="field mono" id="plcTcpPort" style="width:80px" placeholder="502">
+              <input class="field mono" id="plcTcpPort" style="width:80px" placeholder="502" autocomplete="off">
             </div>
             <div class="setup-row plc-serial-only">
               <span class="setup-lbl">PLC 연결 포트</span>
-              <input class="field mono" id="plcPort" list="plcPortList" style="flex:1" placeholder="COM3 (또는 /dev/ttyUSB0)">
+              <input class="field mono" id="plcPort" list="plcPortList" style="flex:1" placeholder="COM3 (또는 /dev/ttyUSB0)" autocomplete="off">
               <datalist id="plcPortList"></datalist>
               <button type="button" class="cancel" id="plcPortsRefresh" style="padding:4px 10px">↻ 포트</button>
             </div>
@@ -311,13 +313,13 @@
             <div class="setup-row">
               <span class="setup-lbl">고급</span>
               <span class="setup-lbl">Timeout(s)</span>
-              <input class="field mono" id="plcTimeout" style="width:66px" placeholder="1.5">
+              <input class="field mono" id="plcTimeout" style="width:66px" placeholder="1.5" autocomplete="off">
               <span class="setup-lbl" style="margin-left:8px">Cmd Gap(s)</span>
-              <input class="field mono" id="plcGap" style="width:66px" placeholder="0.1">
+              <input class="field mono" id="plcGap" style="width:66px" placeholder="0.1" autocomplete="off">
               <span class="setup-lbl" style="margin-left:8px">Heartbeat(s)</span>
-              <input class="field mono" id="plcHeartbeat" style="width:66px" placeholder="1.0">
+              <input class="field mono" id="plcHeartbeat" style="width:66px" placeholder="1.0" autocomplete="off">
               <span class="setup-lbl" style="margin-left:8px">Reconnect(s)</span>
-              <input class="field mono" id="plcReconnect" style="width:66px" placeholder="1.0">
+              <input class="field mono" id="plcReconnect" style="width:66px" placeholder="1.0" autocomplete="off">
             </div>
             <div class="setup-row">
               <span class="setup-note" id="plcNote">설정 변경은 저장 후 재연결해야 적용됩니다.</span>

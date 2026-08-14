@@ -85,7 +85,7 @@ async def plc_poll_loop():
     async def _mark_disconnected():
         nonlocal was_connected
         if was_connected:
-            await push_log("PLC 연결 끊김", "warn")
+            await push_log(f"PLC 연결 끊김 — {plc.plc.target_desc()}", "warn")
         was_connected = False
         # 다음 연결 전이에서 다시 '채택 or 닫힘'을 결정할 때까지 write 루프를 멈춘다.
         state.plc_sync_done = False
@@ -134,7 +134,8 @@ async def plc_poll_loop():
                     if adopted:
                         await push_log(
                             f"PLC 운전 상태 인수 — 열린 밸브 {adopted}개·SV·4-way 채택", "ok")
-                    await push_log("PLC 연결됨", "ok")   # 끊김→연결 전이 1회
+                    # 대상을 함께 남긴다 — 어디에 붙었는지 로그만 봐도 알 수 있게.
+                    await push_log(f"PLC 연결됨 — {plc.plc.target_desc()}", "ok")   # 전이 1회
                     was_connected = True
                 # ── 상태 전이 로그: 알람 4종 + 운전 허가 (표시등 변화를 로그로도 남긴다) ──
                 st_now = (state.plc_live.get("status") or {})

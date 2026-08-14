@@ -316,6 +316,16 @@ def normalize_recipe(r: dict) -> dict:
     }
 
 
+def _plc_target_desc() -> str:
+    """PLC 연결 대상 문자열 — 지연 import(plc 가 state 를 import 하므로 순환 방지).
+    ★ 표시 전용이다. 실패해도 스냅샷 생성을 막지 않는다."""
+    try:
+        import plc as _plc
+        return _plc.plc.target_desc()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 # ===================== 상태 (서버가 주인) =====================
 class State:
     def __init__(self):
@@ -494,6 +504,9 @@ class State:
                 "pv": dict(self.plc_live.get("pv") or {}),
                 "pv_raw": dict(self.plc_live.get("pv_raw") or {}),
                 "status": dict(self.plc_live.get("status") or {}),
+                # 연결 '대상'(TCP host:port / COM·속도·국번) — 미연결이어도 채운다.
+                # ★ plc 는 state 를 import 하므로(계층) 여기서만 지연 import 한다.
+                "target": _plc_target_desc(),
             },
         }
         if include_recipe:

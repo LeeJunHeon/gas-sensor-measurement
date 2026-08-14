@@ -268,6 +268,18 @@ class PlcClient:
         self._connected = client is not None
         return self._connected
 
+    def target_desc(self) -> str:
+        """지금 설정된 '연결 대상'을 사람이 읽는 한 줄로. 연결 여부와 무관하다.
+        개발 중 fake_plc 다중 실행 때 무엇에 붙었는지 화면에서 판별할 수 없었고,
+        현장에서도 USB 재연결로 COM 번호가 바뀌면 원인을 짚을 단서가 없었다."""
+        if self.cfg.mode == "tcp":
+            if not self.cfg.host:
+                return "TCP — 주소 미설정"
+            return f"TCP {self.cfg.host}:{self.cfg.tcp_port} (국번 {self.cfg.unit_id})"
+        if not self.cfg.port:
+            return "시리얼 — 포트 미설정"
+        return f"{self.cfg.port} {self.cfg.baudrate}bps (국번 {self.cfg.unit_id})"
+
     def diagnose_connection(self) -> str:
         """연결 실패 원인을 사람이 조치할 수 있는 문장으로 돌려준다.
         exe에는 콘솔이 없어 이 문장이 현장의 유일한 단서다. 예외를 던지지 마라."""

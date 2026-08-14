@@ -223,6 +223,12 @@ function updatePlcLive(live){
     conn.classList.toggle('discon', !connected);
     const t = conn.querySelector('.ptxt'); if(t) t.textContent = connected ? '\uc5f0\uacb0\ub428' : '\ubbf8\uc5f0\uacb0';
   }
+  // \uc5f0\uacb0 \ub300\uc0c1: \uc11c\ubc84\uac00 \uc900 \ubb38\uc790\uc5f4 \uadf8\ub300\ub85c. \ubbf8\uc5f0\uacb0\uc774\uba74 \ud750\ub9ac\uac8c(dim).
+  const tg = document.getElementById('plcTarget');
+  if(tg){
+    tg.textContent = window.plcLive.target || '\u2014';
+    tg.classList.toggle('dim', !connected);
+  }
   // \uc6b4\uc804 \ud5c8\uac00(\ud5e4\ub4dc\ub77c\uc778): RUN_PERMIT = !SAFETY_STOP. \uc5f0\uacb0+\ud5c8\uac00=\ucd08\ub85d, \uc5f0\uacb0+\uc815\uc9c0=\ube68\uac15, \ubbf8\uc5f0\uacb0=\ud68c\uc0c9.
   const permit=document.getElementById('plcPermit');
   if(permit){
