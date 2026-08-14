@@ -92,9 +92,11 @@
   .hbtn.estop:hover{background:#fdecec;border-color:#ad2e33;color:#ad2e33}
   .hbtn.setup{color:#2a3645}.hbtn.setup:hover{background:#eef2f7;border-color:var(--primary)}
   .hbtn.log{position:relative;color:#2a3645}.hbtn.log:hover{background:#eef2f7;border-color:var(--primary)}
-  /* 중요로그 배지(빨간 점) — 경고/에러가 모달 닫힘 상태에서 발생하면 표시 */
+  /* 로그 배지 — 도크가 닫힌 동안 쌓인 로그를 알린다.
+     회색(hasnew)=일반 로그 / 빨강(hasalert)=경고·오류. 빨강이 항상 이긴다(규칙 순서). */
   .hbtn.log .logbadge{display:none;position:absolute;top:5px;right:9px;width:8px;height:8px;border-radius:50%;background:#c5343a;box-shadow:0 0 0 2px #fff}
-  .hbtn.log.hasalert .logbadge{display:block}
+  .hbtn.log.hasnew .logbadge{display:block;background:#9aa3ad}
+  .hbtn.log.hasalert .logbadge{display:block;background:#c5343a}
 
   /* 공통 비활성 처리 — 회색 + 클릭/선택 불가 (폼 요소엔 disabled도 함께 건다) */
   .uidis{opacity:.5;pointer-events:none}
