@@ -18,6 +18,10 @@
     --font-mono: 'Consolas', 'D2Coding', 'Malgun Gothic', monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
+  /* hidden 속성은 UA 기본 display:none 으로 동작한다 — .frow·.modesel·.pcard .b 같은
+     작성자 쪽 display:flex 가 그걸 덮어 숨긴 UI 가 계속 보였다(2026-08-14).
+     !important 는 이 규칙의 표준 용법: hidden 의 의미를 어떤 클래스도 못 뒤집게 한다. */
+  [hidden]{display:none !important}
   html,body{height:100%}
   body{background:#c3cad6;color:var(--ink);font-family:var(--font-sans);overflow:hidden}
   .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
