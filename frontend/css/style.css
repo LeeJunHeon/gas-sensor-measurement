@@ -483,6 +483,9 @@
   .pcard .h{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panelhead);font-size:12px;font-weight:700;color:#2a3645}
   .pcard .h .dotk{width:9px;height:9px;border-radius:50%;background:var(--primary)}
   .pcard .b{padding:11px 12px;display:flex;flex-direction:column;gap:9px}
+  /* 숨긴 행이 빠져 두 행만 남은 카드(Recipe Loop) — 보이는 행을 세로로 고르게 분산해
+     하단 빈 여백을 줄인다. 카드 크기는 그리드 stretch 그대로다. */
+  .b-spread{justify-content:space-evenly}
   .frow{display:flex;align-items:center;gap:8px;justify-content:space-between}
   .frow label{font-size:11px;color:var(--ink-dim);font-weight:600;white-space:nowrap}
   .fin{width:78px;font-family:var(--font-mono);font-size:12px;text-align:right;border:1px solid var(--line2);border-radius:4px;padding:5px 8px;color:#26313f;background:#fff}
