@@ -451,9 +451,11 @@
   /* 드래그 순서 변경 — 삽입선을 '놓을 자리' 그대로(행 위/아래) 그린다. */
   table.rcp tbody tr.drop-before td{box-shadow:inset 0 2px 0 var(--acc,#3b82f6)}
   table.rcp tbody tr.drop-after  td{box-shadow:inset 0 -2px 0 var(--acc,#3b82f6)}
-  /* 실행 중인 단계 — 지브라보다 '뒤에' 선언해 같은 특정도에서 이긴다. */
-  table.rcp tbody tr.runrow td{background:#e8f1ff}
-  table.rcp tbody tr.runrow td.pcol{box-shadow:inset 3px 0 0 #3b82f6;font-weight:800}
+  /* 실행 중인 단계 행 — 지브라보다 '뒤에' 선언해 같은 특정도에서 이긴다.
+     ★ 'runrow' 금지 — SMU 버튼 줄 .runrow(display:flex)와
+     충돌해 <tr>이 flex 가 되며 표가 무너진다(2026-08-14 실측). */
+  table.rcp tbody tr.steprow td{background:#e8f1ff}
+  table.rcp tbody tr.steprow td.pcol{box-shadow:inset 3px 0 0 #3b82f6;font-weight:800}
   table.rcp td.zero .ci{color:#b3bccb}
   .delrow{cursor:pointer;color:#b9495a;font-weight:700;font-size:13px;padding:4px 7px;border:none;background:transparent}
   .delrow:hover{color:#8a2233}
@@ -467,7 +469,8 @@
   .addbtn:hover{background:#eef2fb;border-color:var(--primary)}
 
   /* control panels grid */
-  .pgrid{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:10px;align-items:start}
+  /* stretch: 세 카드가 가장 큰 카드 높이에 맞춰 늘어난다(이전 start 는 제각각). */
+  .pgrid{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:10px;align-items:stretch}
   .pcard{border:1px solid var(--line2);border-radius:7px;background:#fff;overflow:hidden}
   .pcard .h{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panelhead);font-size:12px;font-weight:700;color:#2a3645}
   .pcard .h .dotk{width:9px;height:9px;border-radius:50%;background:var(--primary)}

@@ -593,7 +593,7 @@ let _curStep=0;
 window.markRunningStep=idx=>{
   _curStep=idx|0;
   recipeBody.querySelectorAll('tr').forEach((tr,k)=>
-    tr.classList.toggle('runrow',_curStep>0&&k===_curStep-1));
+    tr.classList.toggle('steprow',_curStep>0&&k===_curStep-1));
 };
 // 봄베 농도·Loop Count 도 같은 규칙 — 비숫자는 조용히 0/1 로 바뀌지 않게 한다.
 //   봄베가 0 이 되면 희석 계산이 통째로 어긋나고, Loop 가 0 이 되면 실행이 즉시 끝난다.

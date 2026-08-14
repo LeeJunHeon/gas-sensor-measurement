@@ -101,10 +101,10 @@
                 <th rowspan="2"></th>
               </tr>
               <tr>
-                <th><div class="gcell"><span class="glabel">G1</span><span class="bottle">(<input id="b0" value="">)</span></div></th>
-                <th><div class="gcell"><span class="glabel">G2</span><span class="bottle">(<input id="b1" value="">)</span></div></th>
-                <th><div class="gcell"><span class="glabel">G3</span><span class="bottle">(<input id="b2" value="">)</span></div></th>
-                <th><div class="gcell"><span class="glabel">G4</span><span class="bottle">(<input id="b3" value="">)</span></div></th>
+                <th><div class="gcell"><span class="glabel">Gas 1</span><span class="bottle">(<input id="b0" value="">)</span></div></th>
+                <th><div class="gcell"><span class="glabel">Gas 2</span><span class="bottle">(<input id="b1" value="">)</span></div></th>
+                <th><div class="gcell"><span class="glabel">Gas 3</span><span class="bottle">(<input id="b2" value="">)</span></div></th>
+                <th><div class="gcell"><span class="glabel">Gas 4</span><span class="bottle">(<input id="b3" value="">)</span></div></th>
               </tr>
             </thead>
             <tbody id="recipeBody"></tbody>
@@ -121,9 +121,9 @@
           <div class="pcard">
             <div class="h"><span class="dotk"></span>Recipe Loop &amp; Voltage Control</div>
             <div class="b">
-              <div class="frow"><label>Loop Count (전체 반복)</label><input class="fin" id="loopCount" value="1"></div>
-              <div class="frow"><label>Active Time</label><input class="fin" id="activeTime" value="0" readonly></div>
-              <div class="frow"><label>Active Number</label><input class="fin" id="activeNum" value="0" readonly></div>
+              <div class="frow"><label>Loop Count (전체 반복, 회)</label><input class="fin" id="loopCount" value="1"></div>
+              <div class="frow"><label>Active Time (s)</label><input class="fin" id="activeTime" value="0" readonly></div>
+              <div class="frow"><label>Active Number (회)</label><input class="fin" id="activeNum" value="0" readonly></div>
               <div class="frow"><label>Interval (sec)</label><input class="fin" id="loopInterval" value="1"></div>
               <div style="height:1px;background:var(--line);margin:2px 0"></div>
               <div class="modesel">
@@ -140,7 +140,7 @@
           <div class="pcard">
             <div class="h"><span class="dotk" style="background:var(--pv)"></span>Measurement / Graph</div>
             <div class="b uidis">
-              <div class="frow"><label>측정 CH 범위</label><span class="chrange"><input class="fin" id="chFrom" value="1" disabled><span style="color:var(--ink-faint)">~</span><input class="fin" id="chTo" value="1" disabled></span></div>
+              <div class="frow"><label>측정 CH 범위 (CH)</label><span class="chrange"><input class="fin" id="chFrom" value="1" disabled><span style="color:var(--ink-faint)">~</span><input class="fin" id="chTo" value="1" disabled></span></div>
               <div class="frow"><label>Graph Interval (sec)</label><input class="fin" id="grafInt" value="1" disabled></div>
               <div class="frow"><label>Graph File</label><span style="display:flex;gap:6px"><button class="pbtn ghost" style="padding:5px 11px" disabled>New</button><button class="pbtn open" style="padding:5px 11px" disabled>Open</button></span></div>
               <input class="field mono" style="flex:none" id="grafFile" value="" placeholder="그래프 파일 이름" disabled>
