@@ -251,11 +251,11 @@ def default_recipe(bottle=None) -> dict:
         # 기본 골격: 세정 → 측정 → 세정. 값은 출발점일 뿐이며 사용자가 자유 수정한다.
         "procs": [
             {"type": "purge", "flow": 1000, "rh": 0, "g": [0, 0, 0, 0],
-             "prep": 0,  "meas": 60},
+             "prep": 60, "meas": 0},
             {"type": "gas",   "flow": 1000, "rh": 0, "g": [0, 0, 0, 0],
              "prep": 60, "meas": 60},
             {"type": "purge", "flow": 1000, "rh": 0, "g": [0, 0, 0, 0],
-             "prep": 0,  "meas": 60},
+             "prep": 60, "meas": 0},
         ],
         "bottle": b,
         "params": dict(DEFAULT_PARAMS),
@@ -285,15 +285,20 @@ def normalize_recipe(r: dict) -> dict:
             g = [to_num(x) for x in g_in[:4]] if isinstance(g_in, list) else []
             while len(g) < 4:
                 g.append(0)
+            ptype = p.get("type") if p.get("type") in ("gas", "purge") else "gas"
+            # 퍼지는 준비(s)만 사용한다(2026-08-14 계약 개정 — 이전 '합산' 폐기).
+            # 구파일에 남은 측정값을 조용히 더하거나 무시하지 않고 0 으로 정규화해
+            # 화면·실행·저장이 전부 같은 값을 보게 한다.
+            meas = 0.0 if ptype == "purge" else to_num(p.get("meas"))
             procs.append({
                 "flow": to_num(p.get("flow")),
                 "rh": to_num(p.get("rh")),
                 "g": g,
                 "prep": to_num(p.get("prep")),
-                "meas": to_num(p.get("meas")),
+                "meas": meas,
 
                 # 단계 종류. 없거나 모르는 값이면 gas — 구파일(타입 없는 레시피)이 그대로 돈다.
-                "type": (p.get("type") if p.get("type") in ("gas", "purge") else "gas"),
+                "type": ptype,
             })
     params = {**DEFAULT_PARAMS, **(r.get("params") if isinstance(r.get("params"), dict) else {})}
     bottle = r.get("bottle")

@@ -73,9 +73,11 @@ def precheck(recipe) -> list:
             flow = float(proc.get("flow") or 0)
             if flow <= 0:
                 problems.append(f"P{n + 1}(퍼지) — 에어 유량이 0입니다")
-            # 퍼지 시간 = 준비 + 측정(같은 구간이라 합산해 돈다)
-            if (float(proc.get("prep") or 0) + float(proc.get("meas") or 0)) <= 0:
-                problems.append(f"P{n + 1}(퍼지) — 시간이 0입니다")
+            # 퍼지 시간 = 준비(s) 단독(2026-08-14 계약 개정 — 합산 폐기).
+            # 구파일이 측정에만 시간을 넣어둔 경우 여기서 막히고 문구가 옮길 곳을 안내한다.
+            if float(proc.get("prep") or 0) <= 0:
+                problems.append(
+                    f"P{n + 1}(퍼지) 준비 시간이 0입니다 — 퍼지 시간은 준비(s)에 입력하세요")
             if not pure:
                 problems.append(f"P{n + 1}(퍼지) — 단독 마른공기 채널(VA3)이 꺼져 있거나 없습니다")
             for i in pure:
@@ -188,9 +190,7 @@ async def _run_recipe():
                     state.system["stepIndex"] = n + 1
                     await push_log(f"P{n+1} 퍼지 시작 — 단독 에어 → Sensor "
                                    f"(Loop {loop_i+1}/{loop_count})", "ok")
-                    dur = float(proc.get("prep") or 0) + float(proc.get("meas") or 0)
-                    # 퍼지는 준비·측정 모두 Air→Sensor 로 동일 구간이다 — 표를 가스 단계와
-                    # 맞추기 위해 두 칸을 받되, 합산해 단일 카운트다운으로 돈다.
+                    dur = float(proc.get("prep") or 0)   # 퍼지 = 준비(s)만 (합산 폐기)
                     await _phase("purge", dur, _plc_abort_for(n + 1))
                     if not is_running_flag():
                         return

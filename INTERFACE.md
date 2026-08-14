@@ -73,12 +73,16 @@
                                        // "purge": 희석 계산 없이 단독(pure) 에어만
                                        //   flow sccm 으로 연다. 4-way 는 OFF(vent) 유지
                                        //   — 그 위치가 곧 에어→Sensor. g·rh 는 안 쓴다.
-                                       //   ★ 시간은 prep + meas 합산(둘 다 같은 구간이라
-                                       //     표를 가스 단계와 맞추려고 두 칸을 받는다).
+                                       //   ★ 시간은 prep(s) 단독 사용이며 meas 는
+                                       //     normalize_recipe 가 0 으로 강제한다
+                                       //     (2026-08-14, 이전 'prep+meas 합산' 계약 폐기).
+                                       //     구파일이 meas 에만 시간을 넣어뒀다면 prep 이
+                                       //     0 이므로 run 이 거부되고 안내 문구가 뜬다.
     }
   ]
   // 화면 표기: type "gas" → "Gas→Sensor", "purge" → "Air→Sensor" (저장값은 불변)
-  // 기본 레시피(부팅·New)는 3단계 골격 — purge / gas / purge, 각 60초.
+  //   퍼지 행의 측정 칸은 화면에서 readonly(준비 칸만 입력).
+  // 기본 레시피(부팅·New)는 3단계 골격 — purge(prep 60) / gas(60·60) / purge(prep 60).
   params: {                            // 측정/전압/SMU 파라미터
     vStart: 0.5, vEnd: 0.0, vStep: 0,
     grafInterval: 1,
