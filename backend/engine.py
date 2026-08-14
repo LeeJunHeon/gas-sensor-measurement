@@ -191,14 +191,16 @@ async def _run_recipe():
                     ab = _plc_abort_for(n + 1)
                     p_prep = float(proc.get("prep") or 0)
                     p_meas = float(proc.get("meas") or 0)
-                    # 두 칸을 그대로 두 구간으로 — 라벨은 표와 1:1(준비→측정),
-                    # 경로는 둘 다 vent(단독 에어→Sensor). 0 인 칸은 건너뛴다.
+                    # 두 칸을 그대로 두 구간으로 — 4-way 는 '열'이 정의한다
+                    # (준비=OFF, 측정=ON. 열 헤더의 라우팅 부제 그대로).
+                    # Air→Sensor 행에 측정>0 이면 그 동안 에어는 Vent 로 가고
+                    # 센서는 무풍이다 — 막지 않는다(표 그대로 동작 원칙, 2026-08-14).
                     if p_prep > 0:
                         await _phase("prep", p_prep, ab)
                         if not is_running_flag():
                             return
                     if p_meas > 0:
-                        await _phase("meas", p_meas, ab, route="vent")
+                        await _phase("meas", p_meas, ab)
                         if not is_running_flag():
                             return
                     continue
@@ -252,23 +254,19 @@ def is_running_flag() -> bool:
     return bool(state.system.get("running"))
 
 
-async def _phase(name: str, seconds: float, plc_abort=None, *, route: str | None = None):
+async def _phase(name: str, seconds: float, plc_abort=None):
     """name 구간을 seconds 동안 진행 — 벽시계(monotonic) 데드라인 기준.
     이전의 'sleep 0.1 × 10 = 1초' 방식은 sleep 지연이 누적돼 Linux에서도 +0.5%,
     Windows(타이머 해상도 15.6ms)에서는 +5~8%까지 단계가 길어졌다.
     running이 꺼지면 ≤0.1초 안에 반환, plc_abort는 약 1초 간격으로 확인한다.
 
     plc_abort: 중단 사유 문자열(없으면 None)을 돌려주는 콜백.
-    PLC 이상 중에 계속 진행하면 가스가 안 흐르는데 측정이 정상 완료된 것처럼 보인다.
-
-    route 를 주면 name 의 기본 경로 대신 그 값을 쓴다(퍼지의 '측정' 구간처럼
-    라벨과 경로가 다른 경우 전용). 미지정이면 기존과 동일."""
+    PLC 이상 중에 계속 진행하면 가스가 안 흐르는데 측정이 정상 완료된 것처럼 보인다."""
     state.system["phase"] = name
     # 4-way 자동 전환: 준비는 혼합가스를 vent로 흘려 안정화하고(센서엔 단독 에어만),
     #                 측정에 들어갈 때 혼합가스를 센서로 돌린다.
-    if route:
-        state.system["routeOut"] = route
-    elif name == "prep":
+    # ★ 경로는 구간(열)이 정의한다 — 단계 종류(gas/purge)에 따른 예외를 만들지 않는다.
+    if name == "prep":
         state.system["routeOut"] = "vent"
     elif name == "meas":
         state.system["routeOut"] = "sensor"
