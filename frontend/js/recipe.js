@@ -497,7 +497,7 @@ function renderRecipe(){
     tr.dataset.row=i;
     // 퍼지 단계는 G1~G4·RH 를 쓰지 않는다 — 값은 지우지 않고 흐림+입력 잠금만
     // (종류를 가스로 되돌리면 그대로 복원된다).
-    // ★ 퍼지는 준비(s)만 쓴다 — 준비 칸은 활성, 측정 칸은 입력 잠금(값은 0 정규화).
+    // ★ 준비·측정 칸은 퍼지에서도 가스와 동일하게 입력한 그대로 두 구간을 돈다.
     const pg = r.type==='purge';
     const off = '';                       // 색은 가스 행과 동일하게 둔다(요청: 원복)
     // readonly 는 값·색을 그대로 두고 타이핑만 막는다(disabled 처럼 흐려지지 않는다).
@@ -513,7 +513,7 @@ function renderRecipe(){
       <td class="humcol${off}" ${useHum?'':'style="display:none"'}><input class="ci" value="${r.rh}" data-f="rh-${i}"${dis}></td>
       ${gcells}
       <td><input class="ci" value="${r.prep}" data-f="prep-${i}"></td>
-      <td><input class="ci" value="${r.meas}" data-f="meas-${i}"${pg?' readonly title="Air→Sensor 단계는 준비(s)만 사용합니다"':''}></td>
+      <td><input class="ci" value="${r.meas}" data-f="meas-${i}"></td>
       <td><button class="delrow" data-del="${i}">×</button></td>`;
     recipeBody.appendChild(tr);
   });

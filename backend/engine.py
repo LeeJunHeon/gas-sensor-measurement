@@ -73,11 +73,9 @@ def precheck(recipe) -> list:
             flow = float(proc.get("flow") or 0)
             if flow <= 0:
                 problems.append(f"P{n + 1}(퍼지) — 에어 유량이 0입니다")
-            # 퍼지 시간 = 준비(s) 단독(2026-08-14 계약 개정 — 합산 폐기).
-            # 구파일이 측정에만 시간을 넣어둔 경우 여기서 막히고 문구가 옮길 곳을 안내한다.
-            if float(proc.get("prep") or 0) <= 0:
-                problems.append(
-                    f"P{n + 1}(퍼지) 준비 시간이 0입니다 — 퍼지 시간은 준비(s)에 입력하세요")
+            # 퍼지도 준비·측정 두 칸을 그대로 돈다 — 둘 다 0 일 때만 막는다.
+            if (float(proc.get("prep") or 0) + float(proc.get("meas") or 0)) <= 0:
+                problems.append(f"P{n + 1}(퍼지) 시간이 0입니다")
             if not pure:
                 problems.append(f"P{n + 1}(퍼지) — 단독 마른공기 채널(VA3)이 꺼져 있거나 없습니다")
             for i in pure:
@@ -190,10 +188,19 @@ async def _run_recipe():
                     state.system["stepIndex"] = n + 1
                     await push_log(f"P{n+1} 퍼지 시작 — 단독 에어 → Sensor "
                                    f"(Loop {loop_i+1}/{loop_count})", "ok")
-                    dur = float(proc.get("prep") or 0)   # 퍼지 = 준비(s)만 (합산 폐기)
-                    await _phase("purge", dur, _plc_abort_for(n + 1))
-                    if not is_running_flag():
-                        return
+                    ab = _plc_abort_for(n + 1)
+                    p_prep = float(proc.get("prep") or 0)
+                    p_meas = float(proc.get("meas") or 0)
+                    # 두 칸을 그대로 두 구간으로 — 라벨은 표와 1:1(준비→측정),
+                    # 경로는 둘 다 vent(단독 에어→Sensor). 0 인 칸은 건너뛴다.
+                    if p_prep > 0:
+                        await _phase("prep", p_prep, ab)
+                        if not is_running_flag():
+                            return
+                    if p_meas > 0:
+                        await _phase("meas", p_meas, ab, route="vent")
+                        if not is_running_flag():
+                            return
                     continue
                 res = compute_step_setpoints(state.channels, proc, bottle, use_h)
                 if res["errors"]:
@@ -245,23 +252,29 @@ def is_running_flag() -> bool:
     return bool(state.system.get("running"))
 
 
-async def _phase(name: str, seconds: float, plc_abort=None):
+async def _phase(name: str, seconds: float, plc_abort=None, *, route: str | None = None):
     """name 구간을 seconds 동안 진행 — 벽시계(monotonic) 데드라인 기준.
     이전의 'sleep 0.1 × 10 = 1초' 방식은 sleep 지연이 누적돼 Linux에서도 +0.5%,
     Windows(타이머 해상도 15.6ms)에서는 +5~8%까지 단계가 길어졌다.
     running이 꺼지면 ≤0.1초 안에 반환, plc_abort는 약 1초 간격으로 확인한다.
 
     plc_abort: 중단 사유 문자열(없으면 None)을 돌려주는 콜백.
-    PLC 이상 중에 계속 진행하면 가스가 안 흐르는데 측정이 정상 완료된 것처럼 보인다."""
+    PLC 이상 중에 계속 진행하면 가스가 안 흐르는데 측정이 정상 완료된 것처럼 보인다.
+
+    route 를 주면 name 의 기본 경로 대신 그 값을 쓴다(퍼지의 '측정' 구간처럼
+    라벨과 경로가 다른 경우 전용). 미지정이면 기존과 동일."""
     state.system["phase"] = name
     # 4-way 자동 전환: 준비는 혼합가스를 vent로 흘려 안정화하고(센서엔 단독 에어만),
     #                 측정에 들어갈 때 혼합가스를 센서로 돌린다.
-    if name == "prep":
+    if route:
+        state.system["routeOut"] = route
+    elif name == "prep":
         state.system["routeOut"] = "vent"
     elif name == "meas":
         state.system["routeOut"] = "sensor"
     elif name == "purge":
         # 퍼지는 코일 OFF(vent) 기본 위치 그대로 — 단독 에어가 이미 센서로 간다.
+        # (이력) phase "purge" 는 더 이상 발행되지 않는다 — 퍼지도 prep/meas 를 쓴다.
         state.system["routeOut"] = "vent"
     total = max(0.0, float(seconds or 0))
     end = time.monotonic() + total

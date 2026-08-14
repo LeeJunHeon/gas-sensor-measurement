@@ -73,16 +73,17 @@
                                        // "purge": 희석 계산 없이 단독(pure) 에어만
                                        //   flow sccm 으로 연다. 4-way 는 OFF(vent) 유지
                                        //   — 그 위치가 곧 에어→Sensor. g·rh 는 안 쓴다.
-                                       //   ★ 시간은 prep(s) 단독 사용이며 meas 는
-                                       //     normalize_recipe 가 0 으로 강제한다
-                                       //     (2026-08-14, 이전 'prep+meas 합산' 계약 폐기).
-                                       //     구파일이 meas 에만 시간을 넣어뒀다면 prep 이
-                                       //     0 이므로 run 이 거부되고 안내 문구가 뜬다.
+                                       //   ★ 시간은 표의 두 칸을 그대로 쓴다(최종 계약,
+                                       //     2026-08-14 — '합산'도 '준비 단독'도 폐기):
+                                       //     prep 구간(vent) → meas 구간(vent) 순서로 돌고
+                                       //     0 인 칸은 생략, 둘 다 0 이면 precheck 가 막는다.
+                                       //     가스와 달리 meas 도 vent 다(코일 OFF 가 곧
+                                       //     단독 에어→Sensor). phase "purge" 는 발행 중단(이력).
     }
   ]
   // 화면 표기: type "gas" → "Gas→Sensor", "purge" → "Air→Sensor" (저장값은 불변)
-  //   퍼지 행의 측정 칸은 화면에서 readonly(준비 칸만 입력).
-  // 기본 레시피(부팅·New)는 3단계 골격 — purge(prep 60) / gas(60·60) / purge(prep 60).
+  //   퍼지 행의 준비·측정 칸은 가스 행과 동일한 일반 입력이다(잠금 없음).
+  // 기본 레시피(부팅·New)는 3단계 골격 — purge(60·0) / gas(60·60) / purge(60·0).
   params: {                            // 측정/전압/SMU 파라미터
     vStart: 0.5, vEnd: 0.0, vStep: 0,
     grafInterval: 1,

@@ -286,10 +286,9 @@ def normalize_recipe(r: dict) -> dict:
             while len(g) < 4:
                 g.append(0)
             ptype = p.get("type") if p.get("type") in ("gas", "purge") else "gas"
-            # 퍼지는 준비(s)만 사용한다(2026-08-14 계약 개정 — 이전 '합산' 폐기).
-            # 구파일에 남은 측정값을 조용히 더하거나 무시하지 않고 0 으로 정규화해
-            # 화면·실행·저장이 전부 같은 값을 보게 한다.
-            meas = 0.0 if ptype == "purge" else to_num(p.get("meas"))
+            # 퍼지도 두 칸(준비·측정)을 입력한 그대로 쓴다(2026-08-14 최종 —
+            # '합산'도 '준비 단독'도 폐기). 두 구간 모두 단독 에어→Sensor.
+            meas = to_num(p.get("meas"))
             procs.append({
                 "flow": to_num(p.get("flow")),
                 "rh": to_num(p.get("rh")),
