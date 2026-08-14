@@ -220,6 +220,14 @@ async def _run_recipe():
                 await _phase("meas", float(proc.get("meas") or 0), abort)
                 if not is_running_flag():
                     return
+            # 루프 사이 대기 — 표 밖의 시간이라 지령을 그대로 둔다(밸브·SV·4-way 유지).
+            itv = float(recipe.get("loopInterval") or 0)
+            if itv > 0 and loop_i < loop_count - 1:
+                await push_log(f"Loop {loop_i + 1}/{loop_count} 완료 — "
+                               f"{itv:g}s 대기 후 다음 루프", "info")
+                await _phase("wait", itv, _plc_abort_for(0))
+                if not is_running_flag():
+                    return
         await push_log("AUTO RUN 완료 — 레시피 종료", "ok")
     finally:
         # 정상 완료/중단 공통 마무리: 가스를 차단하고(STOP·완료 동일 규칙) 자동 진행 표시 해제.
@@ -253,6 +261,8 @@ async def _phase(name: str, seconds: float, plc_abort=None):
         state.system["routeOut"] = "vent"
     elif name == "meas":
         state.system["routeOut"] = "sensor"
+    elif name == "wait":
+        pass   # 루프 사이 대기: 표 밖의 시간 — 지령을 바꾸지 않는다(상태 유지)
     elif name == "purge":
         # 퍼지는 코일 OFF(vent) 기본 위치 그대로 — 단독 에어가 이미 센서로 간다.
         # (이력) phase "purge" 는 더 이상 발행되지 않는다 — 퍼지도 prep/meas 를 쓴다.

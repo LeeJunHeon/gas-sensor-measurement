@@ -248,6 +248,7 @@ def default_recipe(bottle=None) -> dict:
         "name": "",
         "useHumidity": False,
         "loopCount": 1,
+        "loopInterval": 0,          # 루프 사이 대기(초). 0 이면 바로 다음 루프.
         # 기본 골격: 세정 → 측정 → 세정. 값은 출발점일 뿐이며 사용자가 자유 수정한다.
         "procs": [
             {"type": "purge", "flow": 1000, "rh": 0, "g": [0, 0, 0, 0],
@@ -308,6 +309,7 @@ def normalize_recipe(r: dict) -> dict:
         "name": str(r.get("name") or ""),
         "useHumidity": bool(r.get("useHumidity", False)),
         "loopCount": int(to_num(r.get("loopCount"), 1)) or 1,
+        "loopInterval": max(0.0, to_num(r.get("loopInterval"))),
         "bottle": bottle,
         "procs": procs,
         "params": params,

@@ -667,7 +667,8 @@ function collectRecipe(){
     smuSource:num('smuSrc'), smuCompliance:num('smuComp'),
     chFrom:num('chFrom'), chTo:num('chTo'),
   };
-  return {name, useHumidity, loopCount, bottle,
+  const loopInterval=numOr(document.getElementById('loopInterval')?.value, 0);
+  return {name, useHumidity, loopCount, loopInterval, bottle,
     procs:procs.map(p=>Object.assign({},p,{type:p.type||'gas', g:(p.g||[0,0,0,0]).slice()})), params};
 }
 

@@ -64,9 +64,10 @@ function setHdrStatus(text, kind){   // kind: 'idle' | 'run' | 'purge' | 'stop'
 function refreshHdrStatus(){
   if(_hdrTransient) return;   // \uc784\uc2dc \ud45c\uc2dc(\ud37c\uc9c0/\uc815\uc9c0) \uc720\uc9c0 \uc911\uc774\uba74 \uac74\ub4dc\ub9ac\uc9c0 \uc54a\uc74c
   if(running && _runInfo){
-    // phase: prep=\uc900\ube44 / purge=\ud37c\uc9c0 / meas=\uce21\uc815
+    // phase: prep=\uc900\ube44 / purge=\ud37c\uc9c0 / wait=\ub300\uae30(\ub8e8\ud504 \uc0ac\uc774) / meas=\uce21\uc815
     var ph=_runInfo.phase==='prep' ? '\uc900\ube44'
-         : (_runInfo.phase==='purge' ? '\ud37c\uc9c0' : '\uce21\uc815');
+         : (_runInfo.phase==='purge' ? '\ud37c\uc9c0'
+         : (_runInfo.phase==='wait' ? '\ub300\uae30' : '\uce21\uc815'));
     setHdrStatus('\uc790\ub3d9 \uc2e4\ud589 \uc911 \u00b7 P'+_runInfo.i+'/'+_runInfo.n
                  +' \u00b7 '+ph+' '+_runInfo.r+'s','run');
   } else {
@@ -307,6 +308,7 @@ function applyState(s){
     const hdr=document.getElementById('hdrRecipe'); if(hdr) hdr.textContent=s.recipe.name||'\u2014';
     const uh=document.getElementById('useHumidity'); if(uh) uh.checked=!!s.recipe.useHumidity;
     const lc=document.getElementById('loopCount'); if(lc&&s.recipe.loopCount!=null) lc.value=s.recipe.loopCount;
+    const li=document.getElementById('loopInterval'); if(li&&s.recipe.loopInterval!=null) li.value=s.recipe.loopInterval;
     (s.recipe.bottle||[]).forEach((v,i)=>{const el=document.getElementById('b'+i); if(el) el.value=(v||v===0)?v:'';});
     applyParams(s.recipe.params);
   }
@@ -389,7 +391,7 @@ function applyTelemetry(tl){
   if(tl.elapsed!=null){ const c=document.getElementById('clk'); if(c) c.textContent=fmtElapsed(tl.elapsed); }
   if(tl.loop){ const hl=document.getElementById('hdrLoop'); if(hl) hl.textContent=`${tl.loop.current} / ${tl.loop.total}`; }
   // \uc5d4\uc9c4 \uc9c4\ud589 \uc0c1\ud0dc \u2192 \ud5e4\ub354 \uc0c1\ud0dc\uc904: "\uc790\ub3d9 \uc2e4\ud589 \uc911 \u00b7 P{i}/{total} \u00b7 \uc900\ube44/\uce21\uc815 {\ub0a8\uc740}s" (\uc784\uc2dc \ud45c\uc2dc \uc911\uc5d4 \uac74\ub4dc\ub9ac\uc9c0 \uc54a\uc74c)
-  if(tl.phase==='prep'||tl.phase==='meas'||tl.phase==='purge'){
+  if(tl.phase==='prep'||tl.phase==='meas'||tl.phase==='purge'||tl.phase==='wait'){
     _runInfo={phase:tl.phase,i:tl.stepIndex||0,n:tl.stepTotal||0,r:tl.stepRemain||0};
     refreshHdrStatus();
   }

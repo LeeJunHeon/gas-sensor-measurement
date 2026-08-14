@@ -59,6 +59,9 @@
   name:        ""                      // 레시피 이름 (빈 값으로 시작)
   useHumidity: true | false
   loopCount:   7
+  loopInterval: 0                      // 루프 사이 대기(초, 기본 0). 마지막 루프 뒤에는 없다.
+                                       //   대기 중에는 밸브·SV·4-way 지령을 바꾸지 않는다
+                                       //   (표 밖의 시간 — 직전 구간 상태가 그대로 유지된다).
   procs: [
     {
       flow: 1000,                      // 전체 가스 유량 (sccm)
@@ -130,7 +133,9 @@ plc_live — PLC 실측(읽기 폴링 결과). state 메시지에 항상 포함�
   "rh": 40.1, "smu": "+1.16398E-05",
   "elapsed": 123, "running": true,
   "loop": { "current": 3, "total": 7 },
-  "phase": "idle" | "prep" | "meas" | "purge",   // 현재 구간
+  "phase": "idle" | "prep" | "meas" | "wait" | "purge",   // 현재 구간
+                //   "wait" = 루프 사이 대기(loopInterval). 이 구간만 지령을 바꾸지 않는다
+                //   — 4-way·밸브·SV 가 직전 구간 그대로다. "purge" 는 발행 중단(이력).
   "stepIndex": 1, "stepTotal": 3, "stepRemain": 42 }
 ```
 

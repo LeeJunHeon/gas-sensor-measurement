@@ -121,25 +121,26 @@
           <div class="pcard">
             <div class="h"><span class="dotk"></span>Recipe Loop &amp; Voltage Control</div>
             <div class="b">
+              <!-- 미사용 UI 는 지우지 않고 hidden 으로만 감춘다 — 속성 하나 지우면 복원된다. -->
               <div class="frow"><label>Loop Count (전체 반복)</label><input class="fin" id="loopCount" value="1"></div>
-              <div class="frow"><label>Active Time</label><input class="fin" id="activeTime" value="0" readonly></div>
-              <div class="frow"><label>Active Number</label><input class="fin" id="activeNum" value="0" readonly></div>
-              <div class="frow"><label>Interval (sec)</label><input class="fin" id="loopInterval" value="1"></div>
-              <div style="height:1px;background:var(--line);margin:2px 0"></div>
-              <div class="modesel">
+              <div class="frow"><label title="Loop 반복 사이 대기 시간">Interval (sec)</label><input class="fin" id="loopInterval" value="1"></div>
+              <div class="frow" hidden><label>Active Time</label><input class="fin" id="activeTime" value="0" readonly></div>
+              <div class="frow" hidden><label>Active Number</label><input class="fin" id="activeNum" value="0" readonly></div>
+              <div style="height:1px;background:var(--line);margin:2px 0" hidden></div>
+              <div class="modesel" hidden>
                 <label class="moderad"><input type="radio" name="vmode" checked>Recipe 모드</label>
                 <label class="moderad uidis"><input type="radio" name="vmode" disabled>전압(Voltage) 모드</label>
               </div>
-              <div class="frow uidis"><label>Start 전압 (V)</label><input class="fin sv" id="vStart" value="0" disabled></div>
-              <div class="frow uidis"><label>End 전압 (V)</label><input class="fin sv" id="vEnd" value="0" disabled></div>
-              <div class="frow uidis"><label>Step 전압 (V)</label><input class="fin sv" id="vStep" value="0" disabled></div>
+              <div class="frow uidis" hidden><label>Start 전압 (V)</label><input class="fin sv" id="vStart" value="0" disabled></div>
+              <div class="frow uidis" hidden><label>End 전압 (V)</label><input class="fin sv" id="vEnd" value="0" disabled></div>
+              <div class="frow uidis" hidden><label>Step 전압 (V)</label><input class="fin sv" id="vStep" value="0" disabled></div>
             </div>
           </div>
 
           <!-- measurement -->
           <div class="pcard">
             <div class="h"><span class="dotk" style="background:var(--pv)"></span>Measurement / Graph</div>
-            <div class="b uidis">
+            <div class="b uidis" hidden>
               <div class="frow"><label>측정 CH 범위</label><span class="chrange"><input class="fin" id="chFrom" value="1" disabled><span style="color:var(--ink-faint)">~</span><input class="fin" id="chTo" value="1" disabled></span></div>
               <div class="frow"><label>Graph Interval (sec)</label><input class="fin" id="grafInt" value="1" disabled></div>
               <div class="frow"><label>Graph File</label><span style="display:flex;gap:6px"><button class="pbtn ghost" style="padding:5px 11px" disabled>New</button><button class="pbtn open" style="padding:5px 11px" disabled>Open</button></span></div>
@@ -159,8 +160,8 @@
             </div>
           </div>
 
-          <!-- SMU + run -->
-          <div class="pcard">
+          <!-- SMU + run (미사용 — hidden 만 지우면 복원된다) -->
+          <div class="pcard" hidden>
             <div class="h"><span class="dotk" style="background:var(--sv)"></span>SMU Control</div>
             <div class="b">
               <div class="frow col uidis"><label>Select Mode</label>

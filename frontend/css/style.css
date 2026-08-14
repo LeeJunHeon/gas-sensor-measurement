@@ -469,8 +469,9 @@
   .addbtn:hover{background:#eef2fb;border-color:var(--primary)}
 
   /* control panels grid */
-  /* stretch: 세 카드가 가장 큰 카드 높이에 맞춰 늘어난다(이전 start 는 제각각). */
-  .pgrid{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:10px;align-items:stretch}
+  /* stretch: 카드들이 가장 큰 카드 높이에 맞춰 늘어난다(이전 start 는 제각각).
+     auto-fit: 지금은 카드 2장이라 2열로 차고, 숨긴 카드를 복원하면 자동으로 3열로 돌아온다. */
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;align-items:stretch}
   .pcard{border:1px solid var(--line2);border-radius:7px;background:#fff;overflow:hidden}
   .pcard .h{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panelhead);font-size:12px;font-weight:700;color:#2a3645}
   .pcard .h .dotk{width:9px;height:9px;border-radius:50%;background:var(--primary)}
