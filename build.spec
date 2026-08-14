@@ -103,6 +103,8 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     version=_version_res,
+    # uac_admin=True,   # 관리자 권한 강제(기본 미사용 — paths.check_writable 안내와
+    #                   # 설치 위치 지침으로 충분. 현장 정책상 필요할 때만 해제)
     # icon='assets/app.ico'  # .ico 파일이 준비되면 추가
 )
 

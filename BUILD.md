@@ -71,6 +71,10 @@ dist/GasSensor/
 C:\VANAM\GasSensor\
 ```
 
+설치 위치는 쓰기 가능한 폴더(권장: `C:\VANAM\GasSensor` — 사내 관례가 없으면 `C:\GasSensor` 도 무방)로 한다 —
+`Program Files` 는 config/logs 저장이 막혀 시작 시 경고가 뜬다(관리자 권한 강제 대신 이 방식.
+정책상 관리자 실행이 필요하면 `build.spec` 의 `uac_admin=True` 주석을 해제한다).
+
 ## 4. 선행 조건
 
 - **Microsoft Edge WebView2 런타임** — 화면 표시에 필요하다.
