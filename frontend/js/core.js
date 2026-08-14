@@ -158,13 +158,15 @@ function logMsg(msg, level){
   el.className='le '+(level||'info');
   el.innerHTML=`<span class="lt">${ts}</span><span class="lv"></span>`;
   el.querySelector('.lv').textContent=msg;
+  // \uc0ac\uc6a9\uc790\uac00 \uc704\ub85c \uc62c\ub824 \uc77d\ub294 \uc911\uc774\uba74 \uac15\uc81c\ub85c \ub0b4\ub9ac\uc9c0 \uc54a\ub294\ub2e4(\ud558\ub2e8 \uadfc\ucc98\uc77c \ub54c\ub9cc \ub530\ub77c\uac04\ub2e4).
+  const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
   body.appendChild(el);
   while(body.children.length>200) body.removeChild(body.firstChild);
-  body.scrollTop=body.scrollHeight;
-  // \uc911\uc694\ub85c\uadf8(warn/err)\uac00 \ubaa8\ub2ec \ub2eb\ud78c \uc0c1\ud0dc\uc5d0\uc11c \ubc1c\uc0dd\ud558\uba74 "\ub85c\uadf8" \ubc84\ud2bc\uc5d0 \ubc30\uc9c0 \ud45c\uc2dc
+  if(atBottom) body.scrollTop=body.scrollHeight;
+  // \uc911\uc694\ub85c\uadf8(warn/err)\uac00 \ub3c4\ud06c\uac00 \ub2eb\ud78c \uc0c1\ud0dc\uc5d0\uc11c \ubc1c\uc0dd\ud558\uba74 "\ub85c\uadf8" \ubc84\ud2bc\uc5d0 \ubc30\uc9c0 \ud45c\uc2dc
   if(level==='warn'||level==='err'){
-    const lm=document.getElementById('logModal'), ob=document.getElementById('openLog');
-    if(lm&&ob&&!lm.classList.contains('on')) ob.classList.add('hasalert');
+    const dk=document.getElementById('logDock'), ob=document.getElementById('openLog');
+    if(dk&&ob&&dk.hidden) ob.classList.add('hasalert');
   }
 }
 document.getElementById('logClear')?.addEventListener('click',()=>{document.getElementById('logBody').innerHTML='';logMsg('\ub85c\uadf8 \uc9c0\uc6c0','info');});
@@ -179,18 +181,20 @@ document.getElementById('logCopy')?.addEventListener('click',async()=>{
   logMsg(`\ub85c\uadf8 ${b.children.length}\uc904 \ubcf5\uc0ac\ub428`,'info');
 });
 
-/* ===== System Log \ubaa8\ub2ec (System Setup\uacfc \ub3d9\uc77c\ud55c \uad6c\uc870) ===== */
-const logModal=document.getElementById('logModal');
+/* ===== System Log \ub3c4\ud06c (\uc6b0\uce21 \ud558\ub2e8 \uc0c1\uc8fc \u2014 hidden \uc18d\uc131\uc73c\ub85c \ud45c\uc2dc/\uc228\uae40) =====
+   \uae30\ubcf8\uac12\uc740 \uc5f4\ub9bc(HTML \uc5d0 hidden \uc5c6\uc74c). \uc0c1\ud0dc\ub294 \uc138\uc158 \uba54\ubaa8\ub9ac\ub9cc \u2014 config \uc800\uc7a5 \uc5c6\uc74c. */
+const logDock=document.getElementById('logDock');
 const openLogBtn=document.getElementById('openLog');
 function openLog(){
-  if(!logModal) return;
-  logModal.classList.add('on');
+  if(!logDock) return;
+  logDock.hidden=false;
   if(openLogBtn) openLogBtn.classList.remove('hasalert');   // \uc5f4\uba74 \ubc30\uc9c0 \uc81c\uac70
+  const b=document.getElementById('logBody'); if(b) b.scrollTop=b.scrollHeight;
 }
-function closeLog(){ if(logModal) logModal.classList.remove('on'); }
-openLogBtn?.addEventListener('click',openLog);
-document.getElementById('logModalClose')?.addEventListener('click',closeLog);
-logModal?.addEventListener('click',e=>{if(e.target===logModal)closeLog();});
+function closeLog(){ if(logDock) logDock.hidden=true; }
+// LOG \ubc84\ud2bc\uc740 \ud1a0\uae00 \u2014 \uc5f4\ub824 \uc788\uc73c\uba74 \ub2eb\ub294\ub2e4.
+openLogBtn?.addEventListener('click',()=>{ if(logDock&&!logDock.hidden) closeLog(); else openLog(); });
+document.getElementById('logDockClose')?.addEventListener('click',closeLog);
 logMsg('\ud654\uba74 \uc900\ube44 \uc644\ub8cc \u2014 \uc11c\ubc84 \uc5f0\uacb0 \ub300\uae30','info');
 // \uce21\uc815\uac12 \uc2dc\ubbac\ub808\uc774\uc158\uc740 \ub354 \uc774\uc0c1 \ud654\uba74\uc5d0 \ub450\uc9c0 \uc54a\ub294\ub2e4.
 // \uc5f0\uacb0 \uc2dc: \uc11c\ubc84\uac00 telemetry\ub97c push. \ub04a\uae40 \uc2dc: \ubaa8\ub4e0 \uac12\uc774 '\u2014'\ub85c \ubc14\ub010\ub2e4(\uac00\uc9dc \uac12 \uc5c6\uc74c).

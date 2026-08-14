@@ -130,7 +130,10 @@
   .schem{position:relative;height:calc(100% - 22px)}
   #wires{position:absolute;inset:0;pointer-events:none;z-index:1}
 
-  /* system log — modal(팝업)로 표시. 로그 줄 스타일은 .logbody 기준으로 유지. */
+  /* system log — 우측 하단 상주 도크(.procscroll 의 남는 세로 공간을 채운다).
+     로그 줄 스타일은 예전 모달과 동일하게 .logbody 기준을 그대로 쓴다. */
+  .logdock{flex:1;min-height:170px;display:flex;flex-direction:column}
+  .logdock .logbody{flex:1;height:auto;max-height:none;min-height:0;overflow:auto}
   .loghead-actions{display:flex;align-items:center;gap:8px}
   .lh-clear{font-size:10px;font-weight:600;color:#56627a;background:#e3e8ef;border:1px solid var(--line2);border-radius:5px;padding:5px 12px;cursor:pointer}
   .lh-clear:hover{background:#d4dbe5;color:#2a3645}

@@ -187,6 +187,20 @@
             </div>
           </div>
         </div>
+
+          <!-- System Log 도크: 모달이 아니라 우측 하단 상주 패널. 로그를 보면서 조작한다.
+               항목 저장소는 #logBody 하나뿐이다(복제본 금지). 표시/숨김은 hidden 속성. -->
+          <div class="pcard logdock" id="logDock">
+            <div class="h">
+              <span class="dotk"></span>System Log
+              <div class="loghead-actions" style="margin-left:auto">
+                <button class="lh-clear" id="logCopy">Copy</button>
+                <button class="lh-clear" id="logClear">Clear</button>
+                <button class="lh-clear" id="logDockClose" title="닫기 (LOG 버튼으로 다시 엽니다)">✕</button>
+              </div>
+            </div>
+            <div class="logbody" id="logBody"></div>
+          </div>
         </div><!-- /.procscroll -->
       </div>
     </div>
@@ -416,23 +430,6 @@
         <div class="modal-foot">
           <button class="cancel" id="confirmModalCancel">취소</button>
           <button class="apply" id="confirmModalOk">확인</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- System Log modal -->
-    <div class="modal-overlay" id="logModal">
-      <div class="modal" style="width:560px">
-        <div class="modal-head">
-          <h2>System Log</h2>
-          <div class="loghead-actions">
-            <button class="lh-clear" id="logCopy">Copy</button>
-            <button class="lh-clear" id="logClear">Clear</button>
-            <button class="x" id="logModalClose">✕</button>
-          </div>
-        </div>
-        <div class="modal-body" style="padding:0">
-          <div class="logbody" id="logBody"></div>
         </div>
       </div>
     </div>
