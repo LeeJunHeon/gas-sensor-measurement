@@ -16,20 +16,15 @@ from connection import push_state, push_log
 
 _task = None
 
-AIR_HANDOFF_S = 1.0
-# 4-way 를 sensor 로 돌린 뒤 이 시간 동안 단독 에어를 유지하고 닫는다.
-# 겹침이 없으면 전환 순간 센서가 잠깐 무풍이 되고, 계속 열어두면 측정 내내
-# 에어가 vent 로 낭비된다(운용 결정 2026-08-13: 전환 1초 후 차단).
-
-
 def _pure_dry_idx():
-    """단독(pure) 마른공기 채널 인덱스 — 퍼지 단계가 열고, 가스 단계가 전환 후 닫는다."""
+    """단독(pure) 마른공기 채널 인덱스 — 퍼지 행이 열고, 가스 행은 진입할 때 닫는다."""
     return [i for i, c in enumerate(state.channels)
             if channel_role(c) == "dry_air" and c.get("en") and c.get("route") == "pure"]
 
 
 def _close_pure_air() -> bool:
-    """열려 있던 단독 에어를 닫는다. 실제로 닫은 게 있으면 True(로그·push 용)."""
+    """가스 행 진입 시 단독 라인을 닫는다 — 각 행은 자기 밸브 상태를 완전히 정의한다.
+    실제로 닫은 게 있으면 True(로그·push 용)."""
     hit = False
     for i in _pure_dry_idx():
         c = state.channels[i]
@@ -114,8 +109,8 @@ def _apply_setpoints(sv: dict):
     """계산된 SV를 채널에 적용하고 밸브를 자동 개폐한다.
     유량이 필요한 채널(sv>0)은 열고, 0인 채널은 닫는다(비상정지로 닫혀 있어도 자동 복구).
     꺼진 채널(en=False)은 항상 닫힘.
-    ★ 단독(route=pure) 라인은 희석 '배분'에서 제외한다. 단, 단계 시퀀스는 별도로
-      관리한다 — 퍼지 단계가 열고, 가스 단계는 4-way 전환 1초 뒤 닫는다(_close_pure_air).
+    ★ 단독(route=pure) 라인은 희석 '배분'에서 제외한다. 단, 단독 라인은 가스 행
+      진입 시 닫는다(퍼지 행만 연다). 겹침·자동 차단 없음 — 2026-08-14 '표 그대로' 원칙.
     4-way 방향은 단계 진행(_phase)이 준비=vent / 측정=sensor 로 전환한다."""
     for i, c in enumerate(state.channels):
         if channel_role(c) in ("dry_air", "wet_air") and c.get("route") == "pure":
@@ -209,8 +204,10 @@ async def _run_recipe():
                     await push_log(f"P{n+1} 실행 불가로 중단: " + " / ".join(res["errors"]), "err")
                     return
                 _apply_setpoints(res["sv"])
+                _close_pure_air()   # 행=자기 입력만 — 가스 행에 에어 칸은 없다(2026-08-14)
                 state.system["stepIndex"] = n + 1
                 await push_log(f"P{n+1} 시작 (Loop {loop_i+1}/{loop_count})", "ok")
+                await push_state()   # 단독 에어가 닫히는 것이 즉시 화면에 보이게
 
                 abort = _plc_abort_for(n + 1)
                 # 준비(prep): 값 적용 후 안정화 대기
@@ -220,21 +217,7 @@ async def _run_recipe():
                 # 측정(meas): 값 유지하며 시간 흐름.
                 # ── 하드웨어 연결 시 여기에 RH/SMU 측정값 기록 코드 삽입 위치 ──
                 #    (예: 주기적으로 센서값을 읽어 그래프/파일에 저장)
-                # ★ 에어 핸드오프: 4-way 를 sensor 로 돌린 뒤 AIR_HANDOFF_S 동안 단독 에어를
-                #   겹쳐 두었다가 닫는다. 겹침이 없으면 전환 순간 센서가 무풍이 된다.
-                #   ※ 가스 단계는 단독 에어를 '열지 않는다' — 직전 퍼지 단계(또는 사람이)
-                #     열어둔 것을 전환 +1s 까지 유지할 뿐이다. 가스 단계를 연속으로 붙이면
-                #     두 번째 준비 구간은 센서 무풍이 된다(막지 않음 — 계약으로 문서화).
-                #   ※ 표시 특성: 겹침 구간이 끝나면 stepRemain 이 (meas−1)부터 다시 센다.
-                dur = float(proc.get("meas") or 0)
-                head = min(AIR_HANDOFF_S, dur)
-                await _phase("meas", head, abort)      # 4-way → sensor + 겹침 구간
-                if not is_running_flag():
-                    return
-                if dur > 0 and _close_pure_air():
-                    await push_log("단독 에어 차단 — 4-way 전환 후 1초 경과", "info")
-                    await push_state()
-                await _phase("meas", dur - head, abort)
+                await _phase("meas", float(proc.get("meas") or 0), abort)
                 if not is_running_flag():
                     return
         await push_log("AUTO RUN 완료 — 레시피 종료", "ok")
