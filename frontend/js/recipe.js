@@ -545,38 +545,49 @@ function bindRecipe(){
     renderRecipe();      // 퍼지↔가스에 따라 흐림·잠금이 달라지므로 행을 다시 그린다
   }));
   recipeBody.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{procs.splice(+e.target.dataset.del,1);renderRecipe();}));
-  // P열을 잡아 행 순서를 바꾼다(HTML5 DnD). 번호(P1·P2…)는 재렌더로 자동 재부여된다.
-  let dragFrom=null;
-  const clearDropMarks=()=>recipeBody.querySelectorAll('tr').forEach(t=>
-    t.classList.remove('drop-before','drop-after'));
-  recipeBody.querySelectorAll('td.pcol').forEach(h=>{
-    h.addEventListener('dragstart',e=>{
-      if(window._sys&&window._sys.running){e.preventDefault();return;}   // 실행 중 금지
-      dragFrom=+h.dataset.drag; e.dataTransfer.effectAllowed='move';
-      e.dataTransfer.setData('text/plain',String(dragFrom));
-    });
-    h.addEventListener('dragend',()=>{clearDropMarks(); dragFrom=null;}); // 취소·이탈 정리
-  });
-  recipeBody.querySelectorAll('tr').forEach(tr=>{
-    tr.addEventListener('dragover',e=>{
-      e.preventDefault();
-      const r=tr.getBoundingClientRect();
-      const after=e.clientY > r.top + r.height/2;      // 행 중점 아래면 '뒤에 삽입'
-      clearDropMarks();
-      tr.classList.add(after?'drop-after':'drop-before');
-    });
-    tr.addEventListener('drop',e=>{
-      e.preventDefault();
-      const after=tr.classList.contains('drop-after');
-      const ins=+tr.dataset.row + (after?1:0);
-      clearDropMarks();
-      if(dragFrom==null){return;}
-      const moved=reorderProcs(procs, dragFrom, ins);
-      dragFrom=null;
-      if(moved) renderRecipe();
-    });
-  });
 }
+// ── 드래그 순서 변경: 재렌더에도 살아남게 '테이블 위임'으로 1회만 등록한다.
+//    행마다 붙이면 bindRecipe 재실행 시 중복 + 끝단/고속 드래그에서 drop 누락.
+(function initRecipeDrag(){
+  const table = recipeBody.closest('table');
+  let dragFrom = null;
+  const rowsOf = () => [...recipeBody.querySelectorAll('tr')];
+  const clearMarks = () => rowsOf().forEach(t =>
+    t.classList.remove('drop-before','drop-after'));
+  const insAt = e => {              // clientY → 삽입 인덱스(0..len)와 표시 대상 행
+    const rows = rowsOf();
+    for(let k = 0; k < rows.length; k++){
+      const r = rows[k].getBoundingClientRect();
+      if(e.clientY < r.top + r.height/2) return {ins:k, tr:rows[k], after:false};
+    }
+    return {ins:rows.length, tr:rows[rows.length-1]||null, after:true};
+  };
+  table.addEventListener('dragstart', e => {
+    const h = e.target.closest('td.pcol');
+    if(!h || !recipeBody.contains(h)) return;
+    if(window._sys && window._sys.running){ e.preventDefault(); return; }
+    dragFrom = +h.dataset.drag;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(dragFrom));
+  });
+  table.addEventListener('dragover', e => {
+    if(dragFrom == null) return;
+    e.preventDefault();                       // 이걸 해야 drop 이 허용된다
+    const {tr, after} = insAt(e);
+    clearMarks();
+    if(tr) tr.classList.add(after ? 'drop-after' : 'drop-before');
+  });
+  table.addEventListener('drop', e => {
+    if(dragFrom == null) return;
+    e.preventDefault();
+    const {ins} = insAt(e);   // ★ 클래스가 아니라 '좌표'로 재계산 — 고속 드래그 안전
+    clearMarks();
+    const moved = reorderProcs(procs, dragFrom, ins);
+    dragFrom = null;
+    if(moved) renderRecipe();
+  });
+  table.addEventListener('dragend', () => { clearMarks(); dragFrom = null; });
+})();
 /* 실행 중인 단계 하이라이트 — telemetry 의 stepIndex(1-base)를 받는다. 0 이면 해제. */
 let _curStep=0;
 window.markRunningStep=idx=>{
