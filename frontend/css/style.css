@@ -280,8 +280,12 @@
   table.setup tr.dis td{opacity:.5}
   table.setup td.dis{opacity:.45}
   /* C.F. 값이 선택한 기체의 매뉴얼 표 값과 다를 때의 표시 */
-  table.setup .gas-back{margin-left:4px;padding:1px 5px;font-size:11px;line-height:1.2;border:1px solid var(--line);background:#f4f6fa;border-radius:3px;cursor:pointer}
-  table.setup [data-sgasfree]{width:70px}
+  table.setup .gas-back{flex:0 0 auto;padding:1px 5px;font-size:11px;line-height:1.2;border:1px solid var(--line);background:#f4f6fa;border-radius:3px;cursor:pointer}
+  /* 기체 칸: 드롭다운/직접 입력 두 모드가 같은 폭을 쓰도록 셀을 flex 로 둔다.
+     (고정폭을 주면 열 폭이 바뀔 때 한쪽만 좁아 보인다 — v1.2.1 피드백) */
+  table.setup [data-sgascell]{display:flex;align-items:center;gap:4px}
+  table.setup [data-sgascell] select,
+  table.setup [data-sgascell] input[data-sgasfree]{flex:1;min-width:0;width:auto;text-align:left}
   table.setup .cf-edited{color:#a3282d;font-size:10px;margin-left:4px;white-space:nowrap}
   table.setup .chid{font-family:var(--font-mono);font-weight:700;color:#2a3645}
   /* 배정 표 상태 열 — 실시간(연결·배정·PV 수신) 표시색 */

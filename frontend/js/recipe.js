@@ -175,6 +175,10 @@ function snapSetup(){
       sv_out:v(`[data-svout="${i}"]`), pv_in:v(`[data-pvin="${i}"]`),
       fs:v(`[data-sfs="${i}"]`), svfull:v(`[data-svfull="${i}"]`),
       pvzero:v(`[data-pvzero="${i}"]`), pvfull:v(`[data-pvfull="${i}"]`),
+      // 기체는 모드에 따라 select 또는 텍스트칸이다 — 있는 쪽을 읽는다.
+      // 모드가 바뀌면 값 형태도 바뀌므로 전환 자체도 dirty 로 잡힌다.
+      gas:v(`[data-sgas="${i}"]`) ?? v(`[data-sgasfree="${i}"]`),
+      cf:v(`[data-scf="${i}"]`),
     }));
     return JSON.stringify({chans,
       log:[id('logEnabled'),id('logDir'),id('logLevel'),id('logKeepDays')],
@@ -283,12 +287,17 @@ document.addEventListener('click', e=>{
   const t=e.target; if(!t||!t.getAttribute) return;
   const i=t.getAttribute('data-sgasback');
   if(i===null) return;
+  // 행 그룹에 맞는 기본 기체로 되돌린다(에어 Air / 가스 N2 — 둘 다 1.000).
+  const ch=channels[i]||{};
+  const dflt=(ch.grp==='gas')?'N2':'Air';
   const cell=document.querySelector(`[data-sgascell="${i}"]`);
-  if(cell) cell.innerHTML=gasPickerHtml(i,'N2','list');
+  if(cell) cell.innerHTML=gasPickerHtml(i,dflt,'list');
   const inp=document.querySelector(`[data-scf="${i}"]`);
   if(inp) inp.value=(1.0).toFixed(3);
   markCfEdited(i);
-  if(window.updateApplyGate) window.updateApplyGate();
+  // ★ ▾ 는 button 이라 setupOverlay 의 input/change 위임(INPUT/SELECT/TEXTAREA)에 안 걸린다.
+  //   여기서 직접 부르지 않으면 복귀만 했을 때 적용 버튼이 살아나지 않는다.
+  updateApplyGate();
 });
 document.addEventListener('input', e=>{
   const t=e.target; if(!t||!t.getAttribute) return;
