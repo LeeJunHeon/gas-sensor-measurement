@@ -203,7 +203,10 @@ def run(app, host: str, port: int):
         # 스레드에서 죽으면 console=False 인 exe에서는 아무 흔적도 남지 않는다 → 사유를 남긴다.
         global _SERVER_ERROR
         try:
-            uvicorn.run(app, host=host, port=port, log_level="warning")
+            # log_config=None: uvicorn 자체 로깅 dictConfig 를 타지 않는다.
+            # 창 전용 exe 에서 그 구성이 sys.stdout.isatty() 로 죽었다(server.py 가드와 짝).
+            uvicorn.run(app, host=host, port=port, log_level="warning",
+                        log_config=None)
         except Exception as e:  # noqa: BLE001
             _SERVER_ERROR = f"{type(e).__name__}: {e}"
             detail = traceback.format_exc()

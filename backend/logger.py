@@ -85,8 +85,18 @@ def _cleanup_old():
 
 def write(level: str, message: str):
     """레벨 필터 통과 시 오늘자 로그 파일에 한 줄 기록. 실패해도 앱에 영향 없음."""
-    if not _cfg["enabled"] or not _abs_dir:
+    global _abs_dir
+    if not _cfg["enabled"]:
         return
+    if not _abs_dir:
+        # configure() 전에 죽는 기동 실패(lifespan 이전)도 사유가 파일에 남아야 한다 —
+        # 그래야 "로그 폴더를 확인하세요" 안내가 항상 참이 된다. 기본값(logs/)으로 지연 초기화.
+        try:
+            d = _resolve_dir(_cfg["dir"])
+            os.makedirs(d, exist_ok=True)
+            _abs_dir = d
+        except Exception:  # noqa: BLE001
+            return
     if _LEVELS.get(level, 0) < _LEVELS.get(_cfg["level"], 0):
         return
     try:

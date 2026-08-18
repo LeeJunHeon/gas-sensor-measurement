@@ -12,6 +12,18 @@ server.py — 진입점.
 """
 
 import os
+import sys
+
+# 창 전용(console=False) exe: 콘솔이 없어 sys.stdout/sys.stderr 가 None 이다.
+# 라이브러리가 .isatty()/.write() 를 직접 부르면 그 자리에서 죽는다 —
+# uvicorn 로깅 설정의 DefaultFormatter 가 sys.stdout.isatty() 를 불러
+# "ValueError: Unable to configure formatter 'default'" 로 서버가 즉사했다(2026-08-18).
+# 다른 import 보다 먼저 devnull 로 갈아끼운다.
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
+
 import json
 import logging
 import contextlib
