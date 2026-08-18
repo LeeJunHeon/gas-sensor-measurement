@@ -75,7 +75,11 @@ def _cleanup_old():
     if _cfg["keep"] <= 0 or not _abs_dir:
         return
     cutoff = time.time() - _cfg["keep"] * 86400
-    for f in glob.glob(os.path.join(_abs_dir, "measurement-*.log")):
+    # 구 이름(measurement-*)도 함께 지운다 — 기존 설치본에서 올라온 파일이 보관일수를
+    # 넘겨도 영원히 남는 것을 막는다(파일명은 v1.1.0 이후 GasSensor-*).
+    olds = (glob.glob(os.path.join(_abs_dir, "GasSensor-*.log"))
+            + glob.glob(os.path.join(_abs_dir, "measurement-*.log")))
+    for f in olds:
         try:
             if os.path.getmtime(f) < cutoff:
                 os.remove(f)
@@ -101,7 +105,7 @@ def write(level: str, message: str):
         return
     try:
         ts = datetime.datetime.now()
-        path = os.path.join(_abs_dir, f"measurement-{ts:%Y%m%d}.log")
+        path = os.path.join(_abs_dir, f"GasSensor-{ts:%Y%m%d}.log")
         with open(path, "a", encoding="utf-8") as fp:
             fp.write(f"{ts:%Y-%m-%d %H:%M:%S} [{level.upper()}] {message}\n")
     except Exception as e:  # noqa: BLE001

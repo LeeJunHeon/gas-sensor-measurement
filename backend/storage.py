@@ -35,6 +35,10 @@ def safe_read_json(path: str):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
+    except FileNotFoundError:
+        # 첫 실행에는 config.json·레시피가 없는 게 정상이다. 고객에게 오류로 보이면 안 되므로
+        # 경고를 내지 않는다 — 호출 측이 "없음 → 기본값으로 생성" 안내를 이미 남긴다.
+        return None
     except Exception as e:  # noqa: BLE001
         # import 단계(config 로드)에도 불릴 수 있어 early 버퍼로 보낸다(로거 설정 후 flush).
         logger.early("warn", f"JSON 읽기 실패: {path} ({e})")

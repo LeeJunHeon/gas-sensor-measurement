@@ -49,9 +49,17 @@ def _acquire_single_instance() -> bool:
     try:
         import ctypes
         kernel32 = ctypes.windll.kernel32
-        _MUTEX_HANDLE = kernel32.CreateMutexW(None, False, "VANAM_GasSensor_SingleInstance")
+        h = kernel32.CreateMutexW(None, False, "VANAM_GasSensor_SingleInstance")
         ERROR_ALREADY_EXISTS = 183
-        return kernel32.GetLastError() != ERROR_ALREADY_EXISTS
+        if kernel32.GetLastError() == ERROR_ALREADY_EXISTS:
+            # 실패한 핸들을 남기면 재진입 가드(_MUTEX_HANDLE is not None)가 재시도에서
+            # "내가 잡은 것"으로 오판한다 → 반드시 닫고 None 으로 되돌린다.
+            with contextlib.suppress(Exception):
+                kernel32.CloseHandle(h)
+            _MUTEX_HANDLE = None
+            return False
+        _MUTEX_HANDLE = h
+        return True
     except Exception:  # noqa: BLE001
         return True
 
@@ -170,7 +178,15 @@ def run(app, host: str, port: int):
 
     # 이중 실행 차단. 인스턴스가 2개면 포트 회피로 둘 다 정상 기동해 창이 2개 뜨고,
     # TCP 모드에서는 둘 다 PLC에 붙어 서로 밸브 명령을 덮어쓴다.
-    if not _acquire_single_instance():
+    # 종료 직후 재실행은 직전 인스턴스의 정리(~1초)가 끝나기 전이라 뮤텍스가 아직 잡혀 있다.
+    # 사용자에겐 "닫았는데 이미 실행 중"으로 보이므로 최대 3초 기다렸다가 판정한다.
+    # (진짜 중복 실행은 3초 뒤에도 잡혀 있어 그대로 팝업으로 막힌다)
+    _got = _acquire_single_instance()
+    _deadline = time.monotonic() + 3.0
+    while not _got and time.monotonic() < _deadline:
+        time.sleep(0.25)
+        _got = _acquire_single_instance()
+    if not _got:
         _msgbox("Gas Sensor Measurement System",
                 "프로그램이 이미 실행 중입니다.\n작업 표시줄에서 기존 창을 확인하세요.")
         return

@@ -100,20 +100,18 @@ def _norm_channel_plc(v, cid: str = ""):
 
 def validate_channel_map(channels, plc_hw) -> list:
     """채널 배정(sv_out/pv_in)을 검사해 문제 목록을 돌려준다.
-    반환: [{"level": "warn"|"info", "msg": str}]
+    반환: [{"level": "warn", "msg": str}]
       warn — 지금 당장 문제(알 수 없는 이름·종류 혼동·증설 미장착·중복·en인데 미배정·알 수 없는 id)
-      info — 지금은 무해하지만 알아둘 것(en=False인데 미배정)
+    ★ en=False 채널의 '미배정'은 알리지 않는다 — 미사용 채널 안내가 시작 로그를 채워
+      정작 봐야 할 경고를 덮었다(납품 피드백 2026-08-18). 그 외 검사는 en과 무관하게 유지.
     ★ 예외를 던지지 않는다 — 배정이 이상해도 프로그램은 떠야 진단이 가능하다.
-    ★ 경고를 무작정 늘리면 사람이 읽지 않게 되므로 심각도를 나눈다."""
+    ★ 경고를 무작정 늘리면 사람이 읽지 않게 되므로, 조치가 필요한 것만 낸다."""
     import plc_catalog as cat
 
     problems = []
 
     def warn(msg):
         problems.append({"level": "warn", "msg": msg})
-
-    def info(msg):
-        problems.append({"level": "info", "msg": msg})
 
     try:
         max_mod = int((plc_hw or {}).get("dac_modules", 1))
@@ -145,9 +143,7 @@ def validate_channel_map(channels, plc_hw) -> list:
         elif ch.get("en"):                   # 5) 사용 중인데 미배정
             warn(f"{cid}: 사용(en) 상태인데 SV 출력이 배정되지 않았습니다. "
                  f"밸브는 열리지만 유량 지령이 나가지 않습니다")
-        else:                                # 5') 지금은 en=False — 켜기 전에 알린다
-            info(f"{cid}: SV 출력(sv_out)이 배정되지 않았습니다 — 현재 en=False 라 지령이 "
-                 f"나가지 않습니다. 사용하려면 config.json 의 sv_out 배정이 필요합니다")
+        # en=False 이면서 미배정인 것은 정상(미사용 채널) — 알리지 않는다.
 
         # 스케일 유효성: 0 이하면 변환식이 무효화되거나 0으로 나누기가 된다.
         fs = float(p.get("fs_sccm") or 0)
