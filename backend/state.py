@@ -36,13 +36,13 @@ DEFAULT_CHANNEL_PLC = {
     "VA4": {"sv_out": None, "pv_in": None,
             "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
     "VA5": {"sv_out": "DAC1_CH2", "pv_in": "ADC_CH4",
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 200, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
     "VA6": {"sv_out": "DAC1_CH3", "pv_in": "ADC_CH5",
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 200, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
     "VA7": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},  # 미배선·장착 MFC 미확정 — 추후 배선 시 확정
     "VA8": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},  # 미배선·장착 MFC 미확정 — 추후 배선 시 확정
 }
 
 # 채널 무관 시스템 공통 주소(하트비트/안전리셋/4-way/상태·알람).
@@ -197,8 +197,8 @@ DEFAULT_CHANNELS = [
     {"id": "VA2", "grp": "air", "route": "pure", "en": False, "max": 1000, "sv": 0, "plc": _default_channel_plc("VA2")},
     {"id": "VA3", "grp": "air", "route": "pure", "en": True,  "max": 1000, "sv": 0, "plc": _default_channel_plc("VA3")},
     {"id": "VA4", "grp": "air", "route": "mix",  "en": False, "max": 1000, "sv": 0, "plc": _default_channel_plc("VA4")},
-    {"id": "VA5", "grp": "gas", "route": "mix",  "en": True,  "max": 1000, "sv": 0, "plc": _default_channel_plc("VA5")},
-    {"id": "VA6", "grp": "gas", "route": "mix",  "en": True,  "max": 1000, "sv": 0, "plc": _default_channel_plc("VA6")},
+    {"id": "VA5", "grp": "gas", "route": "mix",  "en": True,  "max": 200, "sv": 0, "plc": _default_channel_plc("VA5")},
+    {"id": "VA6", "grp": "gas", "route": "mix",  "en": True,  "max": 200, "sv": 0, "plc": _default_channel_plc("VA6")},
     {"id": "VA7", "grp": "gas", "route": "mix",  "en": False, "max": 1000, "sv": 0, "plc": _default_channel_plc("VA7")},
     {"id": "VA8", "grp": "gas", "route": "mix",  "en": False, "max": 1000, "sv": 0, "plc": _default_channel_plc("VA8")},
 ]
