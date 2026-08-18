@@ -8,6 +8,7 @@ import json
 
 import logger
 import version
+import gas_catalog
 from storage import atomic_write_json, safe_read_json, CONFIG_PATH
 
 # ===================== 기본값 =====================
@@ -36,13 +37,17 @@ DEFAULT_CHANNEL_PLC = {
     "VA4": {"sv_out": None, "pv_in": None,
             "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
     "VA5": {"sv_out": "DAC1_CH2", "pv_in": "ADC_CH4",
-            "fs_sccm": 200, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 200, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "gas_name": "N2", "gas_cf": 1.000},
     "VA6": {"sv_out": "DAC1_CH3", "pv_in": "ADC_CH5",
-            "fs_sccm": 200, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 200, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "gas_name": "N2", "gas_cf": 1.000},
     "VA7": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},  # 미배선·장착 MFC 미확정 — 추후 배선 시 확정
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "gas_name": "N2", "gas_cf": 1.000},  # 미배선·장착 MFC 미확정 — 추후 배선 시 확정
     "VA8": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},  # 미배선·장착 MFC 미확정 — 추후 배선 시 확정
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "gas_name": "N2", "gas_cf": 1.000},  # 미배선·장착 MFC 미확정 — 추후 배선 시 확정
 }
 
 # 채널 무관 시스템 공통 주소(하트비트/안전리셋/4-way/상태·알람).
@@ -95,6 +100,13 @@ def _norm_channel_plc(v, cid: str = ""):
     for k, dflt in PLC_SCALE_DEFAULTS.items():
         if k not in out:
             out[k] = base.get(k, dflt)
+    # 가스 C.F.: 옛 config 에는 없다 → N2/1.000(항등)으로 보강해 동작이 바뀌지 않게 한다.
+    # 이름은 참고용이고 계산에 쓰는 것은 gas_cf 값이다(표에 없는 가스를 직접 입력할 수 있으므로).
+    if "gas_name" in out or "gas_cf" in out or "gas_name" in base:
+        nm = out.get("gas_name", base.get("gas_name", gas_catalog.DEFAULT_GAS_NAME))
+        out["gas_name"] = nm if isinstance(nm, str) and nm else gas_catalog.DEFAULT_GAS_NAME
+        out["gas_cf"] = gas_catalog.clamp_cf(
+            out.get("gas_cf", base.get("gas_cf", gas_catalog.DEFAULT_GAS_CF)))
     return out
 
 
@@ -495,6 +507,8 @@ class State:
             "plc": dict(self.plc),
             "plc_system": dict(self.plc_system),
             "plc_hw": dict(self.plc_hw),
+            # 가스 C.F. 표 — Setup 드롭다운의 단일 출처(프런트에 값을 중복 하드코딩하지 않는다).
+            "gas_catalog": gas_catalog.catalog(),
             "plc_live": {
                 "connected": bool(self.plc_live.get("connected")),
                 "pv": dict(self.plc_live.get("pv") or {}),

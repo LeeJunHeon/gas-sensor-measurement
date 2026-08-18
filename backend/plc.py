@@ -410,26 +410,43 @@ class PlcClient:
         return True
 
     # ---- 아날로그 스케일 변환(sccm ↔ DAC/ADC 카운트) ----
+    # ★ 가스 C.F. 보정은 오직 이 계층에서만 한다. MFC 는 N2 로 교정돼 있어
+    #   실제 유량 = 지시 유량 × C.F. 이므로  지시 = 목표 ÷ C.F. 로 내보내고,
+    #   읽어 들인 지시값에는 × C.F. 를 해서 화면에 '실제 유량'으로 보여준다.
+    #   레시피·희석 계산·MAX 는 전부 실제 유량(sccm) 기준이라 여기서만 건드리면 이중 보정이 없다.
+    #   N2(1.000)에서는 곱·나눗셈이 항등이라 기존 동작과 완전히 같다.
+    def _cf_of(self, name: str) -> float:
+        s = self._scale.get(name) or {}
+        cf = s.get("gas_cf")
+        if cf is None:
+            return 1.0
+        try:
+            cf = float(cf)
+        except (TypeError, ValueError):
+            return 1.0
+        return cf if cf > 0 else 1.0
+
     def _sv_to_raw(self, name: str, sccm: float) -> int:
-        """유량(sccm) → DAC 카운트. 스케일 정보 없으면 값 그대로(옛 동작) 사용."""
+        """목표 유량(sccm) → DAC 카운트. 스케일 정보 없으면 값 그대로(옛 동작) 사용."""
         s = self._scale.get(name) or {}
         fs   = float(s.get("fs_sccm") or 0)
         full = int(s.get("sv_full") or 0)
+        ind  = float(sccm) / self._cf_of(name)     # MFC 에 내보낼 '지시' 유량
         if fs <= 0 or full <= 0:
-            raw = int(round(float(sccm)))
+            raw = int(round(ind))
         else:
-            raw = int(round(float(sccm) / fs * full))
+            raw = int(round(ind / fs * full))
         return max(0, min(full or 4000, raw))
 
     def _pv_to_sccm(self, name: str, raw: int) -> float:
-        """ADC 카운트 → 유량(sccm). 스케일 정보 없으면 카운트 그대로."""
+        """ADC 카운트 → 실제 유량(sccm). 스케일 정보 없으면 카운트 그대로."""
         s = self._scale.get(name) or {}
         fs   = float(s.get("fs_sccm") or 0)
         zero = int(s.get("pv_zero") or 0)
         full = int(s.get("pv_full") or 0)
         if fs <= 0 or full <= zero:
             return float(raw)
-        val = (float(raw) - zero) / float(full - zero) * fs
+        val = (float(raw) - zero) / float(full - zero) * fs * self._cf_of(name)
         return round(max(0.0, val), 2)
 
     # ---- 명명된 헬퍼(주소맵 키 사용). 미연결/실패 시 하위 read/write처럼 예외를 올림 ----
@@ -499,7 +516,8 @@ class PlcClient:
                 sc = self._scale.get(cid) or {}
                 full = float(sc.get("sv_full") or 0)
                 fs = float(sc.get("fs_sccm") or 0)
-                sv[cid] = (max(0.0, min(fs, raw / full * fs))
+                # 되읽은 것은 '지시' 유량 → 화면과 같은 기준(실제 유량)으로 되돌린다.
+                sv[cid] = (max(0.0, min(fs, raw / full * fs)) * self._cf_of(cid)
                            if (full > 0 and fs > 0) else 0.0)
         return {"valves": valves, "sv_sccm": sv, "to_sensor": to_sensor}
 

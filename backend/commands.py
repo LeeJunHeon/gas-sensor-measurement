@@ -12,6 +12,7 @@ import engine
 import logger
 import plc
 import plc_catalog
+import gas_catalog
 from state import (state, default_recipe, DEFAULT_PARAMS, normalize_recipe, to_num,
                    validate_channel_map)
 from connection import manager, push_state, push_log
@@ -391,6 +392,12 @@ async def handle_command(data: dict):
                     for k in ("fs_sccm", "sv_full", "pv_zero", "pv_full"):
                         if k in sc and max(0, to_num(sc[k], cur.get(k, 0))) != cur.get(k, 0):
                             return True
+                    # C.F. 도 유량 환산을 바꾸는 값이라 스케일과 같이 취급한다
+                    # (밸브가 열린 채 바뀌면 실제 유량이 순간 점프한다).
+                    if "gas_cf" in sc and cur.get("gas_cf") is not None:
+                        if abs(gas_catalog.clamp_cf(sc["gas_cf"], cur["gas_cf"])
+                               - float(cur["gas_cf"])) > 1e-9:
+                            return True
                 return False
             if _scale_changing() and any(c.get("valveIn") for c in state.channels):
                 _p = ["밸브가 열려 있어 스케일을 변경할 수 없습니다 — 모든 밸브를 닫은 뒤 적용하세요"]
@@ -423,6 +430,14 @@ async def handle_command(data: dict):
                     for k in ("fs_sccm", "sv_full", "pv_zero", "pv_full"):
                         if k in sc:
                             c["plc"][k] = max(0, to_num(sc[k], c["plc"].get(k, 0)))
+                    # 가스 C.F.(가스 채널만). 이름은 참고용, 계산에 쓰는 값은 gas_cf.
+                    # 표에 없는 가스를 직접 입력할 수 있으므로 이름으로 값을 되찾지 않는다.
+                    if c.get("grp") == "gas":
+                        if isinstance(sc.get("gas_name"), str) and sc["gas_name"]:
+                            c["plc"]["gas_name"] = sc["gas_name"]
+                        if "gas_cf" in sc:
+                            _old_cf = c["plc"].get("gas_cf", gas_catalog.DEFAULT_GAS_CF)
+                            c["plc"]["gas_cf"] = gas_catalog.clamp_cf(sc["gas_cf"], _old_cf)
                 if isinstance(c.get("plc"), dict):
                     if "sv_out" in item and _norm(item.get("sv_out")) != c["plc"].get("sv_out"):
                         c["plc"]["sv_out"] = _norm(item.get("sv_out")); assign_changed = True

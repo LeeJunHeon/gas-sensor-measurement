@@ -216,6 +216,51 @@ window.onSetupAck=function(msg){
   buildMapRows();      // 드롭다운을 서버 상태(원래 값)로 되돌린다
   checkMapDup();       // 되돌린 값 기준으로 중복·게이트 재판정
 };
+/* 가스 C.F. 셀(가스 채널만). 표는 서버 스냅샷(window.gasCatalog)이 유일한 출처다 —
+   값을 프런트에 복사해 두면 매뉴얼 개정 때 두 곳이 어긋난다.
+   에어 채널은 내부적으로 1.000 고정이라 입력을 주지 않는다. */
+const CF_TIP='봄베 베이스 기체 선택 — N2/Air 베이스면 N2(1.000). '
+  +'표에 없는 가스는 호리바 문의 후 직접 입력';
+function gasCells(c,p,i){
+  const isGas = (c.grp==='gas') || (p.gas_cf!==undefined);
+  if(!isGas) return '<td class="dis">—</td><td class="dis">—</td>';
+  const list=window.gasCatalog||[];
+  const name=p.gas_name||'N2';
+  const cf=(p.gas_cf!==undefined&&p.gas_cf!==null)?p.gas_cf:1.0;
+  const known=list.some(g=>g.name===name);
+  const opts=list.map(g=>`<option value="${g.name}" ${g.name===name?'selected':''}>${g.name} (${g.cf.toFixed(3)})</option>`).join('')
+    +`<option value="" ${known?'':'selected'}>직접 입력</option>`;
+  return `<td><select data-sgas="${i}" title="${CF_TIP}">${opts}</select></td>`
+    +`<td><input type="text" value="${cf}" data-scf="${i}" title="${CF_TIP}">`
+    +`<span class="cf-edited" data-scfnote="${i}"></span></td>`;
+}
+/* 선택한 기체의 표 값과 입력값이 다르면 '(수정됨)'을 붙인다. */
+function markCfEdited(i){
+  const sel=document.querySelector(`[data-sgas="${i}"]`);
+  const inp=document.querySelector(`[data-scf="${i}"]`);
+  const note=document.querySelector(`[data-scfnote="${i}"]`);
+  if(!sel||!inp||!note) return;
+  const g=(window.gasCatalog||[]).find(x=>x.name===sel.value);
+  const v=window.strictNum(inp.value);
+  note.textContent=(g&&v!==null&&Math.abs(v-g.cf)>1e-9)?' (수정됨)':'';
+}
+/* 기체를 고르면 표 값을 자동으로 채운다(그 뒤 손으로 고칠 수 있다).
+   '직접 입력'은 현재 값을 그대로 둔다 — 사용자가 넣은 값을 지우면 안 된다. */
+document.addEventListener('change', e=>{
+  const t=e.target; if(!t||!t.getAttribute) return;
+  const i=t.getAttribute('data-sgas');
+  if(i===null) return;
+  const g=(window.gasCatalog||[]).find(x=>x.name===t.value);
+  const inp=document.querySelector(`[data-scf="${i}"]`);
+  if(g&&inp) inp.value=g.cf.toFixed(3);
+  markCfEdited(i);
+});
+document.addEventListener('input', e=>{
+  const t=e.target; if(!t||!t.getAttribute) return;
+  const i=t.getAttribute('data-scf');
+  if(i!==null) markCfEdited(i);
+});
+
 /* 아날로그 스케일 표(MFC ↔ PLC). plc 매핑 없는 채널은 행을 만들지 않는다. */
 function buildScaleRows(){
   const tb=document.getElementById('setupScaleRows'); if(!tb) return;
@@ -229,9 +274,11 @@ function buildScaleRows(){
       <td><input type="text" value="${p.fs_sccm??''}" data-sfs="${i}"></td>
       <td><input type="text" value="${p.sv_full??''}" data-svfull="${i}"></td>
       <td><input type="text" value="${p.pv_zero??''}" data-pvzero="${i}"></td>
-      <td><input type="text" value="${p.pv_full??''}" data-pvfull="${i}"></td>`;
+      <td><input type="text" value="${p.pv_full??''}" data-pvfull="${i}"></td>
+      ${gasCells(c,p,i)}`;
     tb.appendChild(tr);
   });
+  channels.forEach((c,i)=>markCfEdited(i));
 }
 /* Setup 모달 입력의 브라우저 자동완성을 끈다.
    ★ 실제 사고: PLC Port 칸이 저절로 502 → 5024 → 5025 로 바뀌었다. 서버가 덮어쓴 게 아니라
@@ -319,6 +366,8 @@ function validateScales(chans){
       return {ok:false, msg:`${id}: PV 풀카운트는 0보다 커야 합니다.`};
     if(!(sc.pv_full>sc.pv_zero))
       return {ok:false, msg:`${id}: PV 풀카운트(${sc.pv_full})는 영점카운트(${sc.pv_zero})보다 커야 합니다.`};
+    if(sc.gas_cf!==undefined && !(sc.gas_cf>=0.1 && sc.gas_cf<=10))
+      return {ok:false, msg:`${id}: 가스 C.F.는 0.1 ~ 10 사이여야 합니다 (입력: ${sc.gas_cf}).`};
     if(ch.max>sc.fs_sccm)
       return {ok:false, msg:`${id}: MAX ${ch.max}이 풀스케일 ${sc.fs_sccm}을 초과합니다. `
         +'SV가 풀스케일에서 포화되어 화면 값과 실제 유량이 달라집니다.'};
@@ -355,6 +404,15 @@ function collectSetup(){
         pv_zero: intOr(document.querySelector(`[data-pvzero="${i}"]`)?.value, 0),
         pv_full: intOr(document.querySelector(`[data-pvfull="${i}"]`)?.value, 0),
       };
+      // 가스 C.F.(가스 채널 행에만 칸이 있다). 이름은 참고용, 계산에 쓰는 값은 gas_cf.
+      const cfEl=document.querySelector(`[data-scf="${i}"]`);
+      if(cfEl){
+        const gsEl=document.querySelector(`[data-sgas="${i}"]`);
+        row.scale.gas_cf=numOr(cfEl.value, 1.0);
+        // '직접 입력'이면 이름을 비우지 말고 기존 이름을 유지한다(표시용).
+        row.scale.gas_name=(gsEl&&gsEl.value) ? gsEl.value
+          : ((c.plc&&c.plc.gas_name) || 'N2');
+      }
     }
     chans.push(row);
   });

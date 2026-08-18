@@ -107,8 +107,18 @@ def compute_step_setpoints(channels, proc, bottle, use_humidity=True):
     for i, c in enumerate(channels):
         if sv[i] > float(c.get("max") or 0) + 1e-6:
             errors.append(f"{c.get('id')} 필요 {sv[i]:.1f} sccm 이 MAX {c.get('max')} 초과")
-        fs = float((c.get("plc") or {}).get("fs_sccm") or 0)
-        if fs > 0 and sv[i] > fs + 1e-6:
-            errors.append(f"{c.get('id')} 필요 {sv[i]:.1f} sccm 이 풀스케일 {fs:g} 초과")
+        p = c.get("plc") or {}
+        fs = float(p.get("fs_sccm") or 0)
+        # MFC 에 실제로 나가는 것은 '지시' 유량(= 목표 ÷ C.F.)이다. C.F.<1 인 기체는
+        # 목표가 풀스케일 안이어도 지시가 넘쳐 조용히 클램프되므로 지시 기준으로 막는다.
+        cf = float(p.get("gas_cf") or 1.0) or 1.0
+        ind = sv[i] / cf
+        if fs > 0 and ind > fs + 1e-6:
+            if abs(cf - 1.0) > 1e-9:
+                errors.append(f"{c.get('id')} 필요 {sv[i]:.1f} sccm 의 C.F. 반영 지시 유량 "
+                              f"{ind:.1f} sccm 이 풀스케일 {fs:g} 초과 "
+                              f"({p.get('gas_name') or '?'} C.F. {cf:g})")
+            else:
+                errors.append(f"{c.get('id')} 필요 {sv[i]:.1f} sccm 이 풀스케일 {fs:g} 초과")
 
     return {"sv": sv, "errors": errors}
