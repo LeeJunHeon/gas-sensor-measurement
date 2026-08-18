@@ -223,27 +223,15 @@ window.onSetupAck=function(msg){
    에어 채널은 내부적으로 1.000 고정이라 입력을 주지 않는다. */
 const CF_TIP='봄베 베이스 기체 — 목록에서 고르거나 직접 입력한다. '
   +'N2/Air 베이스면 1.000. 표에 없는 가스는 호리바 문의 후 직접 입력';
-/* 기체 콤보의 공용 datalist 를 서버 표로 채운다.
-   ★ 표는 서버 스냅샷(window.gasCatalog)이 유일한 출처다 — 값을 프런트에 복사해 두면
-     매뉴얼 개정 때 두 곳이 어긋난다. */
-function fillGasDatalist(){
-  const dl=document.getElementById('gasCfList'); if(!dl) return;
-  dl.innerHTML='';
-  (window.gasCatalog||[]).forEach(g=>{
-    const o=document.createElement('option');
-    o.value=g.name; o.label='C.F. '+g.cf.toFixed(3);
-    dl.appendChild(o);
-  });
-}
 const cf3=v=>Number(v).toFixed(3);          // C.F. 표기는 항상 소수 3자리
 const gasOf=n=>(window.gasCatalog||[]).find(g=>g.name===n);
 /* 기체·C.F. 셀 — 전 채널이 값을 가진다(v1.2.1).
-   기체 칸은 '입력도 되는 드롭다운'(datalist 콤보) 하나다 — 클릭하면 전체 목록,
-   타이핑하면 필터, 표에 없는 이름은 그대로 직접 입력이 된다(v1.2.3에서 이중 모드 폐지). */
+   기체 칸은 '입력도 되는 드롭다운' 하나다 — 클릭하면 전체 목록, 타이핑하면 필터,
+   표에 없는 이름은 그대로 직접 입력이 된다(v1.2.3 이중 모드 폐지 → v1.2.4 자체 콤보). */
 function gasCells(c,p,i){
   const name=p.gas_name||(c.grp==='gas'?'N2':'Air');
   const cf=(p.gas_cf!==undefined&&p.gas_cf!==null)?p.gas_cf:1.0;
-  return `<td><input type="text" list="gasCfList" value="${name}" placeholder="가스 이름"`
+  return `<td><input type="text" value="${name}" placeholder="가스 이름"`
     +` data-sgasname="${i}" title="${CF_TIP}"></td>`
     +`<td><input type="text" value="${cf3(cf)}" data-scf="${i}" title="${CF_TIP}">`
     +`<span class="cf-edited" data-scfnote="${i}"></span></td>`;
@@ -284,6 +272,119 @@ document.addEventListener('focusout', e=>{
   markCfEdited(i);
 });
 
+/* ── 기체 콤보(자체 드롭다운) ─────────────────────────────────────
+   datalist 를 쓰지 않는다: 브라우저 내장 목록은 '현재 입력값으로 필터'가 고정이라
+   값이 든 칸(예: "Air")을 클릭하면 그 한 줄만 떠서 드롭다운 구실을 못 했다(v1.2.3 실사용).
+   ★ 패널은 body 직속 position:fixed 오버레이다 — 표의 행 높이·열 폭에 영향을 주지 않는다.
+   ★ 열 때는 입력값과 무관하게 항상 전체 목록. 필터는 '타이핑할 때만' 건다. */
+let _gcPanel=null, _gcInput=null, _gcItems=[], _gcHi=-1, _gcApplying=false;
+
+function gcEl(){
+  if(_gcPanel) return _gcPanel;
+  _gcPanel=document.createElement('div');
+  _gcPanel.id='gasCombo';
+  _gcPanel.style.display='none';
+  document.body.appendChild(_gcPanel);
+  // ★ mousedown 에서 기본동작을 막아야 입력칸 blur 로 패널이 먼저 닫히지 않는다.
+  _gcPanel.addEventListener('mousedown', e=>{
+    e.preventDefault();
+    const row=e.target.closest?e.target.closest('[data-gcname]'):null;
+    if(!row){ gcClose(); return; }             // '직접 입력' 안내 행 → 텍스트 유지하고 닫기만
+    gcPick(row.getAttribute('data-gcname'));
+  });
+  return _gcPanel;
+}
+function gcClose(){ if(_gcPanel) _gcPanel.style.display='none'; _gcInput=null; _gcHi=-1; }
+function gcRender(filter){
+  const p=gcEl(), all=window.gasCatalog||[];
+  const q=(filter||'').trim().toLowerCase();
+  _gcItems=q?all.filter(g=>g.name.toLowerCase().includes(q)):all;   // 필터는 타이핑할 때만
+  const cur=_gcInput?_gcInput.value:'';
+  if(!_gcItems.length){
+    p.innerHTML=`<div class="gc-none">직접 입력: '${cur}'</div>`;
+    _gcHi=-1;
+    return;
+  }
+  if(_gcHi>=_gcItems.length) _gcHi=_gcItems.length-1;
+  p.innerHTML=_gcItems.map((g,n)=>
+    `<div class="gc-row${g.name===cur?' cur':''}${n===_gcHi?' hi':''}" data-gcname="${g.name}">`
+    +`<span class="gc-n">${g.name}</span><span class="gc-v">C.F. ${g.cf.toFixed(3)}</span></div>`
+  ).join('');
+  const hi=p.querySelector('.gc-row.hi')||p.querySelector('.gc-row.cur');
+  if(hi&&hi.scrollIntoView) hi.scrollIntoView({block:'nearest'});
+}
+function gcOpen(input,filter){
+  _gcInput=input;
+  const p=gcEl(), r=input.getBoundingClientRect();
+  p.style.display='block';
+  p.style.left=r.left+'px';
+  p.style.top=(r.bottom+2)+'px';
+  p.style.minWidth=r.width+'px';
+  gcRender(filter);
+}
+function gcPick(name){
+  const g=gasOf(name), input=_gcInput;
+  if(!input) return;
+  _gcApplying=true;                 // 아래 input 이벤트가 패널을 다시 열지 않게
+  input.value=name;
+  // ★ input 이벤트를 실제로 발생시켜 C.F. 자동 채움과 적용 버튼 감지(snapSetup)가 걸리게 한다.
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+  _gcApplying=false;
+  const i=input.getAttribute('data-sgasname');
+  const cfEl=document.querySelector(`[data-scf="${i}"]`);
+  if(g&&cfEl) cfEl.value=cf3(g.cf);
+  markCfEdited(i);
+  gcClose();
+  input.focus();
+}
+// 열기: 포커스·클릭 → 항상 전체 목록
+['focusin','click'].forEach(t=>document.addEventListener(t, e=>{
+  const el=e.target;
+  if(!el||!el.getAttribute) return;
+  if(el.getAttribute('data-sgasname')===null){
+    if(_gcPanel&&_gcPanel.style.display!=='none'&&!(_gcPanel.contains&&_gcPanel.contains(el))) gcClose();
+    return;
+  }
+  gcOpen(el,'');
+}));
+// 타이핑: 그때만 부분일치 필터
+document.addEventListener('input', e=>{
+  const el=e.target;
+  if(!el||!el.getAttribute||el.getAttribute('data-sgasname')===null) return;
+  if(_gcApplying) return;
+  _gcHi=-1;
+  gcOpen(el,el.value);
+});
+// 키보드: ↓/↑ 이동, Enter 선택, Esc 닫기
+document.addEventListener('keydown', e=>{
+  const el=e.target;
+  if(!el||!el.getAttribute||el.getAttribute('data-sgasname')===null) return;
+  const open=_gcPanel&&_gcPanel.style.display!=='none';
+  if(e.key==='Escape'){ if(open){ e.preventDefault(); gcClose(); } return; }
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    if(!open){ gcOpen(el,''); return; }
+    if(!_gcItems.length) return;
+    _gcHi=(e.key==='ArrowDown')?Math.min(_gcItems.length-1,_gcHi+1):Math.max(0,_gcHi-1);
+    gcRender(_gcInput===el?undefined:'');
+    return;
+  }
+  if(e.key==='Enter'&&open&&_gcHi>=0&&_gcItems[_gcHi]){
+    e.preventDefault();
+    gcPick(_gcItems[_gcHi].name);
+  }
+});
+// 바깥 클릭으로 닫기(패널 자신은 mousedown 에서 처리해 여기 오지 않는다)
+document.addEventListener('mousedown', e=>{
+  if(!_gcPanel||_gcPanel.style.display==='none') return;
+  const el=e.target;
+  if(_gcPanel.contains&&_gcPanel.contains(el)) return;
+  if(el&&el.getAttribute&&el.getAttribute('data-sgasname')!==null) return;
+  gcClose();
+});
+// 스크롤하면 닫는다 — 좌표를 다시 계산해 따라다니게 하는 것보다 단순하고 어긋날 여지가 없다.
+window.addEventListener('scroll', ()=>{ if(_gcPanel&&_gcPanel.style.display!=='none') gcClose(); }, true);
+
 /* 아날로그 스케일 표(MFC ↔ PLC). plc 매핑 없는 채널은 행을 만들지 않는다. */
 function buildScaleRows(){
   const tb=document.getElementById('setupScaleRows'); if(!tb) return;
@@ -301,7 +402,6 @@ function buildScaleRows(){
       ${gasCells(c,p,i)}`;
     tb.appendChild(tr);
   });
-  fillGasDatalist();
   channels.forEach((c,i)=>markCfEdited(i));
 }
 /* Setup 모달 입력의 브라우저 자동완성을 끈다.
