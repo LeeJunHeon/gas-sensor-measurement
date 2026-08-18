@@ -175,9 +175,7 @@ function snapSetup(){
       sv_out:v(`[data-svout="${i}"]`), pv_in:v(`[data-pvin="${i}"]`),
       fs:v(`[data-sfs="${i}"]`), svfull:v(`[data-svfull="${i}"]`),
       pvzero:v(`[data-pvzero="${i}"]`), pvfull:v(`[data-pvfull="${i}"]`),
-      // 기체는 모드에 따라 select 또는 텍스트칸이다 — 있는 쪽을 읽는다.
-      // 모드가 바뀌면 값 형태도 바뀌므로 전환 자체도 dirty 로 잡힌다.
-      gas:v(`[data-sgas="${i}"]`) ?? v(`[data-sgasfree="${i}"]`),
+      gas:v(`[data-sgasname="${i}"]`),
       cf:v(`[data-scf="${i}"]`),
     }));
     return JSON.stringify({chans,
@@ -223,86 +221,67 @@ window.onSetupAck=function(msg){
 /* 가스 C.F. 셀(가스 채널만). 표는 서버 스냅샷(window.gasCatalog)이 유일한 출처다 —
    값을 프런트에 복사해 두면 매뉴얼 개정 때 두 곳이 어긋난다.
    에어 채널은 내부적으로 1.000 고정이라 입력을 주지 않는다. */
-const CF_TIP='봄베 베이스 기체 선택 — N2/Air 베이스면 1.000. '
-  +'표에 없는 가스는 호리바 문의 후 직접 입력';
-/* 기체 선택 칸을 다시 그린다(전 채널 공통).
-   mode 'list' = 표 드롭다운, 'free' = 직접 입력(텍스트 + 목록 복귀 버튼). */
-function gasPickerHtml(i,name,mode){
-  if(mode==='free'){
-    return `<input type="text" value="${name||''}" placeholder="가스 이름" data-sgasfree="${i}"`
-      +` title="${CF_TIP}">`
-      +`<button type="button" class="gas-back" data-sgasback="${i}" title="표에서 선택">▾</button>`;
-  }
-  const list=window.gasCatalog||[];
-  const opts=list.map(g=>`<option value="${g.name}" ${g.name===name?'selected':''}>${g.name} (${g.cf.toFixed(3)})</option>`).join('')
-    +'<option value="">직접 입력</option>';
-  return `<select data-sgas="${i}" title="${CF_TIP}">${opts}</select>`;
+const CF_TIP='봄베 베이스 기체 — 목록에서 고르거나 직접 입력한다. '
+  +'N2/Air 베이스면 1.000. 표에 없는 가스는 호리바 문의 후 직접 입력';
+/* 기체 콤보의 공용 datalist 를 서버 표로 채운다.
+   ★ 표는 서버 스냅샷(window.gasCatalog)이 유일한 출처다 — 값을 프런트에 복사해 두면
+     매뉴얼 개정 때 두 곳이 어긋난다. */
+function fillGasDatalist(){
+  const dl=document.getElementById('gasCfList'); if(!dl) return;
+  dl.innerHTML='';
+  (window.gasCatalog||[]).forEach(g=>{
+    const o=document.createElement('option');
+    o.value=g.name; o.label='C.F. '+g.cf.toFixed(3);
+    dl.appendChild(o);
+  });
 }
-/* 기체·C.F. 셀 — 에어 채널도 포함한 전 채널이 값을 가진다(v1.2.1).
-   표는 서버 스냅샷(window.gasCatalog)이 유일한 출처다 — 값을 프런트에 복사해 두면
-   매뉴얼 개정 때 두 곳이 어긋난다. */
+const cf3=v=>Number(v).toFixed(3);          // C.F. 표기는 항상 소수 3자리
+const gasOf=n=>(window.gasCatalog||[]).find(g=>g.name===n);
+/* 기체·C.F. 셀 — 전 채널이 값을 가진다(v1.2.1).
+   기체 칸은 '입력도 되는 드롭다운'(datalist 콤보) 하나다 — 클릭하면 전체 목록,
+   타이핑하면 필터, 표에 없는 이름은 그대로 직접 입력이 된다(v1.2.3에서 이중 모드 폐지). */
 function gasCells(c,p,i){
-  const list=window.gasCatalog||[];
   const name=p.gas_name||(c.grp==='gas'?'N2':'Air');
   const cf=(p.gas_cf!==undefined&&p.gas_cf!==null)?p.gas_cf:1.0;
-  // 저장된 이름이 표에 없으면(직접 입력해 둔 값) 처음부터 텍스트 모드로 보여준다.
-  const mode=list.some(g=>g.name===name)?'list':'free';
-  return `<td data-sgascell="${i}">${gasPickerHtml(i,name,mode)}</td>`
-    +`<td><input type="text" value="${cf}" data-scf="${i}" title="${CF_TIP}">`
+  return `<td><input type="text" list="gasCfList" value="${name}" placeholder="가스 이름"`
+    +` data-sgasname="${i}" title="${CF_TIP}"></td>`
+    +`<td><input type="text" value="${cf3(cf)}" data-scf="${i}" title="${CF_TIP}">`
     +`<span class="cf-edited" data-scfnote="${i}"></span></td>`;
 }
-/* 선택한 기체의 표 값과 입력값이 다르면 '(수정됨)'을 붙인다. */
+/* 표에 있는 기체인데 값이 표와 다르면 '(수정됨)'. 모르는 이름은 기준값이 없어 표시하지 않는다. */
 function markCfEdited(i){
-  const sel=document.querySelector(`[data-sgas="${i}"]`);
+  const nm=document.querySelector(`[data-sgasname="${i}"]`);
   const inp=document.querySelector(`[data-scf="${i}"]`);
   const note=document.querySelector(`[data-scfnote="${i}"]`);
-  if(!inp||!note) return;
-  if(!sel){ note.textContent=''; return; }   // 직접 입력 — 비교할 표 값이 없다
-  const g=(window.gasCatalog||[]).find(x=>x.name===sel.value);
+  if(!nm||!inp||!note) return;
+  const g=gasOf(nm.value);
   const v=window.strictNum(inp.value);
   note.textContent=(g&&v!==null&&Math.abs(v-g.cf)>1e-9)?' (수정됨)':'';
 }
-/* 기체를 고르면 표 값을 자동으로 채운다(그 뒤 손으로 고칠 수 있다).
-   '직접 입력'은 현재 값을 그대로 둔다 — 사용자가 넣은 값을 지우면 안 된다. */
-document.addEventListener('change', e=>{
-  const t=e.target; if(!t||!t.getAttribute) return;
-  const i=t.getAttribute('data-sgas');
+/* 이름이 표의 기체와 일치하게 되는 순간 C.F. 를 표 값으로 채운다.
+   모르는 이름이면 값을 건드리지 않는다 — 직접 입력 흐름에서 사용자가 넣은 값이 지워지면 안 된다. */
+['input','change'].forEach(t=>document.addEventListener(t, e=>{
+  const el=e.target; if(!el||!el.getAttribute) return;
+  const i=el.getAttribute('data-sgasname');
   if(i===null) return;
-  if(t.value===''){            // '직접 입력' → 이름 입력칸으로 전환(값 칸은 그대로 편집)
-    const cell=document.querySelector(`[data-sgascell="${i}"]`);
-    if(cell){
-      cell.innerHTML=gasPickerHtml(i,'','free');
-      const f=cell.querySelector(`[data-sgasfree="${i}"]`); if(f) f.focus();
-    }
-    markCfEdited(i);
-    return;
-  }
-  const g=(window.gasCatalog||[]).find(x=>x.name===t.value);
+  const g=gasOf(el.value);
   const inp=document.querySelector(`[data-scf="${i}"]`);
-  if(g&&inp) inp.value=g.cf.toFixed(3);
+  if(g&&inp) inp.value=cf3(g.cf);
   markCfEdited(i);
-});
-/* 목록 복귀(▾) — 드롭다운으로 돌아가며 N2 선택 + C.F. 1.000 을 채운다. */
-document.addEventListener('click', e=>{
-  const t=e.target; if(!t||!t.getAttribute) return;
-  const i=t.getAttribute('data-sgasback');
-  if(i===null) return;
-  // 행 그룹에 맞는 기본 기체로 되돌린다(에어 Air / 가스 N2 — 둘 다 1.000).
-  const ch=channels[i]||{};
-  const dflt=(ch.grp==='gas')?'N2':'Air';
-  const cell=document.querySelector(`[data-sgascell="${i}"]`);
-  if(cell) cell.innerHTML=gasPickerHtml(i,dflt,'list');
-  const inp=document.querySelector(`[data-scf="${i}"]`);
-  if(inp) inp.value=(1.0).toFixed(3);
-  markCfEdited(i);
-  // ★ ▾ 는 button 이라 setupOverlay 의 input/change 위임(INPUT/SELECT/TEXTAREA)에 안 걸린다.
-  //   여기서 직접 부르지 않으면 복귀만 했을 때 적용 버튼이 살아나지 않는다.
-  updateApplyGate();
-});
+}));
 document.addEventListener('input', e=>{
-  const t=e.target; if(!t||!t.getAttribute) return;
-  const i=t.getAttribute('data-scf');
-  if(i!==null) markCfEdited(i);
+  const el=e.target; if(!el||!el.getAttribute) return;
+  if(el.getAttribute('data-scf')!==null) markCfEdited(el.getAttribute('data-scf'));
+});
+/* C.F. 칸을 벗어나면 소수 3자리로 재표기한다("1" → "1.000").
+   해석 불가한 값은 그대로 두고 적용 시 기존 검증(0.1~10)이 거른다. */
+document.addEventListener('focusout', e=>{
+  const el=e.target; if(!el||!el.getAttribute) return;
+  const i=el.getAttribute('data-scf');
+  if(i===null) return;
+  const v=window.strictNum(el.value);
+  if(v!==null) el.value=cf3(v);
+  markCfEdited(i);
 });
 
 /* 아날로그 스케일 표(MFC ↔ PLC). plc 매핑 없는 채널은 행을 만들지 않는다. */
@@ -322,6 +301,7 @@ function buildScaleRows(){
       ${gasCells(c,p,i)}`;
     tb.appendChild(tr);
   });
+  fillGasDatalist();
   channels.forEach((c,i)=>markCfEdited(i));
 }
 /* Setup 모달 입력의 브라우저 자동완성을 끈다.
@@ -453,12 +433,10 @@ function collectSetup(){
       // 가스 C.F.(가스 채널 행에만 칸이 있다). 이름은 참고용, 계산에 쓰는 값은 gas_cf.
       const cfEl=document.querySelector(`[data-scf="${i}"]`);
       if(cfEl){
-        const gsEl=document.querySelector(`[data-sgas="${i}"]`);
-        const gfEl=document.querySelector(`[data-sgasfree="${i}"]`);
+        const gnEl=document.querySelector(`[data-sgasname="${i}"]`);
         row.scale.gas_cf=numOr(cfEl.value, 1.0);
-        // 직접 입력 모드면 그 이름을, 아니면 드롭다운 선택값을 쓴다.
-        row.scale.gas_name=gfEl ? gfEl.value.trim()
-          : ((gsEl&&gsEl.value) || (c.plc&&c.plc.gas_name) || 'N2');
+        // 목록에서 고르든 직접 입력하든 같은 칸이다. 빈 이름은 아래 검증에서 거른다.
+        row.scale.gas_name=gnEl ? gnEl.value.trim() : ((c.plc&&c.plc.gas_name) || 'N2');
       }
     }
     chans.push(row);

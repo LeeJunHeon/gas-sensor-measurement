@@ -236,21 +236,33 @@
             </div>
           </div>
           <div id="mapErr" class="setup-note warn" style="display:none"></div>
-          <table class="setup">
+          <table class="setup fixed">
+            <colgroup>
+              <col style="width:9%"><col style="width:13%"><col style="width:26%">
+              <col style="width:26%"><col style="width:26%">
+            </colgroup>
             <thead><tr>
               <th>CH</th><th>밸브</th><th>SV 출력</th><th>PV 입력</th><th>상태</th>
             </tr></thead>
             <tbody id="setupMapRows"></tbody>
           </table>
           <div class="setup-sec">아날로그 스케일 (MFC ↔ PLC) — 장비 명판 확인 후 입력</div>
-          <table class="setup">
+          <table class="setup fixed">
+            <colgroup>
+              <col style="width:8%"><col style="width:16%"><col style="width:14%">
+              <col style="width:14%"><col style="width:14%">
+              <col style="width:18%"><col style="width:16%">
+            </colgroup>
             <thead><tr>
               <th>CH</th><th>풀스케일 (sccm)</th><th>SV 풀카운트</th>
               <th>PV 영점카운트</th><th>PV 풀카운트</th>
-              <th>기체 (가스 채널)</th><th>C.F.</th>
+              <th>기체</th><th>C.F.</th>
             </tr></thead>
             <tbody id="setupScaleRows"></tbody>
           </table>
+          <!-- 기체 콤보의 공용 목록. 값은 서버 스냅샷(gas_catalog)에서 채운다 —
+               PLC 포트 칸(plcPortList)과 같은 표준 콤보 패턴이다. -->
+          <datalist id="gasCfList"></datalist>
           <!-- 시스템 파라미터: 전부 사용처가 없다(Loop Count 의 실사용처는 우측 패널). 통째로 비활성. -->
           <div class="setup-dis" hidden>
             <div class="setup-sec">시스템 파라미터</div>
