@@ -175,7 +175,7 @@ function snapSetup(){
       sv_out:v(`[data-svout="${i}"]`), pv_in:v(`[data-pvin="${i}"]`),
       fs:v(`[data-sfs="${i}"]`), svfull:v(`[data-svfull="${i}"]`),
       pvzero:v(`[data-pvzero="${i}"]`), pvfull:v(`[data-pvfull="${i}"]`),
-      gas:v(`[data-sgasname="${i}"]`),
+      gas:v(`[data-sgas="${i}"]`),
       cf:v(`[data-scf="${i}"]`),
     }));
     return JSON.stringify({chans,
@@ -221,45 +221,55 @@ window.onSetupAck=function(msg){
 /* 가스 C.F. 셀(가스 채널만). 표는 서버 스냅샷(window.gasCatalog)이 유일한 출처다 —
    값을 프런트에 복사해 두면 매뉴얼 개정 때 두 곳이 어긋난다.
    에어 채널은 내부적으로 1.000 고정이라 입력을 주지 않는다. */
-const CF_TIP='봄베 베이스 기체 — 목록에서 고르거나 직접 입력한다. '
-  +'N2/Air 베이스면 1.000. 표에 없는 가스는 호리바 문의 후 직접 입력';
+const CF_TIP='봄베 베이스 기체 — N2/Air 베이스면 1.000. '
+  +'표에 없는 가스는 "직접 입력"을 고르고 우측 C.F. 값을 넣는다(호리바 문의 값)';
+const FREE_NAME='직접입력';                 // '직접 입력' 선택 시 저장되는 이름
 const cf3=v=>Number(v).toFixed(3);          // C.F. 표기는 항상 소수 3자리
 const gasOf=n=>(window.gasCatalog||[]).find(g=>g.name===n);
 /* 기체·C.F. 셀 — 전 채널이 값을 가진다(v1.2.1).
-   기체 칸은 '입력도 되는 드롭다운' 하나다 — 클릭하면 전체 목록, 타이핑하면 필터,
-   표에 없는 이름은 그대로 직접 입력이 된다(v1.2.3 이중 모드 폐지 → v1.2.4 자체 콤보). */
+   기체 칸은 표준 드롭다운(표 30종 + "직접 입력")이다. 이름을 타이핑하는 기능은 두지 않는다 —
+   표에 없는 가스는 "직접 입력"을 고르고 우측 C.F. 값만 넣는다(v1.2.5 확정).
+   ★ 표는 서버 스냅샷(window.gasCatalog)이 유일한 출처다 — 값을 프런트에 복사해 두면
+     매뉴얼 개정 때 두 곳이 어긋난다. */
 function gasCells(c,p,i){
+  const list=window.gasCatalog||[];
   const name=p.gas_name||(c.grp==='gas'?'N2':'Air');
   const cf=(p.gas_cf!==undefined&&p.gas_cf!==null)?p.gas_cf:1.0;
-  return `<td><input type="text" value="${name}" placeholder="가스 이름"`
-    +` data-sgasname="${i}" title="${CF_TIP}"></td>`
+  // 저장된 이름이 표에 없으면(직접입력·구버전의 "MyGas" 등) '직접 입력' 선택으로 보여주고
+  // 저장된 C.F. 는 그대로 유지한다 — 구버전 config 호환.
+  const known=list.some(g=>g.name===name);
+  const opts=list.map(g=>`<option value="${g.name}" ${g.name===name?'selected':''}>${g.name} (${g.cf.toFixed(3)})</option>`).join('')
+    +`<option value="" ${known?'':'selected'}>직접 입력</option>`;
+  return `<td><select data-sgas="${i}" title="${CF_TIP}">${opts}</select></td>`
     +`<td><input type="text" value="${cf3(cf)}" data-scf="${i}" title="${CF_TIP}">`
     +`<span class="cf-edited" data-scfnote="${i}"></span></td>`;
 }
-/* 표에 있는 기체인데 값이 표와 다르면 '(수정됨)'. 모르는 이름은 기준값이 없어 표시하지 않는다. */
+/* 표에 있는 기체인데 값이 표와 다르면 '(수정됨)'.
+   '직접 입력'은 비교할 기준값이 없으므로 표시하지 않는다. */
 function markCfEdited(i){
-  const nm=document.querySelector(`[data-sgasname="${i}"]`);
+  const sel=document.querySelector(`[data-sgas="${i}"]`);
   const inp=document.querySelector(`[data-scf="${i}"]`);
   const note=document.querySelector(`[data-scfnote="${i}"]`);
-  if(!nm||!inp||!note) return;
-  const g=gasOf(nm.value);
+  if(!sel||!inp||!note) return;
+  const g=gasOf(sel.value);
   const v=window.strictNum(inp.value);
   note.textContent=(g&&v!==null&&Math.abs(v-g.cf)>1e-9)?' (수정됨)':'';
 }
-/* 이름이 표의 기체와 일치하게 되는 순간 C.F. 를 표 값으로 채운다.
-   모르는 이름이면 값을 건드리지 않는다 — 직접 입력 흐름에서 사용자가 넣은 값이 지워지면 안 된다. */
-['input','change'].forEach(t=>document.addEventListener(t, e=>{
+/* 표의 기체를 고르면 C.F. 를 표 값으로 채운다.
+   '직접 입력'은 현재 값을 그대로 둔다 — 사용자가 넣은 값을 지우면 안 된다. */
+document.addEventListener('change', e=>{
   const el=e.target; if(!el||!el.getAttribute) return;
-  const i=el.getAttribute('data-sgasname');
+  const i=el.getAttribute('data-sgas');
   if(i===null) return;
   const g=gasOf(el.value);
   const inp=document.querySelector(`[data-scf="${i}"]`);
   if(g&&inp) inp.value=cf3(g.cf);
   markCfEdited(i);
-}));
+});
 document.addEventListener('input', e=>{
   const el=e.target; if(!el||!el.getAttribute) return;
-  if(el.getAttribute('data-scf')!==null) markCfEdited(el.getAttribute('data-scf'));
+  const i=el.getAttribute('data-scf');
+  if(i!==null) markCfEdited(i);
 });
 /* C.F. 칸을 벗어나면 소수 3자리로 재표기한다("1" → "1.000").
    해석 불가한 값은 그대로 두고 적용 시 기존 검증(0.1~10)이 거른다. */
@@ -271,119 +281,6 @@ document.addEventListener('focusout', e=>{
   if(v!==null) el.value=cf3(v);
   markCfEdited(i);
 });
-
-/* ── 기체 콤보(자체 드롭다운) ─────────────────────────────────────
-   datalist 를 쓰지 않는다: 브라우저 내장 목록은 '현재 입력값으로 필터'가 고정이라
-   값이 든 칸(예: "Air")을 클릭하면 그 한 줄만 떠서 드롭다운 구실을 못 했다(v1.2.3 실사용).
-   ★ 패널은 body 직속 position:fixed 오버레이다 — 표의 행 높이·열 폭에 영향을 주지 않는다.
-   ★ 열 때는 입력값과 무관하게 항상 전체 목록. 필터는 '타이핑할 때만' 건다. */
-let _gcPanel=null, _gcInput=null, _gcItems=[], _gcHi=-1, _gcApplying=false;
-
-function gcEl(){
-  if(_gcPanel) return _gcPanel;
-  _gcPanel=document.createElement('div');
-  _gcPanel.id='gasCombo';
-  _gcPanel.style.display='none';
-  document.body.appendChild(_gcPanel);
-  // ★ mousedown 에서 기본동작을 막아야 입력칸 blur 로 패널이 먼저 닫히지 않는다.
-  _gcPanel.addEventListener('mousedown', e=>{
-    e.preventDefault();
-    const row=e.target.closest?e.target.closest('[data-gcname]'):null;
-    if(!row){ gcClose(); return; }             // '직접 입력' 안내 행 → 텍스트 유지하고 닫기만
-    gcPick(row.getAttribute('data-gcname'));
-  });
-  return _gcPanel;
-}
-function gcClose(){ if(_gcPanel) _gcPanel.style.display='none'; _gcInput=null; _gcHi=-1; }
-function gcRender(filter){
-  const p=gcEl(), all=window.gasCatalog||[];
-  const q=(filter||'').trim().toLowerCase();
-  _gcItems=q?all.filter(g=>g.name.toLowerCase().includes(q)):all;   // 필터는 타이핑할 때만
-  const cur=_gcInput?_gcInput.value:'';
-  if(!_gcItems.length){
-    p.innerHTML=`<div class="gc-none">직접 입력: '${cur}'</div>`;
-    _gcHi=-1;
-    return;
-  }
-  if(_gcHi>=_gcItems.length) _gcHi=_gcItems.length-1;
-  p.innerHTML=_gcItems.map((g,n)=>
-    `<div class="gc-row${g.name===cur?' cur':''}${n===_gcHi?' hi':''}" data-gcname="${g.name}">`
-    +`<span class="gc-n">${g.name}</span><span class="gc-v">C.F. ${g.cf.toFixed(3)}</span></div>`
-  ).join('');
-  const hi=p.querySelector('.gc-row.hi')||p.querySelector('.gc-row.cur');
-  if(hi&&hi.scrollIntoView) hi.scrollIntoView({block:'nearest'});
-}
-function gcOpen(input,filter){
-  _gcInput=input;
-  const p=gcEl(), r=input.getBoundingClientRect();
-  p.style.display='block';
-  p.style.left=r.left+'px';
-  p.style.top=(r.bottom+2)+'px';
-  p.style.minWidth=r.width+'px';
-  gcRender(filter);
-}
-function gcPick(name){
-  const g=gasOf(name), input=_gcInput;
-  if(!input) return;
-  _gcApplying=true;                 // 아래 input 이벤트가 패널을 다시 열지 않게
-  input.value=name;
-  // ★ input 이벤트를 실제로 발생시켜 C.F. 자동 채움과 적용 버튼 감지(snapSetup)가 걸리게 한다.
-  input.dispatchEvent(new Event('input',{bubbles:true}));
-  _gcApplying=false;
-  const i=input.getAttribute('data-sgasname');
-  const cfEl=document.querySelector(`[data-scf="${i}"]`);
-  if(g&&cfEl) cfEl.value=cf3(g.cf);
-  markCfEdited(i);
-  gcClose();
-  input.focus();
-}
-// 열기: 포커스·클릭 → 항상 전체 목록
-['focusin','click'].forEach(t=>document.addEventListener(t, e=>{
-  const el=e.target;
-  if(!el||!el.getAttribute) return;
-  if(el.getAttribute('data-sgasname')===null){
-    if(_gcPanel&&_gcPanel.style.display!=='none'&&!(_gcPanel.contains&&_gcPanel.contains(el))) gcClose();
-    return;
-  }
-  gcOpen(el,'');
-}));
-// 타이핑: 그때만 부분일치 필터
-document.addEventListener('input', e=>{
-  const el=e.target;
-  if(!el||!el.getAttribute||el.getAttribute('data-sgasname')===null) return;
-  if(_gcApplying) return;
-  _gcHi=-1;
-  gcOpen(el,el.value);
-});
-// 키보드: ↓/↑ 이동, Enter 선택, Esc 닫기
-document.addEventListener('keydown', e=>{
-  const el=e.target;
-  if(!el||!el.getAttribute||el.getAttribute('data-sgasname')===null) return;
-  const open=_gcPanel&&_gcPanel.style.display!=='none';
-  if(e.key==='Escape'){ if(open){ e.preventDefault(); gcClose(); } return; }
-  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
-    e.preventDefault();
-    if(!open){ gcOpen(el,''); return; }
-    if(!_gcItems.length) return;
-    _gcHi=(e.key==='ArrowDown')?Math.min(_gcItems.length-1,_gcHi+1):Math.max(0,_gcHi-1);
-    gcRender(_gcInput===el?undefined:'');
-    return;
-  }
-  if(e.key==='Enter'&&open&&_gcHi>=0&&_gcItems[_gcHi]){
-    e.preventDefault();
-    gcPick(_gcItems[_gcHi].name);
-  }
-});
-// 바깥 클릭으로 닫기(패널 자신은 mousedown 에서 처리해 여기 오지 않는다)
-document.addEventListener('mousedown', e=>{
-  if(!_gcPanel||_gcPanel.style.display==='none') return;
-  const el=e.target;
-  if(_gcPanel.contains&&_gcPanel.contains(el)) return;
-  if(el&&el.getAttribute&&el.getAttribute('data-sgasname')!==null) return;
-  gcClose();
-});
-// 스크롤하면 닫는다 — 좌표를 다시 계산해 따라다니게 하는 것보다 단순하고 어긋날 여지가 없다.
-window.addEventListener('scroll', ()=>{ if(_gcPanel&&_gcPanel.style.display!=='none') gcClose(); }, true);
 
 /* 아날로그 스케일 표(MFC ↔ PLC). plc 매핑 없는 채널은 행을 만들지 않는다. */
 function buildScaleRows(){
@@ -490,8 +387,6 @@ function validateScales(chans){
       return {ok:false, msg:`${id}: PV 풀카운트는 0보다 커야 합니다.`};
     if(!(sc.pv_full>sc.pv_zero))
       return {ok:false, msg:`${id}: PV 풀카운트(${sc.pv_full})는 영점카운트(${sc.pv_zero})보다 커야 합니다.`};
-    if(sc.gas_name!==undefined && !sc.gas_name)
-      return {ok:false, msg:`${id}: 가스 이름을 입력하세요.`};
     if(sc.gas_cf!==undefined && !(sc.gas_cf>=0.1 && sc.gas_cf<=10))
       return {ok:false, msg:`${id}: 가스 C.F.는 0.1 ~ 10 사이여야 합니다 (입력: ${sc.gas_cf}).`};
     if(ch.max>sc.fs_sccm)
@@ -533,10 +428,11 @@ function collectSetup(){
       // 가스 C.F.(가스 채널 행에만 칸이 있다). 이름은 참고용, 계산에 쓰는 값은 gas_cf.
       const cfEl=document.querySelector(`[data-scf="${i}"]`);
       if(cfEl){
-        const gnEl=document.querySelector(`[data-sgasname="${i}"]`);
+        const gsEl=document.querySelector(`[data-sgas="${i}"]`);
         row.scale.gas_cf=numOr(cfEl.value, 1.0);
-        // 목록에서 고르든 직접 입력하든 같은 칸이다. 빈 이름은 아래 검증에서 거른다.
-        row.scale.gas_name=gnEl ? gnEl.value.trim() : ((c.plc&&c.plc.gas_name) || 'N2');
+        // 표의 기체면 그 이름, '직접 입력'(value="")이면 FREE_NAME 으로 저장한다.
+        row.scale.gas_name=gsEl ? (gsEl.value || FREE_NAME)
+                                : ((c.plc&&c.plc.gas_name) || 'N2');
       }
     }
     chans.push(row);

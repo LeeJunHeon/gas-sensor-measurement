@@ -284,21 +284,8 @@
      행이 어긋나 보이던 문제(v1.2.2 피드백). 폭은 colgroup 이 정한다. */
   table.setup.fixed{table-layout:fixed}
   table.setup.fixed td input,table.setup.fixed td select{width:100%;box-sizing:border-box;min-width:0}
-  /* 기체 이름은 텍스트라 좌측 정렬(일반 규칙은 숫자용 우측 정렬) */
-  table.setup input[data-sgasname]{text-align:left}
   /* 콤보임을 한눈에 알도록 화살표를 항상 보인다(Chromium/WebView2) */
   table.setup .cf-edited{display:block;color:#a3282d;font-size:10px;white-space:nowrap}
-  /* 기체 콤보 패널 — body 직속 오버레이라 표 레이아웃에 영향이 없다(v1.2.4) */
-  #gasCombo{position:fixed;z-index:1200;max-height:220px;overflow:auto;background:#fff;
-    border:1px solid var(--line2);border-radius:4px;box-shadow:0 4px 14px rgba(20,30,50,.18);
-    font-size:12px;padding:2px 0}
-  #gasCombo .gc-row{display:flex;justify-content:space-between;gap:14px;
-    padding:4px 10px;cursor:pointer;white-space:nowrap}
-  #gasCombo .gc-row:hover,#gasCombo .gc-row.hi{background:#eef3fb}
-  #gasCombo .gc-row.cur{font-weight:700;color:var(--primary)}
-  #gasCombo .gc-n{font-family:var(--font-mono)}
-  #gasCombo .gc-v{font-family:var(--font-mono);color:#6b7891}
-  #gasCombo .gc-none{padding:5px 10px;color:#6b7891;white-space:nowrap}
   table.setup .chid{font-family:var(--font-mono);font-weight:700;color:#2a3645}
   /* 배정 표 상태 열 — 실시간(연결·배정·PV 수신) 표시색 */
   #setupMapRows .ok{color:#1b8a44;font-weight:600}
