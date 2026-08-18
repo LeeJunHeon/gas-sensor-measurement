@@ -14,7 +14,9 @@
         "fs_sccm": 1000,
         "sv_full": 2000,
         "pv_zero": 0,
-        "pv_full": 4000
+        "pv_full": 4000,
+        "gas_name": "Air",
+        "gas_cf": 1.0
       }
     },
     {
@@ -30,7 +32,9 @@
         "fs_sccm": 1000,
         "sv_full": 2000,
         "pv_zero": 0,
-        "pv_full": 4000
+        "pv_full": 4000,
+        "gas_name": "Air",
+        "gas_cf": 1.0
       }
     },
     {
@@ -46,7 +50,9 @@
         "fs_sccm": 1000,
         "sv_full": 2000,
         "pv_zero": 0,
-        "pv_full": 4000
+        "pv_full": 4000,
+        "gas_name": "Air",
+        "gas_cf": 1.0
       }
     },
     {
@@ -62,7 +68,9 @@
         "fs_sccm": 1000,
         "sv_full": 2000,
         "pv_zero": 0,
-        "pv_full": 4000
+        "pv_full": 4000,
+        "gas_name": "Air",
+        "gas_cf": 1.0
       }
     },
     {

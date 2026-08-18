@@ -219,18 +219,31 @@ window.onSetupAck=function(msg){
 /* 가스 C.F. 셀(가스 채널만). 표는 서버 스냅샷(window.gasCatalog)이 유일한 출처다 —
    값을 프런트에 복사해 두면 매뉴얼 개정 때 두 곳이 어긋난다.
    에어 채널은 내부적으로 1.000 고정이라 입력을 주지 않는다. */
-const CF_TIP='봄베 베이스 기체 선택 — N2/Air 베이스면 N2(1.000). '
+const CF_TIP='봄베 베이스 기체 선택 — N2/Air 베이스면 1.000. '
   +'표에 없는 가스는 호리바 문의 후 직접 입력';
-function gasCells(c,p,i){
-  const isGas = (c.grp==='gas') || (p.gas_cf!==undefined);
-  if(!isGas) return '<td class="dis">—</td><td class="dis">—</td>';
+/* 기체 선택 칸을 다시 그린다(전 채널 공통).
+   mode 'list' = 표 드롭다운, 'free' = 직접 입력(텍스트 + 목록 복귀 버튼). */
+function gasPickerHtml(i,name,mode){
+  if(mode==='free'){
+    return `<input type="text" value="${name||''}" placeholder="가스 이름" data-sgasfree="${i}"`
+      +` title="${CF_TIP}">`
+      +`<button type="button" class="gas-back" data-sgasback="${i}" title="표에서 선택">▾</button>`;
+  }
   const list=window.gasCatalog||[];
-  const name=p.gas_name||'N2';
-  const cf=(p.gas_cf!==undefined&&p.gas_cf!==null)?p.gas_cf:1.0;
-  const known=list.some(g=>g.name===name);
   const opts=list.map(g=>`<option value="${g.name}" ${g.name===name?'selected':''}>${g.name} (${g.cf.toFixed(3)})</option>`).join('')
-    +`<option value="" ${known?'':'selected'}>직접 입력</option>`;
-  return `<td><select data-sgas="${i}" title="${CF_TIP}">${opts}</select></td>`
+    +'<option value="">직접 입력</option>';
+  return `<select data-sgas="${i}" title="${CF_TIP}">${opts}</select>`;
+}
+/* 기체·C.F. 셀 — 에어 채널도 포함한 전 채널이 값을 가진다(v1.2.1).
+   표는 서버 스냅샷(window.gasCatalog)이 유일한 출처다 — 값을 프런트에 복사해 두면
+   매뉴얼 개정 때 두 곳이 어긋난다. */
+function gasCells(c,p,i){
+  const list=window.gasCatalog||[];
+  const name=p.gas_name||(c.grp==='gas'?'N2':'Air');
+  const cf=(p.gas_cf!==undefined&&p.gas_cf!==null)?p.gas_cf:1.0;
+  // 저장된 이름이 표에 없으면(직접 입력해 둔 값) 처음부터 텍스트 모드로 보여준다.
+  const mode=list.some(g=>g.name===name)?'list':'free';
+  return `<td data-sgascell="${i}">${gasPickerHtml(i,name,mode)}</td>`
     +`<td><input type="text" value="${cf}" data-scf="${i}" title="${CF_TIP}">`
     +`<span class="cf-edited" data-scfnote="${i}"></span></td>`;
 }
@@ -239,7 +252,8 @@ function markCfEdited(i){
   const sel=document.querySelector(`[data-sgas="${i}"]`);
   const inp=document.querySelector(`[data-scf="${i}"]`);
   const note=document.querySelector(`[data-scfnote="${i}"]`);
-  if(!sel||!inp||!note) return;
+  if(!inp||!note) return;
+  if(!sel){ note.textContent=''; return; }   // 직접 입력 — 비교할 표 값이 없다
   const g=(window.gasCatalog||[]).find(x=>x.name===sel.value);
   const v=window.strictNum(inp.value);
   note.textContent=(g&&v!==null&&Math.abs(v-g.cf)>1e-9)?' (수정됨)':'';
@@ -250,10 +264,31 @@ document.addEventListener('change', e=>{
   const t=e.target; if(!t||!t.getAttribute) return;
   const i=t.getAttribute('data-sgas');
   if(i===null) return;
+  if(t.value===''){            // '직접 입력' → 이름 입력칸으로 전환(값 칸은 그대로 편집)
+    const cell=document.querySelector(`[data-sgascell="${i}"]`);
+    if(cell){
+      cell.innerHTML=gasPickerHtml(i,'','free');
+      const f=cell.querySelector(`[data-sgasfree="${i}"]`); if(f) f.focus();
+    }
+    markCfEdited(i);
+    return;
+  }
   const g=(window.gasCatalog||[]).find(x=>x.name===t.value);
   const inp=document.querySelector(`[data-scf="${i}"]`);
   if(g&&inp) inp.value=g.cf.toFixed(3);
   markCfEdited(i);
+});
+/* 목록 복귀(▾) — 드롭다운으로 돌아가며 N2 선택 + C.F. 1.000 을 채운다. */
+document.addEventListener('click', e=>{
+  const t=e.target; if(!t||!t.getAttribute) return;
+  const i=t.getAttribute('data-sgasback');
+  if(i===null) return;
+  const cell=document.querySelector(`[data-sgascell="${i}"]`);
+  if(cell) cell.innerHTML=gasPickerHtml(i,'N2','list');
+  const inp=document.querySelector(`[data-scf="${i}"]`);
+  if(inp) inp.value=(1.0).toFixed(3);
+  markCfEdited(i);
+  if(window.updateApplyGate) window.updateApplyGate();
 });
 document.addEventListener('input', e=>{
   const t=e.target; if(!t||!t.getAttribute) return;
@@ -366,6 +401,8 @@ function validateScales(chans){
       return {ok:false, msg:`${id}: PV 풀카운트는 0보다 커야 합니다.`};
     if(!(sc.pv_full>sc.pv_zero))
       return {ok:false, msg:`${id}: PV 풀카운트(${sc.pv_full})는 영점카운트(${sc.pv_zero})보다 커야 합니다.`};
+    if(sc.gas_name!==undefined && !sc.gas_name)
+      return {ok:false, msg:`${id}: 가스 이름을 입력하세요.`};
     if(sc.gas_cf!==undefined && !(sc.gas_cf>=0.1 && sc.gas_cf<=10))
       return {ok:false, msg:`${id}: 가스 C.F.는 0.1 ~ 10 사이여야 합니다 (입력: ${sc.gas_cf}).`};
     if(ch.max>sc.fs_sccm)
@@ -408,10 +445,11 @@ function collectSetup(){
       const cfEl=document.querySelector(`[data-scf="${i}"]`);
       if(cfEl){
         const gsEl=document.querySelector(`[data-sgas="${i}"]`);
+        const gfEl=document.querySelector(`[data-sgasfree="${i}"]`);
         row.scale.gas_cf=numOr(cfEl.value, 1.0);
-        // '직접 입력'이면 이름을 비우지 말고 기존 이름을 유지한다(표시용).
-        row.scale.gas_name=(gsEl&&gsEl.value) ? gsEl.value
-          : ((c.plc&&c.plc.gas_name) || 'N2');
+        // 직접 입력 모드면 그 이름을, 아니면 드롭다운 선택값을 쓴다.
+        row.scale.gas_name=gfEl ? gfEl.value.trim()
+          : ((gsEl&&gsEl.value) || (c.plc&&c.plc.gas_name) || 'N2');
       }
     }
     chans.push(row);

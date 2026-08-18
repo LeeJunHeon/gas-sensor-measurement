@@ -1,4 +1,4 @@
 """version.py — 프로그램 버전. 배포할 때마다 여기만 고친다."""
 APP_NAME = "Gas Sensor Measurement System"
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.1"
 BUILD_DATE = "2026-08-18"

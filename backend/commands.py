@@ -430,14 +430,13 @@ async def handle_command(data: dict):
                     for k in ("fs_sccm", "sv_full", "pv_zero", "pv_full"):
                         if k in sc:
                             c["plc"][k] = max(0, to_num(sc[k], c["plc"].get(k, 0)))
-                    # 가스 C.F.(가스 채널만). 이름은 참고용, 계산에 쓰는 값은 gas_cf.
+                    # 가스 C.F.(에어 포함 전 채널). 이름은 참고용, 계산에 쓰는 값은 gas_cf.
                     # 표에 없는 가스를 직접 입력할 수 있으므로 이름으로 값을 되찾지 않는다.
-                    if c.get("grp") == "gas":
-                        if isinstance(sc.get("gas_name"), str) and sc["gas_name"]:
-                            c["plc"]["gas_name"] = sc["gas_name"]
-                        if "gas_cf" in sc:
-                            _old_cf = c["plc"].get("gas_cf", gas_catalog.DEFAULT_GAS_CF)
-                            c["plc"]["gas_cf"] = gas_catalog.clamp_cf(sc["gas_cf"], _old_cf)
+                    if isinstance(sc.get("gas_name"), str) and sc["gas_name"]:
+                        c["plc"]["gas_name"] = sc["gas_name"]
+                    if "gas_cf" in sc:
+                        _old_cf = c["plc"].get("gas_cf", gas_catalog.DEFAULT_GAS_CF)
+                        c["plc"]["gas_cf"] = gas_catalog.clamp_cf(sc["gas_cf"], _old_cf)
                 if isinstance(c.get("plc"), dict):
                     if "sv_out" in item and _norm(item.get("sv_out")) != c["plc"].get("sv_out"):
                         c["plc"]["sv_out"] = _norm(item.get("sv_out")); assign_changed = True

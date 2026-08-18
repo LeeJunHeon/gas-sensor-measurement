@@ -29,13 +29,17 @@ from storage import atomic_write_json, safe_read_json, CONFIG_PATH
 #   VA2·4·7·8은 미배선 — 배선 후 여기와 config를 함께 갱신.
 DEFAULT_CHANNEL_PLC = {
     "VA1": {"sv_out": "DAC1_CH0", "pv_in": "ADC_CH0",
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "gas_name": "Air", "gas_cf": 1.000},
     "VA2": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "gas_name": "Air", "gas_cf": 1.000},
     "VA3": {"sv_out": "DAC1_CH1", "pv_in": "ADC_CH2",
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "gas_name": "Air", "gas_cf": 1.000},
     "VA4": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000},
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "gas_name": "Air", "gas_cf": 1.000},
     "VA5": {"sv_out": "DAC1_CH2", "pv_in": "ADC_CH4",
             "fs_sccm": 200, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
             "gas_name": "N2", "gas_cf": 1.000},
@@ -100,13 +104,14 @@ def _norm_channel_plc(v, cid: str = ""):
     for k, dflt in PLC_SCALE_DEFAULTS.items():
         if k not in out:
             out[k] = base.get(k, dflt)
-    # 가스 C.F.: 옛 config 에는 없다 → N2/1.000(항등)으로 보강해 동작이 바뀌지 않게 한다.
+    # 가스 C.F.: 전 채널(에어 포함)이 가진다 — 에어도 봄베가 순수 Air 가 아닐 수 있고,
+    # 드롭다운에 Air 가 있어 구분할 이유가 없다(v1.2.1). 옛 config 에는 키가 없으므로
+    # 그룹 기본값(에어 Air / 가스 N2, 둘 다 1.000=항등)으로 보강해 동작이 바뀌지 않게 한다.
     # 이름은 참고용이고 계산에 쓰는 것은 gas_cf 값이다(표에 없는 가스를 직접 입력할 수 있으므로).
-    if "gas_name" in out or "gas_cf" in out or "gas_name" in base:
-        nm = out.get("gas_name", base.get("gas_name", gas_catalog.DEFAULT_GAS_NAME))
-        out["gas_name"] = nm if isinstance(nm, str) and nm else gas_catalog.DEFAULT_GAS_NAME
-        out["gas_cf"] = gas_catalog.clamp_cf(
-            out.get("gas_cf", base.get("gas_cf", gas_catalog.DEFAULT_GAS_CF)))
+    nm = out.get("gas_name", base.get("gas_name", gas_catalog.DEFAULT_GAS_NAME))
+    out["gas_name"] = nm if isinstance(nm, str) and nm else gas_catalog.DEFAULT_GAS_NAME
+    out["gas_cf"] = gas_catalog.clamp_cf(
+        out.get("gas_cf", base.get("gas_cf", gas_catalog.DEFAULT_GAS_CF)))
     return out
 
 
