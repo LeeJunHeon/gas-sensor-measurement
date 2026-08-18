@@ -181,6 +181,15 @@
     var doExit = function () {
       // 서버가 pywebview 창을 닫아 프로세스를 종료한다.
       if (!send({ cmd: 'exit' })) {
+        // 서버가 죽어도 창은 닫혀야 한다. pywebview 브리지가 있으면 프로세스를 직접 종료한다.
+        // (차단 프레임은 못 보낸다 — 하트비트 두절 시 PLC 래더가 트립되어 NC 밸브를 닫는다)
+        var api = window.pywebview && window.pywebview.api;
+        if (api && api.force_close) {
+          window.logMsg('서버 응답 없음 — 프로그램을 강제 종료합니다 (밸브는 PLC 안전로직이 닫습니다)', 'warn');
+          api.force_close();
+          return;
+        }
+        // 순수 브라우저 접속에는 브리지가 없다 — 탭은 사용자가 닫는다.
         window.logMsg('오프라인 — 서버에 연결되어야 종료할 수 있습니다', 'warn');
         return;
       }

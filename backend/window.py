@@ -103,19 +103,60 @@ def request_shutdown():
             print(f"[warn] 창 종료 실패: {e}")
 
 
+class _JsBridge:
+    """pywebview js_api — 화면 JS가 서버를 거치지 않고 프로세스를 종료시키는 직통 경로.
+
+    ws 가 끊기면 'exit' 명령이 오프라인 차단에 걸려 종료가 불가능해진다(app.js).
+    이 브리지는 WebView2 ↔ 파이썬 직결이라 서버 스레드가 죽어도 살아 있다.
+    ★ 가스 안전: 여기서는 차단 프레임을 쓰지 못한다(서버가 없다). 크래시·강제종료의
+      최후 방어선은 래더다 — 하트비트 3초 두절 → 트립 → NC 밸브 전체 닫힘
+      (commands.py 의 exit 주석과 동일한 근거).
+    """
+
+    def force_close(self):
+        request_shutdown()
+        return True
+
+
 def _on_closing():
     """창 우상단 X → 앱 내부 종료확인 모달로 되묻는다(확인 전엔 닫기 취소).
     ★ WebView2 데드락 방지: evaluate_js를 closing 핸들러에서 '동기' 호출하면 GUI 스레드가
       재진입 데드락에 빠져 멈춘다('응답 없음'). 반드시 별도 스레드에서 호출하고 즉시 반환해야 한다."""
     if _allow_close:
         return True       # 종료확인 통과(또는 destroy 진행 중) → 닫기 허용
+
+    # 모달을 띄웠다는 '확증'이 있을 때만 창을 유지한다. 오류 페이지·크래시 페이지처럼
+    # 앱 JS가 없는 화면에서는 X가 영원히 무시돼 작업 관리자로만 끌 수 있었다(2026-08-18 실발생).
+    # 판매 제품에서 닫히지 않는 창은 허용하지 않는다 → 확증이 없으면 닫는다.
+    asked = []
+
     def _ask():
         try:
-            WINDOW.evaluate_js("window.requestExitConfirm && window.requestExitConfirm()")
-        except Exception:  # noqa: BLE001
-            pass
-    threading.Thread(target=_ask, daemon=True).start()
-    return False          # 확인 전에는 닫기 취소(창 유지). evaluate_js는 위 스레드가 처리.
+            ok = WINDOW.evaluate_js(
+                "(function(){ if(window.requestExitConfirm){window.requestExitConfirm();"
+                " return true;} return false; })()")
+            if ok:
+                asked.append(True)
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] 종료확인 모달 호출 실패: {e}")
+
+    def _confirm_or_close():
+        # 앱 JS 없음 / evaluate_js 예외 / WebView 무응답(행) — 어느 쪽이든 5초 뒤 강제 종료.
+        # ★ 가스 안전: 이 경로는 차단 프레임을 못 보낸다. 하트비트 3초 두절 → 래더 트립 →
+        #   NC 밸브 전체 닫힘이 최후 방어선이다.
+        t = threading.Thread(target=_ask, daemon=True)
+        t.start()
+        t.join(5.0)
+        if not asked:
+            print("[warn] 앱 화면이 응답하지 않습니다 — 강제 종료합니다"
+                  " (밸브는 PLC 안전로직이 닫습니다)")
+            logger.write("warn", "창 닫기: 앱 화면 무응답 → 강제 종료"
+                                 " (밸브는 PLC 안전로직이 닫습니다)")
+            request_shutdown()
+
+    # ★ WebView2 데드락 방지: 대기·evaluate_js는 전부 별도 스레드. _on_closing은 즉시 반환한다.
+    threading.Thread(target=_confirm_or_close, daemon=True).start()
+    return False          # 확인 전에는 닫기 취소(창 유지). 위 스레드가 확증/폴백을 처리.
 
 
 def run(app, host: str, port: int):
@@ -211,6 +252,7 @@ def run(app, host: str, port: int):
         f"http://{host}:{port}",
         width=1480, height=1020,   # 최대화 해제 시 사용할 기본 크기
         maximized=True,            # 실행 시 최대화(타이틀바·작업표시줄 유지)
+        js_api=_JsBridge(),        # 서버가 죽어도 화면에서 종료할 수 있는 직통 경로
     )
     # 창 X(닫기) 클릭 → _on_closing이 종료확인 모달로 되묻는다(False 반환 시 닫기 취소).
     try:
