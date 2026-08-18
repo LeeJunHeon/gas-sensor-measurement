@@ -15,6 +15,7 @@ import time
 import socket
 import threading
 import contextlib
+import traceback
 
 import logger
 from paths import DATA_ROOT, check_writable
@@ -65,6 +66,25 @@ def find_free_port(host: str, start: int, tries: int = 10):
             except OSError:
                 continue
     return None
+
+
+_SERVER_ERROR = ""   # 서버 스레드가 죽은 사유. console=False 인 exe에서는 이 값이 유일한 단서다.
+
+
+def _wait_server_ready(host: str, port: int, timeout_s: float = 20.0) -> bool:
+    """서버 소켓이 바인딩될 때까지 기다린다. 시간 안에 붙으면 True.
+
+    uvicorn은 lifespan(로거·설정·진단)을 끝낸 뒤에야 소켓을 연다. 창이 그보다 먼저
+    URL을 요청하면 WebView2가 ERR_CONNECTION_REFUSED 화면을 띄우고 재시도하지 않는다(2026-08-18).
+    연결 성공 = 바인딩 완료 이므로 접속 가능 여부만 본다.
+    """
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        with contextlib.suppress(OSError):
+            with socket.create_connection((host, port), 0.3):
+                return True
+        time.sleep(0.1)
+    return False
 
 
 def request_shutdown():
@@ -139,7 +159,17 @@ def run(app, host: str, port: int):
     port = free
 
     def run_server():
-        uvicorn.run(app, host=host, port=port, log_level="warning")
+        # 스레드에서 죽으면 console=False 인 exe에서는 아무 흔적도 남지 않는다 → 사유를 남긴다.
+        global _SERVER_ERROR
+        try:
+            uvicorn.run(app, host=host, port=port, log_level="warning")
+        except Exception as e:  # noqa: BLE001
+            _SERVER_ERROR = f"{type(e).__name__}: {e}"
+            detail = traceback.format_exc()
+            print(f"[error] 내부 서버가 중단되었습니다: {detail}")
+            # configure 전에 죽었을 수도 있어 early(버퍼)와 write(파일) 둘 다 남긴다.
+            logger.early("err", f"내부 서버 중단: {_SERVER_ERROR}")
+            logger.write("err", f"내부 서버 중단: {detail}")
 
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()
@@ -157,6 +187,22 @@ def run(app, host: str, port: int):
                 f"설치 후 다시 실행하거나, 브라우저에서 http://{host}:{port} 로 접속하세요.")
         with contextlib.suppress(KeyboardInterrupt):
             server_thread.join()
+        return
+
+    # 창을 만들기 전에 서버가 실제로 뜰 때까지 기다린다(ERR_CONNECTION_REFUSED 화면 방지).
+    print(f"[info] 내부 서버 준비를 기다리는 중... http://{host}:{port}")
+    logger.early("info", f"내부 서버 준비 대기 시작 (http://{host}:{port})")
+    if not _wait_server_ready(host, port):
+        if _SERVER_ERROR:
+            reason = "내부 서버가 시작되지 못했습니다.\n\n" + _SERVER_ERROR
+        else:
+            reason = "내부 서버가 시간 안에 시작되지 않았습니다."
+        print(f"[error] {reason}")
+        flat = reason.replace("\n", " ")
+        logger.early("err", flat)
+        logger.write("err", flat)
+        _msgbox("Gas Sensor Measurement System",
+                reason + "\n\n로그 폴더를 확인하세요.\n" + logger.current_dir())
         return
 
     global WINDOW

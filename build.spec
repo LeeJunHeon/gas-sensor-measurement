@@ -66,6 +66,16 @@ a = Analysis(
         'uvicorn.protocols.http.auto',
         'uvicorn.protocols.websockets.auto',
         'uvicorn.lifespan.on',
+        # auto 계열이 실제로 고르는 구현체들. 프리즈 환경에서 정적 분석에 안 잡혀
+        # exe에서만 서버 스레드가 죽는 것을 막는다(2026-08-18).
+        'uvicorn.loops.asyncio',
+        'uvicorn.protocols.http.h11_impl',
+        'uvicorn.protocols.http.httptools_impl',
+        'uvicorn.protocols.websockets.websockets_impl',
+        'uvicorn.lifespan.off',
+        'h11', 'httptools', 'websockets',
+        # wsproto 는 이 환경에 미설치 — 설치하면 아래 두 줄을 살린다.
+        # 'uvicorn.protocols.websockets.wsproto_impl', 'wsproto',
     ],
     hookspath=[],
     hooksconfig={},
