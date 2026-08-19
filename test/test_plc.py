@@ -116,7 +116,7 @@ class PLC:
         return self._mark(not self._err(r))
 
     def heartbeat_loop(self):
-        """HEARTBEAT 코일을 1초마다 토글 → PLC 통신 감시(3초) 유지.
+        """HEARTBEAT 코일을 1초마다 토글 → PLC 통신 감시(COMM_TMR 10초) 유지.
         무응답이 이어지면 주기를 2초로 늘려 락 경합을 줄인다(성공하면 원복)."""
         while self._running:
             self._hb_val = not self._hb_val

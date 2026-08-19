@@ -160,7 +160,7 @@ async def plc_poll_loop():
                     await _mark_disconnected()
             else:
                 # 단발 실패: 연결 표시·밸브 상태를 유지하고 다음 주기에 재시도한다.
-                # (래더 하트비트가 계속 나가므로 3초 트립도 걸리지 않는다.)
+                # (래더 하트비트가 계속 나가므로 10초 트립도 걸리지 않는다.)
                 # ★ 파일 로그에만 남긴다 — 화면 System Log 에 띄우면 도배된다.
                 logger.write("warn", f"PLC 읽기 실패 {fail_streak}/{plc.POLL_FAIL_LIMIT} — 재시도")
 
@@ -179,7 +179,7 @@ async def plc_write_loop():
         try:
             if not plc.plc.is_connected():
                 if prev_connected:
-                    # 연결됨→끊김 전이 1회: 래더는 3초 내 트립으로 실제 밸브를 닫는다.
+                    # 연결됨→끊김 전이 1회: 래더는 10초 내 트립으로 실제 밸브를 닫는다.
                     # 앱 상태도 함께 닫아 화면 거짓 표시와 재연결 시 일괄 재개를 막는다
                     # (수동 재투입 원칙 — 트립 발생 전이 처리와 대칭).
                     state.close_all_channels()

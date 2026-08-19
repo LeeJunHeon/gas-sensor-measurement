@@ -370,10 +370,14 @@ window.applyPlcPorts=function(ports){
     dl.appendChild(o);
   });
 };
+// 래더 SAFETY 블록 COMM_TMR(TON T0001) 설정값과 짝. 100(100ms) = 10초(2026-08-19 변경).
+// ★ 래더를 바꾸면 이 값과 backend/plc.py·test/fake_plc.py 를 함께 확인할 것.
+const PLC_COMM_WATCHDOG_S = 10.0;
 // PLC 통신 설정 검증(저장 전). 문제 있으면 {ok:false, msg}.
 function validatePlc(plc){
-  if(!(plc.heartbeat_s < 3.0))
-    return {ok:false, msg:'Heartbeat는 3초 미만이어야 합니다 — PLC COMM_TMR(3초) 때문에 통신두절로 트립됩니다.'};
+  if(!(plc.heartbeat_s < PLC_COMM_WATCHDOG_S))
+    return {ok:false, msg:`Heartbeat는 ${PLC_COMM_WATCHDOG_S}초 미만이어야 합니다 — `
+      +`PLC COMM_TMR(${PLC_COMM_WATCHDOG_S}초) 때문에 통신두절로 트립됩니다.`};
   if(!(plc.unit_id>=1 && plc.unit_id<=247))
     return {ok:false, msg:'국번(Unit ID)은 1~247 사이여야 합니다 (0 금지).'};
   return {ok:true};
@@ -487,10 +491,11 @@ function collectSetup(){
     parity: document.getElementById('plcParity')?.value || 'N',
     unit_id: pint('plcUnitId', 1, 1, 247, '국번'),
     // ★ 요청 1건이 락을 (timeout + gap) 만큼 잡는다 — 그동안 하트비트가 밀리면
-    //   PLC COMM_TMR(3초) 트립이 난다. 상한을 그 안쪽으로 묶는다.
+    //   PLC COMM_TMR 트립이 난다. 상한(2.5)은 워치독이 10초로 늘어난 뒤에도 유지한다 —
+    //   (2.0+0.1) × 연속 5회 ≈ 10.5초라 키우면 10초 워치독도 위험하다.
     timeout_s: pnum('plcTimeout', 1.5, 0.1, 2.5, 'Timeout(s)'),
     inter_cmd_gap_s: pnum('plcGap', 0.1, 0, 1.0, 'Cmd Gap(s)'),
-    // ★ 하트비트는 PLC COMM_TMR(3초) 미만이어야 통신두절 트립을 막는다.
+    // ★ 하트비트는 PLC COMM_TMR(10초) 미만이어야 통신두절 트립을 막는다.
     heartbeat_s: pnum('plcHeartbeat', 1.0, 0.1, 2.5, 'Heartbeat(s)'),
     reconnect_delay_s: pnum('plcReconnect', 1.0, 0.1, 60, 'Reconnect(s)'),
   };
@@ -522,7 +527,7 @@ function validateSetupInputs(){
     ['plcUnitId',    true,  1,   247,   '국번',        ''],
     ['plcTimeout',   false, 0.1, 2.5,   'Timeout(s)',  ''],
     ['plcGap',       false, 0,   1.0,   'Cmd Gap(s)',  ''],
-    ['plcHeartbeat', false, 0.1, 2.5,   'Heartbeat(s)','(PLC 통신감시 3초 미만)'],
+    ['plcHeartbeat', false, 0.1, 2.5,   'Heartbeat(s)','(PLC 통신감시 10초 미만)'],
     ['plcReconnect', false, 0.1, 60,    'Reconnect(s)',''],
     ['logKeepDays',  true,  1,   3650,  '로그 보관일수',''],
   ];

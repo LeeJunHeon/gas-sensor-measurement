@@ -457,7 +457,7 @@ async def handle_command(data: dict):
             if plc_changed:
                 old_plc = dict(state.plc)
                 incoming = {**state.plc, **data["plc"]}
-                # 방어적 보정: unit_id 1~247, heartbeat는 PLC COMM_TMR(3초) 미만이어야 안전
+                # 방어적 보정: unit_id 1~247, heartbeat는 PLC COMM_TMR(10초) 미만이어야 안전
                 incoming["unit_id"] = min(247, max(1, int(to_num(incoming.get("unit_id"), 1)) or 1))
                 # ★ config.json 자체도 정상 범위로 유지한다 — 범위는 plc.PLC_COMM_LIMITS
                 #   단일 출처(실효값을 만드는 config_from_dict 와 같은 표라 갈라지지 않는다).
@@ -586,7 +586,7 @@ async def handle_command(data: dict):
 
         elif cmd == "exit":
             # 정상 종료 한정 개선: 죽기 직전 가스 차단 1회 쓰기(SV 먼저 → 밸브).
-            # 크래시·강제종료는 래더 하트비트 3초 트립이 최후 방어선이다(변경 불가·불필요).
+            # 크래시·강제종료는 래더 하트비트 10초 트립이 최후 방어선이다(변경 불가·불필요).
             # 차단 쓰기가 실패하거나 늦어도 종료는 계속돼야 한다 → wait_for + 예외 무시.
             try:
                 if plc.plc.is_connected():
@@ -606,7 +606,7 @@ async def handle_command(data: dict):
                     state.close_all_channels()
                     await push_log("종료 — 가스 차단(모든 밸브·유량 닫음)", "info")
             except Exception:  # noqa: BLE001
-                logger.write("warn", "종료 시 가스 차단 쓰기 실패 — 래더 3초 트립이 닫는다")
+                logger.write("warn", "종료 시 가스 차단 쓰기 실패 — 래더 10초 트립이 닫는다")
             state.system["purging"] = False
             await push_log("프로그램 종료", "info")
             if _shutdown_handler is not None:

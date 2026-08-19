@@ -246,14 +246,15 @@ DEFAULT_PLC = {
     "host": "127.0.0.1",          # tcp 호스트
     "tcp_port": 502,              # tcp 포트
     "port": "",                   # (시리얼) 예: COM3(Windows) / /dev/ttyUSB0(Linux). 비면 연결 안 함.
-    "baudrate": 115200,
+    "baudrate": 19200,
     "bytesize": 8,
     "stopbits": 1,
     "parity": "N",               # N | E | O
     "unit_id": 1,                # 국번(1~247). 0 금지.
-    "timeout_s": 1.5,
+    "timeout_s": 2.0,
     "inter_cmd_gap_s": 0.1,
-    "heartbeat_s": 1.0,          # PLC COMM_TMR(3초) 미만이어야 통신두절 트립 방지
+    "heartbeat_s": 0.5,          # PLC COMM_TMR(10초) 미만이어야 통신두절 트립 방지
+                                 # 0.5s → 10초 창 안에 리셋 기회 20회
     "reconnect_delay_s": 1.0,
 }
 

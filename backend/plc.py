@@ -68,8 +68,10 @@ class PlcConfig:
 # 통신 파라미터 허용 범위 — config_from_dict(실효값)와 commands.apply_setup(저장값)이
 # 함께 쓰는 단일 출처. ★ 프론트 recipe.js validateSetupInputs 의 범위표와 값이 같아야
 # 한다(계층 경계라 코드 공유 불가 — 바꾸면 양쪽 함께).
-#   heartbeat/timeout/gap 근거: PLC COMM_TMR 3초 — 요청 1건이 락을 (timeout+gap) 만큼
-#   잡으므로 하트비트가 3초 안에 나가려면 이 상한이 필요하다.
+#   heartbeat/timeout/gap 근거: PLC COMM_TMR 10초(래더 T0001=100, 2026-08-19 변경) —
+#   요청 1건이 통신 락을 (timeout+gap) 만큼 잡으므로 하트비트가 그 안에 나가려면
+#   이 상한이 필요하다. ★ 워치독이 10초로 늘었어도 상한 2.5 는 그대로 둔다:
+#   (2.0+0.1) × 연속 5회 ≈ 10.5초 로 이미 10초를 넘긴다 — 키우면 10초 워치독도 위험하다.
 PLC_COMM_LIMITS = {
     "heartbeat_s":       (0.1, 2.5),
     "inter_cmd_gap_s":   (0.0, 1.0),
@@ -80,14 +82,16 @@ PLC_COMM_LIMITS = {
 
 # 읽기 실패를 '끊김'으로 판정하기까지의 연속 실패 횟수.
 #   USB 시리얼(FTDI latency 등)에서 단발 실패는 정상 범위라 1회로 끊으면
-#   운전 중 오탐 중단이 잦다. 반대로 너무 키우면 래더 COMM_TMR(3초)가 먼저 트립한다.
-#   폴링 주기 0.7초(loops.PLC_POLL_INTERVAL_S) 기준 3회 ≈ 2.1초 → 3초 트립 안에서 판정이 끝난다.
+#   운전 중 오탐 중단이 잦다. 반대로 너무 키우면 래더 COMM_TMR(10초)가 먼저 트립한다.
+#   폴링 주기 0.7초(loops.PLC_POLL_INTERVAL_S) 기준 5회 ≈ 3.5초 → 10초 트립 안에서 판정이 끝난다.
+#   실기에서 관측된 프레임 오류율 0.5~0.8%(2026-08-19)에서 1~2회 단발 실패로 끊김 판정이
+#   나던 것을 완화하기 위해 3 → 5 로 올렸다.
 #   ★ 하트비트는 별도 태스크(_run_loop)라 폴링 실패와 무관하게 계속 나간다.
-POLL_FAIL_LIMIT = 3
+POLL_FAIL_LIMIT = 5
 
 HB_RETRY_GAP_S = 0.2   # 하트비트 단발 실패 후 재시도 간격.
-# ★ timeout_s 를 2.5까지 키워 두면 첫 실패 '확정'만 t0+3.5라 재시도가 무의미해진다 —
-#   시리얼 현장 권장 timeout 은 1.5 이하(CONFIG.md 트러블슈팅에도 명시).
+# ★ timeout_s 를 2.5까지 키워 두면 첫 실패 '확정'만 t0+3.5라 재시도 여유가 줄어든다 —
+#   시리얼 현장 권장 timeout 은 2.0 이하(CONFIG.md 트러블슈팅에도 명시).
 
 
 def clamp_comm(key: str, v: float) -> float:
@@ -409,7 +413,7 @@ class PlcClient:
             except Exception:  # noqa: BLE001
                 # 단발 쓰기 실패(USB 지연·간헐 타임아웃)로 즉시 끊으면 '끊겼다 붙었다'가
                 # 반복되고, poll 이 곧바로 미연결을 보고 전 채널을 닫는다. 짧게 1회만
-                # 재시도한다(위 상수 주석의 타임라인 근거 — COMM_TMR 3s 안에서 끝난다).
+                # 재시도한다(위 상수 주석의 타임라인 근거 — COMM_TMR 10s 안에서 끝난다).
                 await asyncio.sleep(HB_RETRY_GAP_S)
                 try:
                     await self.heartbeat()

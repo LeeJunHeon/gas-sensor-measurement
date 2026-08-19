@@ -60,7 +60,9 @@ WIRED = [
     ("VA6", 165, 103, 205),
 ]
 
-COMM_TIMEOUT  = 3.0    # 하트비트 두절 3초 → 트립 (PLC COMM_TMR) — 유일한 자동 트립 조건
+COMM_TIMEOUT  = 10.0   # 하트비트 두절 10초 → 트립 (PLC COMM_TMR) — 유일한 자동 트립 조건
+# ★ 래더 SAFETY 블록의 TON T0001(COMM_TMR) 설정값 100(100ms 기준 = 10초)과 짝이다.
+#   래더를 바꾸면 이 값도 함께 바꿔야 검증이 실기와 같아진다(--comm-timeout 로도 덮어쓸 수 있다).
 
 # ★ SV와 PV는 풀스케일 카운트가 2배 다르다. 여기를 틀리면 HMI에 절반 유량으로 보인다.
 #   SV(DV04A): 모듈은 0~10V/0~4000이지만 래더가 0~2000으로 클램프해 5V까지만 낸다.
@@ -196,17 +198,21 @@ def console_thread():
 
 
 async def main():
+    global COMM_TIMEOUT
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default="127.0.0.1", help="바인드 주소(기본 127.0.0.1=localhost)")
     ap.add_argument("--port", type=int, default=502, help="TCP 포트(기본 502)")
+    ap.add_argument("--comm-timeout", type=float, default=COMM_TIMEOUT,
+                    help="하트비트 두절 트립 시간(초). 래더 COMM_TMR 과 맞춘다(기본 10.0)")
     args = ap.parse_args()
+    COMM_TIMEOUT = max(0.1, float(args.comm_timeout))   # 래더 재조정 시 재빌드 없이 맞춘다
 
     threading.Thread(target=console_thread, daemon=True).start()
     asyncio.create_task(logic_loop())
 
     print(f"가짜 PLC 시작: TCP {args.host}:{args.port} (Modbus TCP 슬레이브, 국번 무관)")
     print("HMI를 TCP 모드로 이 host/port에 연결하세요. 리셋(운전 준비)을 누르면 arm 됩니다.")
-    print("자동 트립은 하트비트 3초 두절 하나뿐입니다(공압 인터록 제거).")
+    print(f"자동 트립은 하트비트 {COMM_TIMEOUT:g}초 두절 하나뿐입니다(공압 인터록 제거).")
     await StartAsyncTcpServer(context=sim.ctx, address=(args.host, args.port))
 
 
