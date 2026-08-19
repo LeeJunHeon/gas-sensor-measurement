@@ -51,6 +51,9 @@ a = Analysis(
     binaries=[],
     datas=[
         ('frontend', 'frontend'),   # 읽기 전용 화면 자원 → BUNDLE_ROOT/frontend
+        # 읽기 전용 기본 보정표. 현장 교체본은 exe 옆 calib/ 가 우선한다.
+        # (config.json·recipes 와 달리 번들에 넣어도 안전한 이유: 프로그램이 쓰지 않는 파일이다)
+        ('calib', 'calib'),
     ],
     hiddenimports=[
         # pymodbus: 전송 방식별 클라이언트가 지연 import 되어 정적 분석에 안 잡힌다

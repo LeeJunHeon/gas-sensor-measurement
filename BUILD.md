@@ -44,9 +44,10 @@ BUILD_DATE  = "2026-08-05"
 dist/GasSensor/
 ├── GasSensor.exe
 ├── _internal/          ← PyInstaller 내부(건드리지 말 것)
+│   └── calib/          ← 빌드에 동봉된 기본 보정표(읽기 전용)
 ├── config.json         ← ★ 수동 동봉 (미리 세팅한 것)
 ├── recipes/            ← ★ 수동 동봉 (기본 레시피)
-└── calib/              ← ★ 수동 동봉 (PV 보정표 CSV — 현장 실측본)
+└── calib/              ← 현장 실측 보정표(있으면 _internal/calib/ 보다 우선)
 ```
 
 `config.json` · `recipes/` · `calib/` 는 **빌드에 포함되지 않는다.** 번들에 넣으면
@@ -60,7 +61,8 @@ dist/GasSensor/
 | `frontend/` (HTML·CSS·JS) | `_internal/frontend/` | 번들 자원, 읽기 전용 |
 | `config.json` | exe와 같은 폴더 | 사용자 데이터, 쓰기 |
 | `recipes/`, `logs/` | exe와 같은 폴더 | 사용자 데이터, 쓰기 |
-| `calib/` (PV 보정표 CSV) | exe와 같은 폴더 | 사용자 데이터, 쓰기 |
+| `calib/` (현장 보정표) | exe와 같은 폴더 | 현장 교체본, **우선 적용** |
+| `_internal/calib/` (기본 보정표) | 번들 안 | 빌드 동봉, 읽기 전용 폴백 |
 
 `recipes/`·`logs/`·`calib/` 는 없으면 프로그램이 자동으로 만든다.
 `calib/` 가 비어 있으면 PV 는 기존 선형 변환을 쓴다(CONFIG.md 의 "PV 보정표" 절 참고).
@@ -102,3 +104,6 @@ C:\VANAM\GasSensor\
 - [ ] 채널별 스케일(`fs_sccm`/`sv_full`/`pv_zero`/`pv_full`)이 MFC 명판과 일치
 - [ ] exe 실행 → 설정 변경 → 종료 후 재실행 → 설정 유지 확인  ★핵심
 - [ ] `logs/` 폴더에 로그 파일이 생기는지 확인
+- [ ] **현장 실측 보정표가 최신인지 확인** — 로그의 `PV 보정표 로드 — VA5 21점 (전체경로)`
+      줄로 exe 옆 `calib/` 이 쓰였는지, `_internal/calib/` 기본값이 쓰였는지 판별한다
+      (재빌드 후 옛 현장 파일이 새 번들값을 덮는 혼선 방지)

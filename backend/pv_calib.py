@@ -8,9 +8,13 @@ pv_calib.py — PV(유량 측정) 보정표 로더.
 ★ 이 표는 '현재 하드웨어 상태'의 실측이다. 배선·모듈 원인이 해결되면 재측정해 교체할 것.
 ★ SV(지령) 경로에는 쓰지 않는다 — DAC 는 전 구간 선형임이 유량계로 확인됐다.
 
-파일: <DATA_ROOT>/calib/<채널ID>.csv   (예: calib/VA5.csv)
+파일: calib/<채널ID>.csv   (예: calib/VA5.csv)
+  탐색 순서 — ① 현장: <DATA_ROOT>/calib/ (exe 옆, 교체본)  ② 번들 동봉: <BUNDLE_ROOT>/calib/
+  ★ 어느 쪽이 쓰였는지는 로그에 남는 '전체 경로'로 판별한다.
   - 인코딩 utf-8-sig(엑셀 BOM 허용), CRLF 허용
-  - '#' 로 시작하는 줄과 빈 줄은 무시
+  - '#' 로 시작하는 줄과 빈 줄은 무시(엑셀이 큰따옴표로 감싼 주석도 포함)
+  - 첫 필드가 숫자가 아닌 줄(제목·설명)은 조용히 건너뛴다 — 헤더 판별은 그보다 먼저 한다
+  - 파싱은 표준 csv 모듈로 한다(따옴표·빈 필드 처리를 맡긴다)
   - 헤더 'dac,adc'  → 첫 열은 DAC 카운트  (sccm = dac / sv_full * fs_sccm 로 환산)
     헤더 'sccm,adc' → 첫 열을 sccm 으로 그대로 사용
     헤더가 없으면 'dac,adc' 로 본다
@@ -19,21 +23,41 @@ pv_calib.py — PV(유량 측정) 보정표 로더.
 ★ 표가 있는 채널은 pv_zero/pv_full 을 쓰지 않는다(표가 그 역할을 대신한다).
 """
 
+import csv
+import io
 import os
 
-from paths import CALIB_DIR
+from paths import CALIB_DIR, CALIB_BUNDLED
 
 
-def _split(line: str):
-    """쉼표·탭·공백 중 무엇으로 나뉘어 있어도 받는다(엑셀 저장본이 제각각이다)."""
-    for sep in (",", "\t", ";"):
-        if sep in line:
-            return [c.strip() for c in line.split(sep)]
-    return [c for c in line.split() if c]
+def _rows(text: str):
+    """표준 csv 모듈로 읽는다 — 엑셀은 주석에 쉼표가 있으면 줄 전체를 큰따옴표로 감싸고
+    뒤에 빈 필드를 붙인다(실파일: "# MFC1 PV 보정 — 2026-08-19 실측, AD08A 0~5V 설정",).
+    직접 split 하면 그 줄이 '#' 이 아니라 '"' 로 시작해 주석으로 안 걸린다.
+    구분자는 쉼표를 기본으로 하되 탭·세미콜론만 쓰인 파일도 받는다."""
+    sample = text[:4096]
+    delim = ","
+    if "," not in sample:
+        for d in ("\t", ";"):
+            if d in sample:
+                delim = d
+                break
+    return csv.reader(io.StringIO(text), delimiter=delim)
+
+
+def _cell(v: str) -> str:
+    """앞뒤 공백·따옴표를 벗긴다(엑셀이 남긴 따옴표까지)."""
+    return (v or "").strip().strip('"').strip("'").strip()
 
 
 def path_of(channel_id: str) -> str:
-    return os.path.join(CALIB_DIR, f"{channel_id}.csv")
+    """실제로 쓸 파일 경로. 현장(exe 옆 calib/)이 번들 동봉본보다 우선한다.
+    ★ 어느 쪽이 적용됐는지는 로그의 전체 경로로 판별한다 — 재빌드 후 옛 현장 파일이
+      새 번들값을 덮는 혼선을 막기 위한 것이다."""
+    site = os.path.join(CALIB_DIR, f"{channel_id}.csv")
+    if os.path.isfile(site):
+        return site
+    return os.path.join(CALIB_BUNDLED, f"{channel_id}.csv")
 
 
 def load(channel_id: str, sv_full, fs_sccm, pv_zero):
@@ -47,8 +71,8 @@ def load(channel_id: str, sv_full, fs_sccm, pv_zero):
     if not os.path.isfile(p):
         return None, ""
     try:
-        with open(p, "r", encoding="utf-8-sig") as f:
-            raw_lines = f.read().splitlines()
+        with open(p, "r", encoding="utf-8-sig", newline="") as f:
+            text = f.read()
     except Exception as e:  # noqa: BLE001
         return None, f"{channel_id}: 보정표를 읽지 못했습니다 ({e}) — 선형 변환을 사용합니다"
 
@@ -62,28 +86,27 @@ def load(channel_id: str, sv_full, fs_sccm, pv_zero):
     mode = "dac"          # 첫 열의 뜻
     pts = []
     extra_cols = False    # 데이터 줄에 숫자 열이 3개 이상 — 여러 채널을 한 장에 담은 원본일 수 있다
-    for ln in raw_lines:
-        ln = ln.strip()
-        if not ln or ln.startswith("#"):
+    for cells in _rows(text):
+        if not cells:
             continue
-        cells = _split(ln)
-        if len(cells) < 2:
-            continue
-        head = cells[0].lower()
-        if head in ("dac", "sccm"):        # 헤더 줄
+        first_s = _cell(cells[0])
+        # 헤더 판별은 건너뛰기 '전에' 한다(sccm 형식을 놓치면 값이 통째로 틀어진다).
+        head = first_s.lower()
+        if head in ("dac", "sccm"):
             mode = head
             continue
+        if first_s.startswith("#"):        # 주석(엑셀이 따옴표로 감싼 것도 여기서 걸린다)
+            continue
+        if len(cells) < 2:
+            continue
         try:
-            first = float(cells[0])
-            adc = float(cells[1])
+            first = float(first_s)
         except ValueError:
-            # 데이터가 시작되기 전이면 제목 줄로 보고 건너뛴다 — 엑셀로 저장한 실측표는
-            # 맨 위에 "va1,,,0~5v로 수정 후" 같은 설명 줄이 붙는다(2026-08-19 실파일).
-            # 데이터 중간에 섞인 글자는 그대로 오류다(조용히 버리면 표가 잘린다).
-            if not pts:
-                continue
-            return (None,
-                    f"{channel_id}: 보정표에 숫자가 아닌 값이 있습니다 ('{ln}') — 선형 변환을 사용합니다")
+            continue                        # 숫자가 아닌 줄(제목·설명)은 조용히 건너뛴다
+        try:
+            adc = float(_cell(cells[1]))
+        except ValueError:
+            continue
         if mode == "dac":
             if svf <= 0 or fss <= 0:
                 return (None,
@@ -95,7 +118,8 @@ def load(channel_id: str, sv_full, fs_sccm, pv_zero):
             n_num = 0
             for cc in cells:
                 try:
-                    float(cc); n_num += 1
+                    float(_cell(cc))
+                    n_num += 1
                 except ValueError:
                     pass
             if n_num > 2:
@@ -121,7 +145,7 @@ def load(channel_id: str, sv_full, fs_sccm, pv_zero):
                     f"{channel_id}: 보정표의 유량 열이 감소합니다 "
                     f"({pts[k - 1][1]:g} → {pts[k][1]:g}) — 선형 변환을 사용합니다")
 
-    note = f"PV 보정표 로드 — {channel_id} {len(pts)}점 (calib/{channel_id}.csv)"
+    note = f"PV 보정표 로드 — {channel_id} {len(pts)}점 ({p})"
     if extra_cols:
         note += (f" ⚠ 숫자 열이 3개 이상입니다 — 여러 채널을 한 장에 담은 표라면"
                  f" 앞 두 열({channel_id} 것인지) 확인하세요. 앞 두 열만 사용합니다")

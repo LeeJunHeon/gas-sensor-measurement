@@ -27,11 +27,14 @@ else:                                       # 개발 환경 — 둘이 같다
 CONFIG_PATH  = os.path.join(DATA_ROOT, "config.json")
 ADMIN_PATH   = os.path.join(DATA_ROOT, "admin.json")   # 관리자 인증(납품 시 동봉). 아직 미사용
 RECIPES_DIR  = os.path.join(DATA_ROOT, "recipes")
-CALIB_DIR    = os.path.join(DATA_ROOT, "calib")   # PV 보정표 CSV(채널별). recipes/ 와 같은 취급
+CALIB_DIR    = os.path.join(DATA_ROOT, "calib")   # PV 보정표 CSV(채널별) — 현장 교체본, 우선
 
 # --- 읽기 전용 자원(BUNDLE_ROOT) ---
 FRONTEND_DIR = os.path.join(BUNDLE_ROOT, "frontend")
 INDEX_PATH   = os.path.join(FRONTEND_DIR, "index.html")
+# 빌드에 동봉하는 기본 보정표. 현장(CALIB_DIR)에 같은 이름이 있으면 그쪽이 이긴다.
+# ★ 개발 환경에서는 BUNDLE_ROOT == DATA_ROOT 라 둘이 같은 폴더를 가리킨다(충돌 없음).
+CALIB_BUNDLED = os.path.join(BUNDLE_ROOT, "calib")
 
 
 def data_path(*parts: str) -> str:
