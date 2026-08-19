@@ -197,7 +197,7 @@ function closeLog(){ if(logDock) logDock.hidden=true; }
 // LOG \ubc84\ud2bc\uc740 \ud1a0\uae00 \u2014 \uc5f4\ub824 \uc788\uc73c\uba74 \ub2eb\ub294\ub2e4.
 openLogBtn?.addEventListener('click',()=>{ if(logDock&&!logDock.hidden) closeLog(); else openLog(); });
 document.getElementById('logDockClose')?.addEventListener('click',closeLog);
-logMsg('\ud654\uba74 \uc900\ube44 \uc644\ub8cc \u2014 \uc11c\ubc84 \uc5f0\uacb0 \ub300\uae30','info');
+// 기동 알림은 남기지 않는다 — 평상시 성공 로그가 정작 봐야 할 경고를 덮는다(v1.2.6).
 // \uce21\uc815\uac12 \uc2dc\ubbac\ub808\uc774\uc158\uc740 \ub354 \uc774\uc0c1 \ud654\uba74\uc5d0 \ub450\uc9c0 \uc54a\ub294\ub2e4.
 // \uc5f0\uacb0 \uc2dc: \uc11c\ubc84\uac00 telemetry\ub97c push. \ub04a\uae40 \uc2dc: \ubaa8\ub4e0 \uac12\uc774 '\u2014'\ub85c \ubc14\ub010\ub2e4(\uac00\uc9dc \uac12 \uc5c6\uc74c).
 

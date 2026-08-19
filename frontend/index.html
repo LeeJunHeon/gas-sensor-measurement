@@ -25,7 +25,7 @@
       <div class="stat"><span class="k">Loop</span><span class="v mono" id="hdrLoop">&mdash; / &mdash;</span></div>
       <div class="divv"></div>
       <div class="runpill idle" id="runpill"><span class="dot"></span><span id="runtxt">IDLE</span></div>
-      <div class="runpill disc" id="connStatus" title="Server (WebSocket) connection status"><span class="dot"></span><span class="ctxt">Server Disconnected</span></div>
+      <div class="runpill disc" id="connStatus" hidden title="Server (WebSocket) connection status"><span class="dot"></span><span class="ctxt">Server Disconnected</span></div>
       <span class="appver mono" id="appVer" title="프로그램 버전" style="font-size:10px;opacity:.55;margin-left:8px;white-space:nowrap;"></span>
     </header>
 
@@ -40,7 +40,7 @@
             <div class="lanes" id="lanes"></div>
             <div class="vc-control" id="vcControl">
               <button class="vctoggle" id="wayToggle"><span class="ar">⇄</span> 방향 전환</button>
-              <div class="rhbox"><span class="num" id="rh">—</span><span class="u">RH %</span></div>
+              <div class="rhbox" hidden><span class="num" id="rh">—</span><span class="u">RH %</span></div>
             </div>
             <!-- PLC 상태 패널(스키매틱 우하단; .pcard 테마. 위치는 JS가 right/bottom 앵커) -->
             <div class="plc-panel pcard" id="plcPanel">
@@ -206,7 +206,7 @@
     </div>
 
     <footer class="appfoot">
-      <button class="hbtn purge">✦ PURGE</button>
+      <button class="hbtn purge" hidden>✦ PURGE</button>
       <button class="hbtn estop" id="btnEstop" title="소프트 비상정지(래치) — 모든 밸브 닫힘·유량 0을 즉시 쓰고 조작을 잠급니다. PLC 트립과는 별개입니다">⛔ EMERGENCY STOP</button>
       <div class="footspace"></div>
       <button class="dock-toggle" id="dockToggle">Auto Process View ▸</button>

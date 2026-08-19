@@ -445,7 +445,7 @@
   .ptablewrap{border:1px solid var(--line2);border-radius:7px;background:#fff;overflow:auto;max-height:330px}
   table.rcp{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
   table.rcp th{position:sticky;top:0;z-index:2;height:28px;background:#dfe5ee;color:#3a4861;font-weight:600;padding:4px 6px;border-right:1px solid #c8d0db;text-align:center;white-space:nowrap;background-clip:padding-box;box-shadow:inset 0 -1px 0 #c8d0db;vertical-align:middle}
-  table.rcp th.grp{background:#dfe5ee;font-size:11px;white-space:normal;line-height:1.25;vertical-align:middle}
+  table.rcp th.grp{background:#dfe5ee;font-size:11px;white-space:nowrap;line-height:1.25;vertical-align:middle}
   /* unified screen: Auto Process always docked — collapse/expand controls hidden */
   #dockToggle,#dockClose{display:none !important}
   table.rcp thead tr:nth-child(2) th{top:28px}

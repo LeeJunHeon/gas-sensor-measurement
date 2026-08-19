@@ -67,8 +67,7 @@
     }
     if (connState !== c) {
       connState = c;
-      if (c) window.logMsg('서버 연결됨', 'ok');
-      else window.logMsg('서버 연결 끊김', 'warn');
+      if (!c) window.logMsg('서버 연결 끊김', 'warn');
     }
     // 끊김은 헤더 상태줄에도 크게 남긴다(로그를 안 보고 있을 수 있다).
     if (window.setHdrStatus) {
