@@ -503,6 +503,11 @@ async def handle_command(data: dict):
 
         elif cmd == "plc_reconnect":
             # PLC 연결 루프를 끊고 현재 설정으로 재시작 → 즉시 연결 결과를 로그로 돌려준다.
+            # ★ 이때 PV 보정표(calib/*.csv)도 다시 읽는다 — 실기 조정 중 프로그램을 껐다 켜지
+            #   않고 CSV 를 교체·수정해 바로 확인할 수 있어야 한다.
+            plc.load_addresses(state.channels, state.plc_system)
+            for _lv, _msg in plc.drain_calib_notes():
+                await push_log(_msg, _lv)
             try:
                 ok = await plc.plc.reconnect()
                 if ok:

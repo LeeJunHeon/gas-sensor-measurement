@@ -27,6 +27,7 @@ else:                                       # 개발 환경 — 둘이 같다
 CONFIG_PATH  = os.path.join(DATA_ROOT, "config.json")
 ADMIN_PATH   = os.path.join(DATA_ROOT, "admin.json")   # 관리자 인증(납품 시 동봉). 아직 미사용
 RECIPES_DIR  = os.path.join(DATA_ROOT, "recipes")
+CALIB_DIR    = os.path.join(DATA_ROOT, "calib")   # PV 보정표 CSV(채널별). recipes/ 와 같은 취급
 
 # --- 읽기 전용 자원(BUNDLE_ROOT) ---
 FRONTEND_DIR = os.path.join(BUNDLE_ROOT, "frontend")
@@ -49,6 +50,7 @@ def ensure_data_dirs() -> bool:
     global DATA_DIR_ERROR
     try:
         os.makedirs(RECIPES_DIR, exist_ok=True)
+        os.makedirs(CALIB_DIR, exist_ok=True)
         DATA_DIR_ERROR = ""
         return True
     except Exception as e:  # noqa: BLE001

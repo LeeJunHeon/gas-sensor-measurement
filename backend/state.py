@@ -329,6 +329,15 @@ def normalize_recipe(r: dict) -> dict:
     }
 
 
+def _plc_calibrated_ids():
+    """PV 보정표가 적용 중인 채널 id 목록. ★ plc 는 state 를 import 하므로 지연 import."""
+    try:
+        import plc as _plc
+        return _plc.calibrated_ids()
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def _plc_target_desc() -> str:
     """PLC 연결 대상 문자열 — 지연 import(plc 가 state 를 import 하므로 순환 방지).
     ★ 표시 전용이다. 실패해도 스냅샷 생성을 막지 않는다."""
@@ -522,6 +531,8 @@ class State:
                 # 연결 '대상'(TCP host:port / COM·속도·국번) — 미연결이어도 채운다.
                 # ★ plc 는 state 를 import 하므로(계층) 여기서만 지연 import 한다.
                 "target": _plc_target_desc(),
+                # PV 보정표가 걸린 채널(화면 툴팁용). config 스키마와 무관한 런타임 정보다.
+                "calib": _plc_calibrated_ids(),
             },
         }
         if include_recipe:

@@ -82,6 +82,11 @@ function showMapRowsError(){
     +'채널 정보를 불러오지 못했습니다 — 서버 연결을 확인하세요'
     +' (배정이 잘못된 것이 아닙니다)</td></tr>';
 }
+/* PV 보정표가 걸린 채널의 PV 입력칸에만 붙는 안내(레이아웃 변화 없음 — title 뿐). */
+function calibTip(id){
+  const on=((window._plcCalib)||[]).indexOf(id)>=0;
+  return on ? ' title="보정표 적용 — 고유량 구간은 센서 출력 포화로 분해능이 낮습니다"' : '';
+}
 function buildMapRows(){
   const tb=document.getElementById('setupMapRows'); if(!tb) return;
   const cat=_plcCatalog||{valve:{},dac:{},adc:{}};
@@ -113,7 +118,7 @@ function buildMapRows(){
       <td class="chid">${c.id}</td>
       <td class="mono">${valveCell}</td>
       <td><select data-svout="${i}">${opts(cat.dac,p.sv_out,mods)}</select></td>
-      <td><select data-pvin="${i}">${opts(cat.adc,p.pv_in,0)}</select></td>
+      <td><select data-pvin="${i}"${calibTip(c.id)}>${opts(cat.adc,p.pv_in,0)}</select></td>
       <td data-mapst="${c.id}">${mapStatusHtml(c)}</td>`;
     tb.appendChild(tr);
   });

@@ -25,6 +25,7 @@ from dataclasses import dataclass, asdict, fields
 
 import logger
 import plc_catalog as cat
+import pv_calib
 # ★ 상태 싱글턴이 아니라 '배선 판정' 순수 함수만 가져온다(계층 역전 방지·순환 없음).
 from state import plc_mapped
 
@@ -154,6 +155,8 @@ class PlcClient:
         self._sv_reg = {}                 # {채널id: sv_reg}
         self._pv_reg = {}                 # {채널id: pv_reg}
         self._scale = {}                  # {채널id: plc dict 전체(스케일 포함)}
+        self._pv_pts = {}                 # {채널id: [(adc, sccm)]} PV 보정표(있는 채널만)
+        self._calib_notes = []            # 보정표 로드 진단(서버가 로그로 꺼내 간다)
         self._enabled = {}                # {채널id: 사용여부(en)} — 폴링 대상 선별용
         self._sys = {}                    # 시스템 공통 주소(plc_system)
 
@@ -178,6 +181,33 @@ class PlcClient:
         self._scale      = {ch["id"]: dict(p)            for ch, p in mapped if p}
         self._enabled    = {ch["id"]: bool(ch.get("en")) for ch, p in mapped if p}
         self._sys = dict(plc_system or {})
+        self._load_pv_calib()
+
+    def _load_pv_calib(self):
+        """calib/<채널>.csv 를 채널마다 읽는다. 없으면 그 채널은 기존 선형식(폴백).
+        ★ 기동 시 1회 + '통신 재연결' 때 다시 부른다 — 실기 조정 중 프로그램을 껐다 켜지
+          않고 표를 교체할 수 있어야 한다."""
+        self._pv_pts = {}
+        self._calib_notes = []
+        for cid, sc in self._scale.items():
+            pts, note = pv_calib.load(cid, sc.get("sv_full"), sc.get("fs_sccm"), sc.get("pv_zero"))
+            if pts:
+                self._pv_pts[cid] = pts
+            if note:                      # 파일이 없으면 note 도 "" — 침묵한다
+                lv = "info" if pts else "warn"
+                if pts and "⚠" in note:   # 로드는 됐지만 확인이 필요한 표
+                    lv = "warn"
+                self._calib_notes.append((lv, note))
+
+    def calibrated_ids(self) -> list:
+        """PV 보정표가 적용 중인 채널 id 목록(화면 툴팁 표시에 쓴다)."""
+        return sorted(self._pv_pts.keys())
+
+    def drain_calib_notes(self):
+        """보정표 로드 진단을 꺼내 간다(서버·명령 처리기가 로그로 남긴다)."""
+        out = list(self._calib_notes)
+        self._calib_notes = []
+        return out
 
     # ---- 주소 resolver(내부 맵 우선, 없으면 하드코딩 fallback) ----
     def _sys_addr(self, key: str) -> int:
@@ -439,7 +469,17 @@ class PlcClient:
         return max(0, min(full or 4000, raw))
 
     def _pv_to_sccm(self, name: str, raw: int) -> float:
-        """ADC 카운트 → 실제 유량(sccm). 스케일 정보 없으면 카운트 그대로."""
+        """ADC 카운트 → 실제 유량(sccm). 스케일 정보 없으면 카운트 그대로.
+
+        보정표(calib/<채널>.csv)가 있으면 구간 선형 보간을 쓴다.
+        ★ 표가 있는 채널은 pv_zero/pv_full 을 쓰지 않는다 — 표가 그 역할을 대신한다.
+        ★ 표 범위를 넘으면 끝 값으로 클램프한다(외삽 금지 — 출력 평탄부에서 발산한다).
+        C.F. 는 어느 경로든 '조회 결과에' 곱한다(위치 불변).
+        """
+        pts = self._pv_pts.get(name)
+        if pts:
+            val = pv_calib.interp(pts, float(raw)) * self._cf_of(name)
+            return round(max(0.0, val), 2)
         s = self._scale.get(name) or {}
         fs   = float(s.get("fs_sccm") or 0)
         zero = int(s.get("pv_zero") or 0)
@@ -677,6 +717,16 @@ def configure(plc_settings: dict):
     """state.plc(dict)로 클라이언트 설정을 갱신한다(로거 configure와 동일한 사용법).
     실제 연결 반영은 재연결 시점에 이뤄진다(server 시작 시 start(), apply 시 reconnect())."""
     plc.set_config(config_from_dict(plc_settings))
+
+
+def calibrated_ids() -> list:
+    """PV 보정표가 적용 중인 채널 id 목록."""
+    return plc.calibrated_ids()
+
+
+def drain_calib_notes():
+    """PV 보정표 로드 진단(레벨, 메시지) 목록."""
+    return plc.drain_calib_notes()
 
 
 def load_addresses(channels: list, plc_system: dict):

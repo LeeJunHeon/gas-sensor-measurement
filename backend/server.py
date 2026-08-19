@@ -79,6 +79,10 @@ async def lifespan(_app: FastAPI):
     logger.write("info", f"{version.APP_NAME} v{version.APP_VERSION} ({version.BUILD_DATE})")
     plc.configure(state.plc)
     plc.load_addresses(state.channels, state.plc_system)   # config 주도 주소맵 로드
+    # PV 보정표(calib/*.csv) 로드 결과 — 파일이 있는 채널만 한 줄씩(없으면 침묵).
+    for _lv, _msg in plc.drain_calib_notes():
+        logger.write(_lv, _msg)
+        state.startup_notices.append({"level": _lv, "msg": _msg})
 
     # 기동 진단: 문제가 있어도 중단하지 않는다(진단 우선).
     # ★ 여기서 push_log를 부르면 안 된다 — 기동 시점엔 접속한 클라이언트가 0개라 사라진다.

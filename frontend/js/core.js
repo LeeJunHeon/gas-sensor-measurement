@@ -297,6 +297,7 @@ function applyState(s){
   if(!s) return;
   // 가스 C.F. 표는 백엔드(gas_catalog.py)가 단일 출처다 — 값을 프런트에 복사해 두지 않는다.
   if(s.gas_catalog) window.gasCatalog = s.gas_catalog;
+  if(s.plc_live && s.plc_live.calib) window._plcCalib = s.plc_live.calib;
   // 렌더 방식 판단용: 반영 전 레인 구조/흐름 키를 스냅샷(반영 후와 비교).
   const _prevStruct = lanesStructKey();
   const _prevFlow = lanesFlowKey();
