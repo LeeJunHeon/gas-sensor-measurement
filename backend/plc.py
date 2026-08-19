@@ -476,6 +476,23 @@ class PlcClient:
         ★ 표 범위를 넘으면 끝 값으로 클램프한다(외삽 금지 — 출력 평탄부에서 발산한다).
         C.F. 는 어느 경로든 '조회 결과에' 곱한다(위치 불변).
         """
+        s0 = self._scale.get(name) or {}
+        # ── 무유량 잡음 데드밴드 ──────────────────────────────────
+        # 밸브를 모두 닫고 비상정지한 상태에서 raw 4카운트가 1 sccm 으로 환산돼
+        # PV·TOTAL FLOW 가 뜨고 배관도가 점등됐다(2026-08-19 실기).
+        # ★ sccm 이 아니라 raw 카운트 기준이다 — 잡음은 ADC 레벨 현상이라, 풀스케일이
+        #   다른 채널에 같은 sccm 문턱을 쓰면 한쪽이 과하거나 모자란다.
+        # ★ 표 조회·선형 변환 '이전에' 거른다. 보정표가 있는 채널도 pv_zero 를
+        #   여기서는 '기준점'으로만 쓴다(스케일 용도가 아니다).
+        # 근거: 실측 무유량 잡음 ±5카운트, 기본값 8 = 0.2%F.S. 로
+        #       MFC 정확도 ±1%F.S. 보다 작아 유효 정보 손실이 없다.
+        try:
+            dead = max(0, int(s0.get("pv_deadband", 8)))
+        except (TypeError, ValueError):
+            dead = 8
+        if dead and abs(float(raw) - float(s0.get("pv_zero") or 0)) <= dead:
+            return 0.0
+
         pts = self._pv_pts.get(name)
         if pts:
             val = pv_calib.interp(pts, float(raw)) * self._cf_of(name)

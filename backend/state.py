@@ -29,28 +29,28 @@ from storage import atomic_write_json, safe_read_json, CONFIG_PATH
 #   VA2·4·7·8은 미배선 — 배선 후 여기와 config를 함께 갱신.
 DEFAULT_CHANNEL_PLC = {
     "VA1": {"sv_out": "DAC1_CH0", "pv_in": "ADC_CH0",
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000, "pv_deadband": 8,
             "gas_name": "Air", "gas_cf": 1.000},
     "VA2": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000, "pv_deadband": 8,
             "gas_name": "Air", "gas_cf": 1.000},
     "VA3": {"sv_out": "DAC1_CH1", "pv_in": "ADC_CH2",
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000, "pv_deadband": 8,
             "gas_name": "Air", "gas_cf": 1.000},
     "VA4": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000, "pv_deadband": 8,
             "gas_name": "Air", "gas_cf": 1.000},
     "VA5": {"sv_out": "DAC1_CH2", "pv_in": "ADC_CH4",
-            "fs_sccm": 200, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "fs_sccm": 200, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000, "pv_deadband": 8,
             "gas_name": "N2", "gas_cf": 1.000},
     "VA6": {"sv_out": "DAC1_CH3", "pv_in": "ADC_CH5",
-            "fs_sccm": 200, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "fs_sccm": 200, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000, "pv_deadband": 8,
             "gas_name": "N2", "gas_cf": 1.000},
     "VA7": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000, "pv_deadband": 8,
             "gas_name": "N2", "gas_cf": 1.000},  # 미배선·장착 MFC 미확정 — 추후 배선 시 확정
     "VA8": {"sv_out": None, "pv_in": None,
-            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000,
+            "fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000, "pv_deadband": 8,
             "gas_name": "N2", "gas_cf": 1.000},  # 미배선·장착 MFC 미확정 — 추후 배선 시 확정
 }
 
@@ -78,7 +78,7 @@ DEFAULT_PLC_HW = {
 }
 
 # 스케일 키 기본값(채널 기본값에도 없을 때의 최후 방어값).
-PLC_SCALE_DEFAULTS = {"fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000}
+PLC_SCALE_DEFAULTS = {"fs_sccm": 1000, "sv_full": 2000, "pv_zero": 0, "pv_full": 4000, "pv_deadband": 8}
 
 
 def _default_channel_plc(cid: str):
@@ -112,6 +112,12 @@ def _norm_channel_plc(v, cid: str = ""):
     out["gas_name"] = nm if isinstance(nm, str) and nm else gas_catalog.DEFAULT_GAS_NAME
     out["gas_cf"] = gas_catalog.clamp_cf(
         out.get("gas_cf", base.get("gas_cf", gas_catalog.DEFAULT_GAS_CF)))
+    # PV 무유량 잡음 데드밴드(ADC 카운트). 옛 config 에는 없다 → 기본 8.
+    # 음수는 의미가 없어 0(끔)으로 되돌린다.
+    try:
+        out["pv_deadband"] = max(0, int(float(out.get("pv_deadband", base.get("pv_deadband", 8)))))
+    except (TypeError, ValueError):
+        out["pv_deadband"] = 8
     return out
 
 
