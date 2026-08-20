@@ -186,7 +186,8 @@ function snapSetup(){
     return JSON.stringify({chans,
       log:[id('logEnabled'),id('logDir'),id('logLevel'),id('logKeepDays')],
       plc:['plcMode','plcHost','plcTcpPort','plcPort','plcBaud','plcBytesize','plcStopbits',
-           'plcParity','plcUnitId','plcTimeout','plcGap','plcHeartbeat','plcReconnect'].map(id)});
+           'plcParity','plcUnitId','plcTimeout','plcGap','plcHeartbeat','plcReconnect',
+           'plcGrace'].map(id)});
   }catch(e){ return null; }
 }
 function updateApplyGate(){
@@ -323,7 +324,7 @@ function hardenSetupInputs(){
       el.name = 'setup-' + (el.id || el.getAttribute('data-sfs') || Math.random().toString(36).slice(2));
   });
   // 숫자 필드: 모바일/터치 키패드 + 입력 의도 명시(값 검증은 collectSetup 이 한다).
-  ['plcUnitId','plcTcpPort','plcTimeout','plcGap','plcHeartbeat','plcReconnect','logKeepDays']
+  ['plcUnitId','plcTcpPort','plcTimeout','plcGap','plcHeartbeat','plcReconnect','plcGrace','logKeepDays']
     .forEach(id=>{const e=document.getElementById(id); if(e) e.setAttribute('inputmode','numeric');});
 }
 function openSetup(){
@@ -375,6 +376,9 @@ window.applyPlcPorts=function(ports){
 const PLC_COMM_WATCHDOG_S = 10.0;
 // PLC 통신 설정 검증(저장 전). 문제 있으면 {ok:false, msg}.
 function validatePlc(plc){
+  if(!(plc.comm_grace_s < PLC_COMM_WATCHDOG_S))
+    return {ok:false, msg:`Grace(통신 두절 유예)는 ${PLC_COMM_WATCHDOG_S}초 미만이어야 합니다 — `
+      +'그보다 길면 PLC 가 먼저 트립해 유예가 의미를 잃습니다.'};
   if(!(plc.heartbeat_s < PLC_COMM_WATCHDOG_S))
     return {ok:false, msg:`Heartbeat는 ${PLC_COMM_WATCHDOG_S}초 미만이어야 합니다 — `
       +`PLC COMM_TMR(${PLC_COMM_WATCHDOG_S}초) 때문에 통신두절로 트립됩니다.`};
@@ -498,6 +502,8 @@ function collectSetup(){
     // ★ 하트비트는 PLC COMM_TMR(10초) 미만이어야 통신두절 트립을 막는다.
     heartbeat_s: pnum('plcHeartbeat', 1.0, 0.1, 2.5, 'Heartbeat(s)'),
     reconnect_delay_s: pnum('plcReconnect', 1.0, 0.1, 60, 'Reconnect(s)'),
+    // 통신 두절 유예 — 상한은 래더 워치독 미만(그보다 길면 PLC 가 먼저 트립해 무의미).
+    comm_grace_s: pnum('plcGrace', 8.0, 0, PLC_COMM_WATCHDOG_S - 0.5, 'Grace(s)'),
   };
   return {channels:chans, params, settings, plc};
 }
@@ -529,6 +535,7 @@ function validateSetupInputs(){
     ['plcGap',       false, 0,   1.0,   'Cmd Gap(s)',  ''],
     ['plcHeartbeat', false, 0.1, 2.5,   'Heartbeat(s)','(PLC 통신감시 10초 미만)'],
     ['plcReconnect', false, 0.1, 60,    'Reconnect(s)',''],
+    ['plcGrace',     false, 0,   9.5,   'Grace(s)','(통신 두절 유예 — 래더 감시 10초 미만)'],
     ['logKeepDays',  true,  1,   3650,  '로그 보관일수',''],
   ];
   for(const [id, isInt, min, max, label, extra] of nums){

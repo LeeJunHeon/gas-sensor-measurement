@@ -162,7 +162,10 @@ async def _run_recipe():
             if state.plc_safety_stop():
                 return (f"P{step_no} 진행 중 PLC 안전정지 감지 — "
                         f"자동 실행을 중단하고 전 채널을 닫았습니다(자동 재개 없음)")
-            if plc_was_connected and not state.plc_connected():
+            # ★ 통신 '유예 중'은 중단하지 않는다 — 가스는 흐르고 있고 PLC 는 트립하지
+            #   않았다. 유예를 넘겨 진짜 끊김(down)이 된 경우에만 중단한다.
+            #   복구 후 PLC 가 실제로 트립해 있었다면 위의 안전정지 조건이 잡아낸다.
+            if plc_was_connected and state.plc_down():
                 return (f"P{step_no} 진행 중 PLC 통신 두절 — "
                         f"자동 실행을 중단하고 전 채널을 닫았습니다(자동 재개 없음)")
             # MFC·DAC 알람도 중단 사유다 — 가스가 안 나가거나 지령이 안 실리는 상태에서

@@ -379,6 +379,8 @@
   .plc-conn .pdot{width:9px;height:9px;border-radius:50%;background:#b7c0cc;box-shadow:0 0 0 2px #fff}
   .plc-conn.discon{color:#8a94a3}
   .plc-conn.con{color:#1b8a44}.plc-conn.con .pdot{background:#28a745}
+  /* 통신 재시도(유예) — 값은 그대로 두고 배지만 노랑으로 바꾼다(v1.4.0) */
+  .plc-conn.retry{color:#a5760a}.plc-conn.retry .pdot{background:#e0a400}
   /* 운전 허가(헤드라인) — 연결+허가=초록, 연결+정지=빨강, 미연결=회색 */
   /* 연결 대상 한 줄 — 상시 표시(미연결이면 .dim 으로 흐리게). */
   .pp-target{font-size:12px;color:#5a6678;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

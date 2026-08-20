@@ -220,14 +220,22 @@ function applyParams(p){
 // PLC \uc2e4\uce21(plc_live) \u2192 window.plcLive \uc800\uc7a5 + \uc5f0\uacb0\ubc30\uc9c0\u00b7\uc6b4\uc804\ud5c8\uac00\u00b7\uc0c1\ud0dc \ud45c\uc2dc\ub4f1 \uac31\uc2e0.
 // \ud45c\uc2dc\ub4f1: ok=\ucd08\ub85d, bad=\ube68\uac15, \ubbf8\uc5f0\uacb0=\ud68c\uc0c9(\ud074\ub798\uc2a4 \uc5c6\uc74c).
 function updatePlcLive(live){
-  window.plcLive = live || {connected:false, pv:{}, status:{}};
-  const connected = !!window.plcLive.connected;
+  window.plcLive = live || {connected:false, link:'down', pv:{}, status:{}};
+  // 3단계 상태: ok / retrying(유예 중) / down.
+  // ★ retrying 에서는 배지만 노랑으로 바꾸고 PV·배관·잠금·운전허가는 직전 값을 그대로 둔다 —
+  //   짧은 두절마다 화면이 통째로 뒤집혀 깜빡이던 문제(2026-08-20 실기) 때문이다.
+  const link = window.plcLive.link || (window.plcLive.connected ? 'ok' : 'down');
+  const retrying = link === 'retrying';
+  const connected = !!window.plcLive.connected || retrying;
   const st = window.plcLive.status || {};
   const conn = document.getElementById('plcConn');
   if(conn){
-    conn.classList.toggle('con', connected);
+    conn.classList.toggle('con', connected && !retrying);
     conn.classList.toggle('discon', !connected);
-    const t = conn.querySelector('.ptxt'); if(t) t.textContent = connected ? '\uc5f0\uacb0\ub428' : '\ubbf8\uc5f0\uacb0';
+    conn.classList.toggle('retry', retrying);
+    const t = conn.querySelector('.ptxt');
+    if(t) t.textContent = retrying ? '\ud1b5\uc2e0 \uc7ac\uc2dc\ub3c4 \uc911'
+                                   : (connected ? '\uc5f0\uacb0\ub428' : '\ubbf8\uc5f0\uacb0');
   }
   // \uc5f0\uacb0 \ub300\uc0c1: \uc11c\ubc84\uac00 \uc900 \ubb38\uc790\uc5f4 \uadf8\ub300\ub85c. \ubbf8\uc5f0\uacb0\uc774\uba74 \ud750\ub9ac\uac8c(dim).
   const tg = document.getElementById('plcTarget');
@@ -289,6 +297,7 @@ function fillSetupForms(s){
     setV('plcUnitId', p.unit_id);
     setV('plcTimeout', p.timeout_s); setV('plcGap', p.inter_cmd_gap_s);
     setV('plcHeartbeat', p.heartbeat_s); setV('plcReconnect', p.reconnect_delay_s);
+    setV('plcGrace', p.comm_grace_s);
     if(window.plcSyncModeFields) window.plcSyncModeFields();   // 방식에 맞는 필드만 표시
   }
 }

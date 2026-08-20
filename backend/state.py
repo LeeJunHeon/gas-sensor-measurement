@@ -256,6 +256,10 @@ DEFAULT_PLC = {
     "heartbeat_s": 0.5,          # PLC COMM_TMR(10초) 미만이어야 통신두절 트립 방지
                                  # 0.5s → 10초 창 안에 리셋 기회 20회
     "reconnect_delay_s": 1.0,
+    # 통신 두절 유예(초). 이 시간 안에 복구되면 표시·지령·레시피를 흔들지 않는다.
+    # ★ 래더 COMM_TMR(10초)보다 반드시 짧아야 한다 — 길면 PLC 가 이미 트립한 뒤에
+    #   유예가 끝나 아무 의미가 없다. 0 이면 유예 없음(옛 동작).
+    "comm_grace_s": 8.0,
 }
 
 
@@ -365,7 +369,10 @@ class State:
         self.plc_system = dict(DEFAULT_PLC_SYSTEM)
         self.plc_hw = dict(DEFAULT_PLC_HW)
         # PLC 실측 라이브(읽기 경로): 폴링 태스크가 갱신, snapshot으로 프론트에 전송.
-        self.plc_live = {"connected": False, "pv": {}, "pv_raw": {}, "status": {}}
+        # link: "ok" | "retrying"(유예 중) | "down".
+        # connected 는 하위호환용 — 유예 중에도 True 다(화면·엔진이 살아 있다고 보게).
+        self.plc_live = {"connected": False, "link": "down",
+                         "pv": {}, "pv_raw": {}, "status": {}}
         self.plc_sync_done = False   # 연결 전이에서 '채택 or 닫힘' 결정이 끝나기 전엔
                                      # write 루프가 지령을 쓰지 않는다(경합으로 PLC 를
                                      # 지워버리는 것을 막는 1회성 게이트)
@@ -475,6 +482,19 @@ class State:
         """PLC 폴링이 살아 있는가 — plc_live 접근의 단일 출처."""
         return bool((self.plc_live or {}).get("connected"))
 
+    def plc_link(self) -> str:
+        """"ok" | "retrying" | "down" — 3단계 연결 상태의 단일 출처.
+        옛 스냅샷(link 없음)은 connected 로 환산한다."""
+        lv = self.plc_live or {}
+        v = lv.get("link")
+        if v in ("ok", "retrying", "down"):
+            return v
+        return "ok" if lv.get("connected") else "down"
+
+    def plc_down(self) -> bool:
+        """유예까지 끝난 '진짜 끊김'. 닫힘 정렬·레시피 중단의 판정 기준이다."""
+        return self.plc_link() == "down"
+
     def plc_safety_stop(self) -> bool:
         """PLC 래더가 안전정지 상태인가(연결 중 + SAFETY_STOP=True)."""
         return self.plc_connected() and (
@@ -532,6 +552,7 @@ class State:
             "gas_catalog": gas_catalog.catalog(),
             "plc_live": {
                 "connected": bool(self.plc_live.get("connected")),
+                "link": self.plc_link(),
                 "pv": dict(self.plc_live.get("pv") or {}),
                 "pv_raw": dict(self.plc_live.get("pv_raw") or {}),
                 "status": dict(self.plc_live.get("status") or {}),

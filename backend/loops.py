@@ -81,26 +81,72 @@ async def telemetry_loop():
 async def plc_poll_loop():
     was_connected = False
     prev_alm = {}
-    fail_streak = 0   # 연속 읽기 실패 횟수 — plc.POLL_FAIL_LIMIT 부터 '끊김'으로 본다
+    fail_streak = 0   # 연속 읽기 실패 횟수 — plc.POLL_FAIL_LIMIT 부터 유예를 시작한다
+    # ── 통신 두절 유예 ────────────────────────────────────────────────
+    # 실기(2026-08-20)에서 8분간 읽기 실패 245회·끊김 9회가 났는데 PLC 는 한 번도
+    # 트립하지 않았다. 프로그램만 3~4초 만에 '끊김'을 선언해 화면·레시피가 흔들린 것이다.
+    # 유예 안에 복구되면 표시·지령·레시피를 그대로 두고, 넘기면 기존대로 끊김 처리한다.
+    # ★ 유예는 래더 COMM_TMR(10초)보다 짧아야 한다(설정 상한 9.5).
+    grace_t0 = None      # 유예 시작 시각(None = 유예 중 아님)
+    grace_fails = 0      # 이번 구간의 실패 누계(복구/끊김 로그의 요약에 쓴다)
+    grace_logged = False # 개별 '읽기 실패 n/N' 파일 로그는 구간당 1회만
+
+    def _grace_s() -> float:
+        try:
+            return max(0.0, float((state.plc or {}).get("comm_grace_s", 8.0)))
+        except (TypeError, ValueError):
+            return 8.0
+
     async def _mark_disconnected():
-        nonlocal was_connected
+        nonlocal was_connected, grace_t0, grace_fails, grace_logged
         if was_connected:
-            await push_log(f"PLC 연결 끊김 — {plc.plc.target_desc()}", "warn")
+            extra = f" (이번 구간 읽기 실패 {grace_fails}회)" if grace_fails else ""
+            await push_log(f"PLC 연결 끊김 — {plc.plc.target_desc()}{extra}", "warn")
         was_connected = False
+        grace_t0 = None
+        grace_fails = 0
+        grace_logged = False
         # 다음 연결 전이에서 다시 '채택 or 닫힘'을 결정할 때까지 write 루프를 멈춘다.
         state.plc_sync_done = False
         if state.plc_live.get("connected") or state.plc_live.get("pv"):
-            state.plc_live = {"connected": False, "pv": {}, "pv_raw": {}, "status": {}}
+            state.plc_live = {"connected": False, "link": "down",
+                              "pv": {}, "pv_raw": {}, "status": {}}
             with contextlib.suppress(Exception):
                 await push_state()
+
+    async def _on_fail():
+        """읽기 실패·미연결 공통 처리 — 유예를 시작하거나, 넘겼으면 끊김으로 확정."""
+        nonlocal grace_t0, grace_fails, grace_logged
+        grace_fails += 1
+        g = _grace_s()
+        if g <= 0 or not was_connected:
+            # 유예 없음 설정이거나 애초에 연결된 적이 없다 → 기존 동작 그대로
+            await _mark_disconnected()
+            return
+        now = time.monotonic()
+        if grace_t0 is None:
+            grace_t0 = now
+            # ★ 값을 지우지 않는다 — PV·상태·연결 대상을 그대로 두고 배지만 바꾼다.
+            state.plc_live = {**state.plc_live, "connected": True, "link": "retrying"}
+            await push_log("통신 재시도 중 — 표시를 유지합니다", "warn")
+            with contextlib.suppress(Exception):
+                await push_state()
+        elif now - grace_t0 >= g:
+            await _mark_disconnected()
     while True:
         await asyncio.sleep(PLC_POLL_INTERVAL_S)
         try:
             if plc.plc.is_connected():
                 res = await plc.plc.poll()
-                state.plc_live = {"connected": True, "pv": res["pv"],
+                state.plc_live = {"connected": True, "link": "ok", "pv": res["pv"],
                                   "pv_raw": res.get("pv_raw", {}), "status": res["status"]}
                 fail_streak = 0            # 성공 1회면 관용 카운터 초기화
+                if grace_t0 is not None:
+                    # 유예 안에 복구 — 개별 실패 로그를 억제한 대신 여기서 횟수를 요약한다.
+                    await push_log(f"통신 복구 — 이번 구간 실패 {grace_fails}회", "ok")
+                    grace_t0 = None
+                    grace_fails = 0
+                    grace_logged = False
                 if not was_connected:
                     # ── 연결 전이 1회: 운전 상태 조건부 인수 ──────────────────────
                     # 운전허가가 살아 있다 = 하트비트를 치던 세션이 직전까지 운전 중이었다는 뜻.
@@ -108,7 +154,12 @@ async def plc_poll_loop():
                     # ★ 트립이면 절대 채택하지 않는다 — 스테일 지령을 이어받으면 '운전 준비'
                     #   순간 이전 세션 밸브가 열린다(arm 시 자동 개방 없음 불변식).
                     adopted = 0
-                    if res["status"].get("SAFETY_STOP") is False:
+                    # ★ 재연결 경쟁 중 클라이언트가 사라져 있으면 read_* 가
+                    #   "'NoneType' object has no attribute 'read_coils'" 로 터져
+                    #   사용자 로그에 내부 오류가 노출됐다(2026-08-20 실기).
+                    if res["status"].get("SAFETY_STOP") is False and not plc.plc.is_connected():
+                        logger.write("warn", "PLC 미연결 — 인수를 건너뜁니다")
+                    elif res["status"].get("SAFETY_STOP") is False:
                         try:
                             tk = await plc.plc.read_takeover(
                                 bool(state.plc_hw.get("v4w_on_is_sensor", True)))
@@ -152,17 +203,25 @@ async def plc_poll_loop():
                 prev_alm["_rp"] = _rp
                 await push_state()
             else:
-                await _mark_disconnected()
-        except Exception:  # noqa: BLE001 — 읽기 실패는 연속 N회부터 끊김으로 본다
+                # 클라이언트가 끊긴 경우도 같은 유예를 태운다(재연결 루프가 붙는 중일 수 있다).
+                with contextlib.suppress(Exception):
+                    await _on_fail()
+        except Exception:  # noqa: BLE001 — 읽기 실패는 연속 N회부터 유예로 본다
             fail_streak += 1
             if fail_streak >= plc.POLL_FAIL_LIMIT:
                 with contextlib.suppress(Exception):
-                    await _mark_disconnected()
+                    await _on_fail()
             else:
                 # 단발 실패: 연결 표시·밸브 상태를 유지하고 다음 주기에 재시도한다.
                 # (래더 하트비트가 계속 나가므로 10초 트립도 걸리지 않는다.)
                 # ★ 파일 로그에만 남긴다 — 화면 System Log 에 띄우면 도배된다.
-                logger.write("warn", f"PLC 읽기 실패 {fail_streak}/{plc.POLL_FAIL_LIMIT} — 재시도")
+                #   실기에서 8분에 245줄이 쌓여 읽을 수 없었다 → 유예 구간당 1줄로 억제하고
+                #   나머지는 복구/끊김 로그의 '이번 구간 실패 N회' 요약으로 보존한다.
+                if not grace_logged:
+                    logger.write("warn",
+                                 f"PLC 읽기 실패 {fail_streak}/{plc.POLL_FAIL_LIMIT} — 재시도"
+                                 f" (이후 같은 구간의 실패는 요약으로만 남깁니다)")
+                    grace_logged = True
 
 
 # PLC 쓰기 동기화: 앱의 '원하는 상태'(밸브 개폐 + 목표유량 SV)를 주기적으로 PLC에 반영.
@@ -177,7 +236,13 @@ async def plc_write_loop():
     while True:
         await asyncio.sleep(PLC_WRITE_INTERVAL_S)
         try:
-            if not plc.plc.is_connected():
+            # ★ 유예 중에는 닫힘 정렬을 하지 않는다 — 쓸 수 없을 뿐 PLC 는 지령을
+            #   유지하고 있고, 복구되면 last=None 덕에 전량 재기입된다.
+            if state.plc_link() == "retrying" or (
+                    not plc.plc.is_connected() and not state.plc_down()):
+                last = None
+                continue
+            if not plc.plc.is_connected() or state.plc_down():
                 if prev_connected:
                     # 연결됨→끊김 전이 1회: 래더는 10초 내 트립으로 실제 밸브를 닫는다.
                     # 앱 상태도 함께 닫아 화면 거짓 표시와 재연결 시 일괄 재개를 막는다

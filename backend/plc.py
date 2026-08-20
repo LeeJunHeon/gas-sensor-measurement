@@ -77,6 +77,8 @@ PLC_COMM_LIMITS = {
     "inter_cmd_gap_s":   (0.0, 1.0),
     "timeout_s":         (0.1, 2.5),
     "reconnect_delay_s": (0.1, 60.0),
+    # 통신 두절 유예. 상한은 래더 COMM_TMR(10초) 미만이어야 의미가 있다.
+    "comm_grace_s":      (0.0, 9.5),
 }
 
 
@@ -128,8 +130,11 @@ def config_from_dict(d: dict) -> PlcConfig:
     out.tcp_port = min(65535, max(1, out.tcp_port))
     # 방어적 클램프 — config.json 손편집으로도 통신 붕괴 값이 들어오지 못하게 한다.
     #   범위·근거는 PLC_COMM_LIMITS 참조(commands.apply_setup 도 저장 전에 같은 표를 쓴다).
+    #   ★ PlcConfig 에 없는 키(comm_grace_s 처럼 '연결 파라미터가 아닌' 항목)는 건너뛴다.
+    #     여기 넣으면 dataclass 비교가 달라져 유예 값만 바꿔도 재연결이 일어난다.
     for _k in PLC_COMM_LIMITS:
-        setattr(out, _k, clamp_comm(_k, getattr(out, _k)))
+        if hasattr(out, _k):
+            setattr(out, _k, clamp_comm(_k, getattr(out, _k)))
     return out
 
 
